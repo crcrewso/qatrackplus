@@ -192,7 +192,6 @@ TEMPLATES = [
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
             os.path.join(PROJECT_ROOT, 'templates'),
-            'genericdropdown/templates',
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -241,7 +240,6 @@ INSTALLED_APPS = [
     'rest_framework_filters',
     'rest_framework.authtoken',
     'listable',
-    'genericdropdown',
     'recurrence',
     'widget_tweaks',
     'dynamic_raw_id',
