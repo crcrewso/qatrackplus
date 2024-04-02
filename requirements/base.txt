@@ -1,8 +1,7 @@
--e git+https://github.com/randlet/django-genericdropdown.git@473ff52610af659f7d2a3616a6e3322e21673b4d#egg=django_genericdropdown
--e git+https://github.com/randlet/django-recurrence.git@b3a73e8e03952107e58382922fec37aead31fd6f#egg=django-recurrence
--e git+https://github.com/randlet/django-sql-explorer.git@12802fe83f9c45fd0bbe9610cb442dcfc5666d44#egg=django-sql-explorer
+django-recurrence==1.11.1
+django-sql-explorer==2.5
 black==23.1.0
-Django==2.2.18
+Django==2.2.28
 django-q==1.3.4
 PyVirtualDisplay==2.0
 beautifulsoup4==4.9.3
@@ -11,8 +10,9 @@ coreapi==2.3.3
 coverage==5.4
 django-admin-views==0.8.0
 django-auth-adfs==1.6.0
-django-braces==1.13.0
-django-contrib-comments==1.8.0
+django-betterforms==2.0.0
+django-braces==1.15.0
+django-contrib-comments==2.1
 django-coverage==1.2.4
 django-crispy-forms==1.6.0
 django-debug-toolbar==2.0
@@ -20,10 +20,10 @@ django-dynamic-raw-id==2.8
 django-extensions==3.1.0
 django-filter==2.4.0
 django-form-utils==1.0.3
-django-formtools==2.1
+django-formtools==2.3
 django-listable==0.5.2
-django-mptt==0.10.0
-django-mptt-admin==0.7.2
+django-mptt==0.13.4
+django-mptt-admin==2.1.0
 django-picklefield==2.0
 django-registration==3.1.1
 djangorestframework==3.12.2
@@ -42,9 +42,10 @@ pydicom==2.1.2
 pylinac-qatrackplus==2.5.1.3
 pynliner==0.8.0
 pytest-cov==2.11.1
-pytest-django==4.1.0
+pytest-django==4.5.2
+pytest-selenium==1.17
 pytest-sugar==0.9.4
-pytest==6.2.2
+pytest==6.2.5
 python-dateutil==2.8.1
 pytz==2021.1
 reportlab==3.5.59
