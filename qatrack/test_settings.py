@@ -7,7 +7,7 @@ SELENIUM_VIRTUAL_DISPLAY = True
 AD_CLEAN_USERNAME = None
 HTTP_OR_HTTPS = "http"
 REVIEW_BULK = True
-TIME_ZONE = 'America/Toronto'
+TIME_ZONE = 'America/Regina'
 
 
 class SimplePasswordHasher(BasePasswordHasher):
