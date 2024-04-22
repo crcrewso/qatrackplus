@@ -3,7 +3,8 @@ from django.contrib.auth.hashers import BasePasswordHasher
 NOTIFICATIONS_ON = False
 DEFAULT_NUMBER_FORMAT = None
 DEBUG = False
-SELENIUM_VIRTUAL_DISPLAY = True
+SELENIUM_USE_CHROME = False
+SELENIUM_VIRTUAL_DISPLAY = False
 AD_CLEAN_USERNAME = None
 HTTP_OR_HTTPS = "http"
 REVIEW_BULK = True
