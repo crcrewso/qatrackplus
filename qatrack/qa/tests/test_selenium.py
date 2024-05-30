@@ -723,6 +723,8 @@ class TestPerformQC(BaseQATests):
         self.driver.find_elements_by_css_selector(".revealcomment")[0].click()
 
         self.click("submit-qa")
+        time.sleep(1) # HACK Have the default timers changed since these test suites were written
+
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
         assert models.TestInstance.objects.filter(comment="testticomment").count() == 1
 
@@ -732,6 +734,7 @@ class TestPerformQC(BaseQATests):
 
         self.click("in-progress-container")
         self.click("submit-qa")
+        time.sleep(1) # HACK Have the default timers changed since these test suites were written
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
         assert models.TestListInstance.objects.in_progress().count() == 1
 
@@ -793,6 +796,8 @@ class TestPerformQC(BaseQATests):
         time.sleep(1)
         inputs[0].send_keys(Keys.ENTER)
         time.sleep(2.1)  # auto save is debounced with a 2s interval
+        time.sleep(5) # HACK Have the default timers changed since these test suites were written
+
         assert models.AutoSave.objects.count() == 1
 
     def test_load_autosave(self):
