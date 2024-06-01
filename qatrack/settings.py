@@ -30,7 +30,7 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 LOG_ROOT = os.path.join(PROJECT_ROOT, "..", "logs")
 
-VERSION = "3.1.1.3"
+VERSION = "3.99.0"
 BUG_REPORT_URL = "https://github.com/qatrackplus/qatrackplus/issues/new"
 FEATURE_REQUEST_URL = BUG_REPORT_URL
 
@@ -70,7 +70,7 @@ DATABASES = {
 # timezone as the operating system.
 # If running in a Windows environment this must be set to the same as your
 # system time zone.
-TIME_ZONE = 'America/Toronto'
+TIME_ZONE = 'America/Regina'
 
 # If you set this to False, Django will not format dates, numbers and
 # calendars according to the current locale

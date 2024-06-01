@@ -1,4 +1,7 @@
 from django.contrib.auth.hashers import BasePasswordHasher
+import datetime
+import os
+import sys
 
 NOTIFICATIONS_ON = False
 DEFAULT_NUMBER_FORMAT = None
@@ -9,6 +12,31 @@ AD_CLEAN_USERNAME = None
 HTTP_OR_HTTPS = "http"
 REVIEW_BULK = True
 TIME_ZONE = 'America/Toronto'
+
+
+# -----------------------------------------------------------------------------
+# Database settings
+
+# if you wish to override the database settings below (e.g. for deployment),
+# please do so here or in a local_settings.py file
+PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+
+
+# 
+#        'NAME': ':memory:',
+
+LOG_ROOT = os.path.join(PROJECT_ROOT, "..", "logs")
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',  # Add 'postgresql_psycopg2', 'mysql', 'sqlite3'
+        'NAME': os.path.join(PROJECT_ROOT, '..', 'db/default.db'),   # db name Or path to database file if using sqlite3.
+        # 'NAME' : ':memory:', # Use this for an in-memory database
+        'USER': '',                      # Not used with sqlite3.
+        'PASSWORD': '',                  # Not used with sqlite3.S
+        'HOST': '',                      # Set to empty string for localhost. Not used with sqlite3.
+        'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
+    }
+}
 
 
 class SimplePasswordHasher(BasePasswordHasher):

@@ -33,7 +33,8 @@ docs/_build
 downloads
 eggs
 emails/
-env
+env/
+env**/
 fixtures/dev
 ldap.debug
 /lib
@@ -58,3 +59,4 @@ src/*.egg-info
 tmp/
 db/
 ./generate_ro_privileges.sql
+
