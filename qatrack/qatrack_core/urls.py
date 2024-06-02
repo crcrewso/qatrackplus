@@ -4,4 +4,5 @@ from qatrack.qatrack_core import views
 
 urlpatterns = [
     url(r"^comment/ajax_comment/$", views.ajax_comment, name='ajax_comment'),
+    url(r'^updatecombo/(?P<id>\d+)?$', views.updateCombo, name='updatecombo'),
 ]

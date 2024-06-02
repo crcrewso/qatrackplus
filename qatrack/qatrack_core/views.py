@@ -10,8 +10,32 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
 from django_comments import signals as dc_signals
 from django_comments.forms import CommentForm
+from django.template import RequestContext
+from django.shortcuts import render_to_response
+from django.http import HttpResponse
+from django.contrib.contenttypes.models import ContentType
 
 from qatrack.qa.trees import BootstrapCategoryTree, BootstrapFrequencyTree
+
+
+def updateCombo(request, id):
+    model_class = ContentType.objects.get(id=id).model_class()
+
+#    print "appa", model_class
+
+    a = model_class.objects.all()
+    use_name = (
+        not model_class._meta.ordering and
+        'name' in [x.name for x in model_class._meta.fields] and
+        model_class._meta.get_field("name").concrete
+    )
+    if use_name :
+        a = a.order_by("name")
+    out = ""
+    for b in a:
+        out = "%s<option value='%s'>%s" % (out, b.id, b,)
+    out = "<option></option>"+ out
+    return HttpResponse(out)
 
 
 def homepage(request):
@@ -213,3 +237,23 @@ def handle_500(request, exception=None):
         _("Sorry, the server experienced an error processing your request. The site admin has been notified "),
         exception,
     )
+
+
+def updateCombo(request, id):
+    model_class = ContentType.objects.get(id=id).model_class()
+
+#    print "appa", model_class
+
+    a = model_class.objects.all()
+    use_name = (
+        not model_class._meta.ordering and
+        'name' in [x.name for x in model_class._meta.fields] and
+        model_class._meta.get_field("name").concrete
+    )
+    if use_name :
+        a = a.order_by("name")
+    out = ""
+    for b in a:
+        out = "%s<option value='%s'>%s" % (out, b.id, b,)
+    out = "<option></option>"+ out
+    return HttpResponse(out)

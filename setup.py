@@ -24,7 +24,6 @@ setup(
     author='QATrack+ contributors',
     author_email='randy@multileaf.ca',
     dependency_links=[
-        "git+https://github.com/randlet/django-genericdropdown.git@473ff52610af659f7d2a3616a6e3322e21673b4d#egg=django_genericdropdown"  # noqa: E501
         "git+https://github.com/randlet/django-recurrence.git@b3a73e8e03952107e58382922fec37aead31fd6f#egg=django-recurrence"  # noqa: E501
         "git+https://github.com/randlet/django-sql-explorer.git@12802fe83f9c45fd0bbe9610cb442dcfc5666d44#egg=django-sql-explorer"  # noqa: E501
     ],
@@ -35,7 +34,6 @@ setup(
         "numpy<1.21",
     ],
     install_requires=[
-        "django-genericdropdown",
         "django-recurrence",
         "django-sql-explorer",
         "black>=20.8b1,<20.9",

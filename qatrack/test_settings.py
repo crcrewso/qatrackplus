@@ -29,8 +29,8 @@ LOG_ROOT = os.path.join(PROJECT_ROOT, "..", "logs")
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',  # Add 'postgresql_psycopg2', 'mysql', 'sqlite3'
-        'NAME': os.path.join(PROJECT_ROOT, '..', 'db/default.db'),   # db name Or path to database file if using sqlite3.
-        # 'NAME' : ':memory:', # Use this for an in-memory database
+        # 'NAME': os.path.join(PROJECT_ROOT, '..', 'db/default.db'),   # db name Or path to database file if using sqlite3.
+        'NAME' : ':memory:', # Use this for an in-memory database
         'USER': '',                      # Not used with sqlite3.
         'PASSWORD': '',                  # Not used with sqlite3.S
         'HOST': '',                      # Set to empty string for localhost. Not used with sqlite3.
@@ -68,6 +68,6 @@ PASSWORD_HASHERS = ("qatrack.test_settings.SimplePasswordHasher",)
 AUTHENTICATION_BACKENDS = ['qatrack.accounts.backends.QATrackAccountBackend']
 
 try:
-    from .local_test_settings import *  # noqa: F403,F401
+    from .local_test_settings import *  # type: ignore # noqa: F403,F401
 except ImportError:
     pass

@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.core.exceptions import FieldDoesNotExist
 from django.http import JsonResponse
 from rest_framework import viewsets
 from rest_framework.filters import OrderingFilter

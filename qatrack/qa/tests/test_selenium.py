@@ -761,24 +761,27 @@ class TestPerformQC(BaseQATests):
 
     def test_perform_and_initiate_se(self):
         """Ensure that we can go through a full perform->review cycle"""
-
+        time.sleep(5) # HACK has the default time changed?
         self.fill_testlist()
+        time.sleep(5) # HACK has the default time changed?
         self.click("init-se-container")
         self.click("submit-qa")
-
+        time.sleep(5) # HACK has the default time changed?
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
 
-        time.sleep(0.2)
+        time.sleep(0.5)
         self.driver.execute_script("$('#id_datetime_service').focus()")
-        time.sleep(0.3)
+        time.sleep(0.5)
         self.click_by_css_selector(".today")
-        time.sleep(0.2)
+        time.sleep(0.5)
         self.select_by_index("id_service_area_field_fake", 1)
-        time.sleep(0.2)
+        time.sleep(0.5)
         self.select_by_index("id_service_type", 1)
+        time.sleep(5) # HACK has the default time changed?
         self.send_keys("id_problem_description", "Problem!")
+        time.sleep(5) # HACK has the default time changed?
         self.click("save-se")
-        time.sleep(0.2)
+        time.sleep(0.5)
         assert models.TestListInstance.objects.first().serviceevents_initiated.count() == 1
 
     def test_autosave(self):
@@ -793,6 +796,7 @@ class TestPerformQC(BaseQATests):
         time.sleep(1)
         inputs[0].send_keys(Keys.ENTER)
         time.sleep(2.1)  # auto save is debounced with a 2s interval
+        time.sleep(5) # HACK has the default time changed?
         assert models.AutoSave.objects.count() == 1
 
     def test_load_autosave(self):
@@ -833,7 +837,7 @@ class TestPerformQC(BaseQATests):
         url = reverse("perform_qa", kwargs={'pk': utc.pk})
         self.open(url + "?autosave_id=%d&day=%d" % (auto.pk, auto.day + 1))
         time.sleep(0.2)
-
+        time.sleep(5) # HACK has the default time changed?
         inputs = self.driver.find_elements_by_class_name("qa-input")[:3]
         title = "Perform %s : day 2" % utc.unit.name
         assert title in [el.text for el in self.driver.find_elements_by_class_name("box-title")]

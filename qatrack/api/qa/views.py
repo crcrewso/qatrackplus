@@ -11,7 +11,7 @@ from qatrack.api.serializers import MultiSerializerMixin
 from qatrack.api.viewsets import limit_offset_pagination_factory
 from qatrack.qa import models
 from qatrack.qa.views import perform
-
+from django.core.exceptions import FieldDoesNotExist
 
 class CompositeCalculation(perform.CompositeCalculation, views.APIView):
     permission_classes = []

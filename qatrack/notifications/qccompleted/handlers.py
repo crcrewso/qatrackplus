@@ -3,6 +3,7 @@ import logging
 
 from django.conf import settings
 from django.db.models import Q
+from django.core.exceptions import FieldDoesNotExist
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils import timezone
