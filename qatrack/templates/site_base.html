@@ -731,6 +731,83 @@
                     </ul>
                   </li>
                 {% endif %}
+				
+				{% if perms.reports.can_create_sql_reports or perms.reports.can_run_sql_reports or perms.reports.can_create_reports or perms.reports.can_run_reports or perms.qa.can_view_charts or user.is_staff %}
+                  <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                      {% trans "RCH Reports" %}
+                      <b class="caret"></b>
+                    </a>
+                    <ul class="dropdown-menu" role="menu">
+
+                      <li class="nav-header">{% trans "Trends" %}</li>
+                      <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/Photon%20Trends" target="_blank">
+                          <i class="fa fa-line-chart fa-fw fa-lg" aria-hidden="true"></i>
+                          {% trans "MV Photon Trends" %}
+                        </a>
+                      </li>
+                      <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/Electron%20Trends" target="_blank">
+                          <i class="fa fa-line-chart fa-fw fa-lg" aria-hidden="true"></i>
+                          {% trans "MeV Electron Trends" %}
+                        </a>
+                      </li>
+						<li class="divider"></li>
+                      <li class="nav-header">{% trans "Factors" %}</li>
+                      <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/Current%20kV%20Factors" target="_blank">
+                          <i class="fa fa-cubes fa-lg fa-fw" aria-hidden="true"></i>
+                          {% trans "Current kV Factors" %}
+                        </a>
+                      </li>
+                      <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/Current%20MV%20Factors" target="_blank">
+                          <i class="fa fa-cubes fa-lg fa-fw" aria-hidden="true"></i>
+                          {% trans "Current MV Factors" %}
+                        </a>
+                      </li>
+                      <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/Current%20MeV%20Factors" target="_blank">
+                          <i class="fa fa-cubes fa-lg fa-fw" aria-hidden="true"></i>
+                          {% trans "Current MeV Factors" %}
+                        </a>
+                      </li>
+						<li class="divider"></li>
+                      <li class="nav-header">{% trans "QA" %}</li>
+					  <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/KPI%20Test" target="_blank">
+                          <i class="fa fa-file-text-o fa-fw fa-lg" aria-hidden="true"></i>
+                          {% trans "QA KPIs" %}
+                        </a>
+                      </li>	
+					  <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/Monthly%20QA" target="_blank">
+                          <i class="fa fa-file-text-o fa-fw fa-lg" aria-hidden="true"></i>
+                          {% trans "Monthly Machine QA Summary" %}
+                        </a>
+                      </li>	
+                      <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/X200%20Annual%20QA%20Summary" target="_blank">
+                          <i class="fa fa-file-text-o fa-fw fa-lg" aria-hidden="true"></i>
+                          {% trans "X200 Annual QA Summary" %}
+                        </a>
+                      </li>	
+					  <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/Linac%20Annual%20QA%20Summary" target="_blank">
+                          <i class="fa fa-file-text-o fa-fw fa-lg" aria-hidden="true"></i>
+                          {% trans "Linac Annual QA Summary" %}
+                        </a>
+                      </li>	
+					  <li>
+                        <a href="http://db-ssrs-1/Reports_QATRACK_RS/report/Retired%20Units" target="_blank">
+                          <i class="fa fa-file-text-o fa-fw fa-lg" aria-hidden="true"></i>
+                          {% trans "Retired Units Test Results" %}
+                        </a>
+                      </li>	
+                    </ul>
+                  </li>
+                {% endif %}
 
                 {% if USE_ISSUES %}
                   <li class="dropdown">
@@ -814,10 +891,13 @@
 
         <div class="bottom-banner">
           {% block bottom_banner %}
-            QATrack+ v{{ VERSION }} |
+            QATrack+ v{{ VERSION }} | Python v{{ PYTHON_VERSION }} | Django v{{ DJANGO_VERSION }} |
             © 2011 The Ottawa Hospital Cancer Center |
             <a href="http://docs.qatrackplus.com/en/3.1.0/user/guide.html" target="_blank">
               {% trans "Documentation" %}
+            </a> | 
+			<a href="https://rcht-qatrack.cornwall.nhs.uk/media/data/QATrackDocumentation.pdf" target="_blank" title="RCHT Documentation" >
+              {% trans "RCHT Documentation" %}
             </a>
           {% endblock bottom_banner %}
         </div>

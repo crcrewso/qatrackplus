@@ -1436,6 +1436,8 @@ class EditTestListInstance(PermissionRequiredMixin, BaseEditTestListInstance):
 
             initially_requires_reviewed = not self.object.all_reviewed
 
+            self.initial = form.initial
+            
             status_pk = None
             if "status" in form.fields:
                 status_pk = form["status"].value()
@@ -1524,6 +1526,9 @@ class EditTestListInstance(PermissionRequiredMixin, BaseEditTestListInstance):
             self.object.reviewed = now
             self.object.reviewed_by = self.request.user
             self.object.all_reviewed = True
+
+        if self.object.due_date is None:
+            self.object.due_date = self.initial['due_date']
 
         if self.object.work_completed is None:
             self.object.work_completed = now

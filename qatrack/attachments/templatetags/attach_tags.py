@@ -18,7 +18,7 @@ def attachment_link(attachment, label=None, absolute=False):
 
     kwargs = {
         'href': href,
-        'title': attachment.comment or attachment.attachment.url,
+        'title': attachment.label or attachment.attachment.url or attachment.comment,
         'label': label or attachment.label or attachment.attachment.name.split("/")[-1],
     }
     return format_html('<a target="_blank" href="{href}" title="{title}">{label}</a>', **kwargs)

@@ -1,4 +1,5 @@
-import imghdr
+# import imghdr
+import filetype
 import logging
 import os
 import os.path
@@ -170,7 +171,8 @@ class Attachment(models.Model):
     def is_image(self):
 
         try:
-            img = imghdr.what(self.attachment) is not None
+            img = filetype.guess(self.attachment) is not None
+            # img = imghdr.what(self.attachment) is not None
         except FileNotFoundError:
             return False
         ext = os.path.splitext(self.attachment.name)[1].strip(".")

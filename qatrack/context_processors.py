@@ -124,6 +124,8 @@ def site(request):
         'USE_ADFS': settings.USE_ADFS,
         'ACCOUNTS_PASSWORD_RESET': settings.ACCOUNTS_PASSWORD_RESET,
         'VERSION': settings.VERSION,
+        'DJANGO_VERSION': settings.DJANGO_VERSION,
+        'PYTHON_VERSION': settings.PYTHON_VERSION,
         'CSS_VERSION': Random().randint(1, 1000) if settings.DEBUG else settings.VERSION,
         'BUG_REPORT_URL': settings.BUG_REPORT_URL,
         'FEATURE_REQUEST_URL': settings.FEATURE_REQUEST_URL,

@@ -8,10 +8,14 @@
 import datetime
 import os
 import sys
-
+import django
 import matplotlib
 
 matplotlib.use("Agg")
+
+import django
+from django.utils.translation import gettext
+django.utils.translation.ugettext = gettext
 
 # -----------------------------------------------------------------------------
 DEBUG = False
@@ -30,9 +34,11 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 LOG_ROOT = os.path.join(PROJECT_ROOT, "..", "logs")
 
-VERSION = "3.1.1.3"
+VERSION = "3.1.1.4"
 BUG_REPORT_URL = "https://github.com/qatrackplus/qatrackplus/issues/new"
 FEATURE_REQUEST_URL = BUG_REPORT_URL
+PYTHON_VERSION = str(sys.version_info[0]) + '.' + str(sys.version_info[1]) + '.' + str(sys.version_info[2])
+DJANGO_VERSION = django.get_version()
 
 # Python dotted path to the WSGI application used by Django's runserver.
 WSGI_APPLICATION = 'qatrack.wsgi.application'
@@ -46,6 +52,7 @@ SITE_NAME = "QATrack+"
 
 # -----------------------------------------------------------------------------
 # Database settings
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 # if you wish to override the database settings below (e.g. for deployment),
 # please do so here or in a local_settings.py file
@@ -70,11 +77,10 @@ DATABASES = {
 # timezone as the operating system.
 # If running in a Windows environment this must be set to the same as your
 # system time zone.
-TIME_ZONE = 'America/Toronto'
+TIME_ZONE = 'Europe/London'
 
 # If you set this to False, Django will not format dates, numbers and
 # calendars according to the current locale
-USE_L10N = True
 
 # If you set this to False, Django will not use timezone-aware datetimes.
 USE_TZ = True
@@ -442,11 +448,15 @@ AUTH_ADFS = {
 # the site admins on every HTTP 500 error.
 # See http://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
-def skip_requests(record):  # noqa: E302
-    skip = (
-        record.args[0].startswith("GET /static/") or
-        record.args[0].startswith("GET /accounts/ping/")
-    )
+def skip_requests(record):
+    val = record.args[0]
+    if type(val) is not tuple:  # noqa: E302
+        skip = (
+            val.startswith("GET /static/") or
+            val.startswith("GET /accounts/ping/")
+        )
+    else:
+        skip = False
     return not skip
 
 
@@ -687,7 +697,7 @@ AUTOSAVE_DAYS_TO_KEEP = 30
 MAX_TESTS_PER_TESTLIST = 250
 # SQL Explorer Settings
 
-USE_SQL_REPORTS = False
+USE_SQL_REPORTS = True
 
 EXPLORER_CONNECTIONS = {'Default': 'readonly'}
 EXPLORER_DEFAULT_CONNECTION = 'readonly'

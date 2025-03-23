@@ -549,4 +549,4 @@ class TestListInstances(BaseListableView):
         return template.render(c)
 
     def attachments(self, tli):
-        return listable_attachment_tags(tli)
+        return mark_safe(listable_attachment_tags(tli))
