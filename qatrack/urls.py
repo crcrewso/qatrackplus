@@ -48,7 +48,7 @@ urlpatterns = [
     re_path(r'^apple-touch-icon\.png$', touch_view),
 
     # third party
-    path('', include('genericdropdown.urls')),
+    path('', include('qatrack.genericdropdown.urls')),
     path('comments/', include('django_comments.urls')),
     path('admin/dynamic_raw_id/', include('dynamic_raw_id.urls')),
     path('api/', include('qatrack.api.urls')),
