@@ -1,6 +1,8 @@
 # Set to True to enable debug mode (not safe for regular use!)
 DEBUG = True
 TEMPLATE_DBG = True
+USE_TZ = True
+USE_DEPRECATED_PYTZ = True
 
 DATABASES = {
     'default': {

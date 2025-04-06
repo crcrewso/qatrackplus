@@ -8,6 +8,8 @@ AD_CLEAN_USERNAME = None
 HTTP_OR_HTTPS = "http"
 REVIEW_BULK = True
 TIME_ZONE = 'America/Toronto'
+USE_TZ = True
+USE_DEPRECATED_PYTZ = True
 
 
 class SimplePasswordHasher(BasePasswordHasher):
