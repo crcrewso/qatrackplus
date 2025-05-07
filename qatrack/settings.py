@@ -260,7 +260,7 @@ INSTALLED_APPS = [
     'qatrack.faults',
     'qatrack.attachments',
     'qatrack.reports',
-    'admin_views',
+    'admin_views', # TODO: remove this and replace with better solution
 ]
 
 
