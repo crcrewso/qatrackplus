@@ -19,9 +19,11 @@ class TestTags(TestCase):
     """
 
     def setUp(self):
+        """Set up the unit test collection - will be replaced by fixtures in pytest."""
         self.unit_test_list = utils.create_unit_test_collection()
 
     def test_qa_value_form(self):
+        """Test that qa_value_form returns a string."""
         form = forms.CreateTestInstanceForm()
         perms = {
             'qa': {
@@ -34,11 +36,12 @@ class TestTags(TestCase):
         self.assertIsInstance(rendered, str)
 
     def test_due_date(self):
+        """Test that as_due_date returns a string."""
         rendered = qa_tags.as_due_date(self.unit_test_list)
         self.assertIsInstance(rendered, str)
 
     def test_as_pass_fail_status(self):
-
+        """Test that as_pass_fail_status returns a string."""
         tli = utils.create_test_list_instance(
             unit_test_collection=self.unit_test_list
         )
@@ -46,10 +49,12 @@ class TestTags(TestCase):
         self.assertIsInstance(rendered, str)
 
     def test_as_data_attributes(self):
+        """Test that as_data_attributes returns a string."""
         rendered = qa_tags.as_data_attributes(self.unit_test_list)
         self.assertIsInstance(rendered, str)
 
     def test_as_review_status(self):
+        """Test that as_review_status works properly."""
         tli = utils.create_test_list_instance(unit_test_collection=self.unit_test_list)
         uti = utils.create_unit_test_info(unit=self.unit_test_list.unit, assigned_to=self.unit_test_list.assigned_to)
         ti = utils.create_test_instance(tli, unit_test_info=uti)
@@ -61,33 +66,40 @@ class TestTags(TestCase):
 
 
 class TestRefTolSpan(TestCase):
+    """Tests for reference_tolerance_span tag."""
 
     def test_no_ref(self):
+        """Test with no reference."""
         t = models.Test(type=models.BOOLEAN)
         self.assertIn("No Ref", qa_tags.reference_tolerance_span(t, None, None))
 
     def test_no_ref_no_tol(self):
+        """Test with no reference and no tolerance."""
         t = models.Test(type=models.MULTIPLE_CHOICE)
         self.assertIn("No Tol", qa_tags.reference_tolerance_span(t, None, None))
 
     def test_bool(self):
+        """Test with boolean test."""
         t = models.Test(type=models.BOOLEAN)
         r = models.Reference(value=1)
         self.assertIn("Passing value", qa_tags.reference_tolerance_span(t, r, None))
 
     def test_no_tol(self):
+        """Test with no tolerance."""
         t = models.Test(type=models.NUMERICAL)
         r = models.Reference(value=1)
         result = qa_tags.reference_tolerance_span(t, r, None)
         self.assertIn("No Tolerance", result)
 
     def test_multiple_choice(self):
+        """Test with multiple choice test."""
         t = models.Test(type=models.MULTIPLE_CHOICE, choices="foo,bar,baz")
         tol = models.Tolerance(type=models.MULTIPLE_CHOICE, mc_tol_choices="foo", mc_pass_choices="")
         result = qa_tags.reference_tolerance_span(t, None, tol)
         self.assertIn("Tolerance Values", result)
 
     def test_absolute(self):
+        """Test with absolute tolerance."""
         t = models.Test(type=models.NUMERICAL)
         r = models.Reference(value=1)
         tol = models.Tolerance(
@@ -98,6 +110,7 @@ class TestRefTolSpan(TestCase):
         self.assertIn("%s L" % (settings.TEST_STATUS_DISPLAY_SHORT['action']), result)
 
     def test_percent(self):
+        """Test with percent tolerance."""
         t = models.Test(type=models.NUMERICAL)
         r = models.Reference(value=1)
         tol = utils.create_tolerance(tol_type=models.PERCENT, act_low=-2, tol_low=-1, tol_high=1, act_high=2)
@@ -106,24 +119,30 @@ class TestRefTolSpan(TestCase):
 
 
 class TestToleranceForReference(TestCase):
+    """Tests for tolerance_for_reference tag."""
 
     def test_no_ref(self):
+        """Test with no reference."""
         tol = models.Tolerance(type=models.PERCENT)
         self.assertEqual("", qa_tags.tolerance_for_reference(tol, None))
 
     def test_bool(self):
+        """Test with boolean reference."""
         r = models.Reference(value=1, type=models.BOOLEAN)
         self.assertIn("%s: Yes" % (settings.TEST_STATUS_DISPLAY['ok']), qa_tags.tolerance_for_reference(None, r))
 
     def test_no_tol(self):
+        """Test with no tolerance."""
         r = models.Reference(value=1)
         self.assertIn("N/A", qa_tags.tolerance_for_reference(None, r))
 
     def test_multiple_choice(self):
+        """Test with multiple choice tolerance."""
         tol = models.Tolerance(type=models.MULTIPLE_CHOICE, mc_tol_choices="foo", mc_pass_choices="")
         assert "%s: foo" % (settings.TEST_STATUS_DISPLAY['tolerance']) in qa_tags.tolerance_for_reference(tol, None)
 
     def test_absolute(self):
+        """Test with absolute tolerance."""
         r = models.Reference(value=1)
         tol = models.Tolerance(
             type=models.ABSOLUTE,
@@ -133,7 +152,8 @@ class TestToleranceForReference(TestCase):
         self.assertIn("Between 0 &amp; 2", qa_tags.tolerance_for_reference(tol, r))
 
 
-class TestAsQCWindow:
+class TestAsQCWindow(TestCase):
+    """Tests for as_qc_window tag."""
 
     @property
     def wed(self):
