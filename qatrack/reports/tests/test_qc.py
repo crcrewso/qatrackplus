@@ -15,9 +15,10 @@ from qatrack.units.models import Site as USite
 
 
 class TestTestListInstanceSummaryReport(TestCase):
+    """Test the TestListInstanceSummaryReport."""
 
     def test_filter_form_valid(self):
-        """If queryset.count() > MAX_TLIS then filter_form should get an error added"""
+        """If queryset.count() > MAX_TLIS then filter_form should get an error added."""
         rep = qc.TestListInstanceSummaryReport()
         rep.MAX_TLIS = -1
         ff = rep.get_filter_form()
@@ -26,45 +27,46 @@ class TestTestListInstanceSummaryReport(TestCase):
         assert '__all__' in ff.errors and "Please reduce" in ff.errors['__all__'][0]
 
     def test_get_queryset(self):
+        """Test that get_queryset returns the correct model."""
         assert qc.TestListInstanceSummaryReport().get_queryset().model._meta.model_name == "testlistinstance"
 
     def test_get_filename(self):
+        """Test that get_filename returns the correct filename."""
         assert qc.TestListInstanceSummaryReport().get_filename('pdf') == 'test-list-instance-summary.pdf'
 
-    def test_get_utc_site(self):
-        site = USite.objects.create(name="site")
+    def test_get_utc_site(self, site):
+        """Test that get_unit_test_collection__unit__site_details returns correct information."""
         sites = qc.TestListInstanceSummaryReport().get_unit_test_collection__unit__site_details([site, 'null'])
         assert sites == ('Site(s)', 'site, Other')
 
-    def test_get_utc_freq(self):
-        freq = Frequency.objects.create(name="freq", window_start=0, window_end=0)
-        freqs = qc.TestListInstanceSummaryReport().get_unit_test_collection__frequency_details([freq, 'null'])
+    def test_get_utc_freq(self, frequency):
+        """Test that get_unit_test_collection__frequency_details returns correct information."""
+        freqs = qc.TestListInstanceSummaryReport().get_unit_test_collection__frequency_details([frequency, 'null'])
         assert freqs == ('Frequencies', 'freq, Ad Hoc')
 
     @override_settings(TIME_ZONE="America/Toronto")
-    def test_get_work_completed_html(self):
+    def test_get_work_completed_html(self, work_completed_datetime):
+        """Test that get_work_completed returns correct datetime in HTML format."""
         rep = qc.TestListInstanceSummaryReport()
         rep.report_format = "html"
-        tz = pytz.timezone("America/Toronto")
-        work_completed = tz.localize(timezone.datetime(2019, 1, 1, 12))
-        tli = utils.create_test_list_instance(work_completed=work_completed)
+        tli = utils.create_test_list_instance(work_completed=work_completed_datetime)
         wc = rep.get_work_completed(tli)
         assert "01 Jan 2019" in wc
         assert "href" in wc
 
     @override_settings(TIME_ZONE="America/Toronto")
-    def test_get_work_completed_plain(self):
+    def test_get_work_completed_plain(self, work_completed_datetime):
+        """Test that get_work_completed returns correct datetime in plain format."""
         rep = qc.TestListInstanceSummaryReport()
         rep.report_format = "csv"
-        tz = pytz.timezone("America/Toronto")
-        work_completed = tz.localize(timezone.datetime(2019, 1, 1, 12))
-        tli = utils.create_test_list_instance(work_completed=work_completed)
+        tli = utils.create_test_list_instance(work_completed=work_completed_datetime)
         wc = rep.get_work_completed(tli)
         assert "01 Jan 2019" in wc
         assert "href" not in wc
 
     @override_settings(TIME_ZONE="America/Toronto")
     def test_get_pass_fail_html(self):
+        """Test that get_pass_fail_status returns HTML format."""
         rep = qc.TestListInstanceSummaryReport()
         rep.report_format = "html"
         tli = utils.create_test_list_instance()
@@ -73,49 +75,44 @@ class TestTestListInstanceSummaryReport(TestCase):
 
     @override_settings(TIME_ZONE="America/Toronto")
     def test_get_pass_fail_plain(self):
+        """Test that get_pass_fail_status returns plain text format."""
         rep = qc.TestListInstanceSummaryReport()
         rep.report_format = "csv"
         tli = utils.create_test_list_instance()
         pf = rep.get_pass_fail_status(tli)
         assert pf == ''  # no test instances, just want to make sure no html tags in status for plain text report
 
-    def test_get_tlis_for_site(self):
-        site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
-        utc = utils.create_unit_test_collection(unit=unit)
-        tli = utils.create_test_list_instance(unit_test_collection=utc)
-
-        unit2 = utils.create_unit(site=None)
-        utc2 = utils.create_unit_test_collection(unit=unit2)
+    def test_get_tlis_for_site(self, site, unit, unit_without_site, test_list_instance):
+        """Test that get_tlis_for_site returns correct TLIs."""
+        # Create second test list instance
+        utc2 = utils.create_unit_test_collection(unit=unit_without_site)
         utils.create_test_list_instance(unit_test_collection=utc2)
 
         qs = TestListInstance.objects.all()
         tlis = qc.TestListInstanceSummaryReport().get_tlis_for_site(qs, site)
-        assert list([x.pk for x in tlis]) == [tli.pk]
+        assert list([x.pk for x in tlis]) == [test_list_instance.pk]
 
-    def test_get_tlis_for_null_site(self):
+    def test_get_tlis_for_null_site(self, site, unit_without_site):
         site = USite.objects.create(name="site")
         unit = utils.create_unit(site=site)
         utc = utils.create_unit_test_collection(unit=unit)
         utils.create_test_list_instance(unit_test_collection=utc)
 
-        unit2 = utils.create_unit(site=None)
-        utc2 = utils.create_unit_test_collection(unit=unit2)
+        # Create test list instance with unit that has no site
+        utc2 = utils.create_unit_test_collection(unit=unit_without_site)
         tli2 = utils.create_test_list_instance(unit_test_collection=utc2)
 
         qs = TestListInstance.objects.all()
         tlis = qc.TestListInstanceSummaryReport().get_tlis_for_site(qs, None)
         assert list([x.pk for x in tlis]) == [tli2.pk]
 
-    def test_to_table(self):
-
-        site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+    def test_to_table(self, site, unit, unit_without_site):
+        """Test that to_table returns correct table structure."""
+        # Create test list instances with both units
         utc = utils.create_unit_test_collection(unit=unit)
         utils.create_test_list_instance(unit_test_collection=utc)
 
-        unit2 = utils.create_unit(site=None)
-        utc2 = utils.create_unit_test_collection(unit=unit2)
+        utc2 = utils.create_unit_test_collection(unit=unit_without_site)
         utils.create_test_list_instance(unit_test_collection=utc2)
 
         rep = qc.TestListInstanceSummaryReport()
@@ -137,9 +134,10 @@ class TestTestListInstanceSummaryReport(TestCase):
 
 
 class TestTestListInstanceDetailsReport(TestCase):
+    """Test the TestListInstanceDetailsReport."""
 
     def test_filter_form_valid(self):
-        """If queryset.count() > MAX_TLIS then filter_form should get an error added"""
+        """If queryset.count() > MAX_TLIS then filter_form should get an error added."""
         rep = qc.TestListInstanceDetailsReport()
         rep.MAX_TLIS = -1
         ff = rep.get_filter_form()
@@ -148,6 +146,7 @@ class TestTestListInstanceDetailsReport(TestCase):
         assert '__all__' in ff.errors and "Please reduce" in ff.errors['__all__'][0]
 
     def test_get_queryset(self):
+        """Test that get_queryset returns the correct model."""
         assert qc.TestListInstanceDetailsReport().get_queryset().model._meta.model_name == "testlistinstance"
 
     def test_get_filename(self):
