@@ -7,12 +7,13 @@ from django.contrib import messages
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
-from django.shortcuts import HttpResponse, HttpResponseRedirect
-from django.urls import reverse
+from django.shortcuts import HttpResponse, HttpResponseRedirect, redirect
+from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as _l
-from django.views.generic import FormView
+from django.views.generic import FormView, TemplateView
 from formtools.preview import FormPreview
+from django.contrib.auth.mixins import PermissionRequiredMixin
 
 from qatrack.qa import models
 from qatrack.qa.testpack import add_testpack, create_testpack
@@ -51,6 +52,9 @@ class CopyReferencesAndTolerancesForm(forms.Form):
         coerce=int,
         required=True,
     )
+
+    stage = forms.IntegerField(widget=forms.HiddenInput(), required=False)
+    confirm = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     def __init__(self, *args, **kwargs):
 
@@ -94,13 +98,14 @@ class CopyReferencesAndTolerancesForm(forms.Form):
             return Unit.objects.get(pk=unit)
 
     def clean(self):
+        cleaned_data = super().clean()
 
-        source_unit = self.cleaned_data.get("source_unit")
-        source_testlist = self.cleaned_data.get("source_testlist")
-        dest_unit = self.cleaned_data.get("dest_unit")
+        source_unit = cleaned_data.get("source_unit")
+        source_testlist = cleaned_data.get("source_testlist")
+        dest_unit = cleaned_data.get("dest_unit")
         if source_unit and source_unit == dest_unit:
             self.add_error("dest_unit", _("The source and destination units must be different"))
-        ctype = self.cleaned_data.get("content_type")
+        ctype = cleaned_data.get("content_type")
         if ctype and source_unit and source_testlist:
             ctype = ContentType.objects.get(model=ctype)
 
@@ -111,7 +116,7 @@ class CopyReferencesAndTolerancesForm(forms.Form):
             except models.UnitTestCollection.DoesNotExist:
                 self.add_error("source_testlist", _("The selected test list does not exist on the source unit"))
 
-        return self.cleaned_data
+        return cleaned_data
 
 
 class CopyReferencesAndTolerances(FormPreview):
@@ -169,7 +174,7 @@ class CopyReferencesAndTolerances(FormPreview):
 
             messages.success(request, _("References & tolerances successfully copied"))
 
-        return HttpResponseRedirect(reverse('qa_copy_refs_and_tols'))
+        return HttpResponseRedirect(reverse('admin:qa_copy_refs_and_tols'))
 
 
 def testlist_json(request, source_unit, content_type):
@@ -235,14 +240,14 @@ class ExportTestPackForm(forms.Form):
         return super().clean()
 
 
-class ExportTestPack(FormView):
+class ExportTestPack(PermissionRequiredMixin, FormView):
     """View for exporting a QATrack+ test pack"""
 
+    permission_required = 'qa.change_testlist'
     form_class = ExportTestPackForm
     template_name = "admin/qa/testpack/export.html"
 
     def get_context_data(self, **kwargs):
-
         context = super().get_context_data(**kwargs)
         context['title'] = _("Export Test Pack")
 
@@ -297,18 +302,17 @@ class ImportTestPackForm(forms.Form):
     tests = forms.CharField(widget=forms.HiddenInput(), required=False)
 
 
-class ImportTestPack(FormView):
-    """View for exporting a QATrack+ test pack"""
+class ImportTestPack(PermissionRequiredMixin, FormView):
+    """View for importing a QATrack+ test pack"""
 
+    permission_required = 'qa.change_testlist'
     form_class = ImportTestPackForm
     template_name = "admin/qa/testpack/import.html"
 
     def get_context_data(self, **kwargs):
-
         context = super().get_context_data(**kwargs)
         context['title'] = _("Import Test Pack")
         context['test_types'] = json.dumps(dict(models.TEST_TYPE_CHOICES))
-
         return context
 
     def get_success_url(self):
@@ -316,10 +320,9 @@ class ImportTestPack(FormView):
         next_ = self.request.GET.get("next", None)
         if next_ is not None:
             return next_
-        return reverse("qa_import_testpack")
+        return reverse("admin:qa_import_testpack")
 
     def form_valid(self, form):
-
         tls = form.cleaned_data['testlists']
         try:
             tls = json.loads(tls) if tls != "all" else None
@@ -363,3 +366,80 @@ def recurrence_examples(request):
 
     dates = []
     return JsonResponse({'dates': dates})
+
+
+class CopyReferencesTolerancesView(PermissionRequiredMixin, FormView):
+    """View for copying references and tolerances between units"""
+    
+    template_name = 'qa/copy_refs_tols.html'
+    permission_required = 'qa.change_unittestinfo'
+    form_class = CopyReferencesAndTolerancesForm
+    success_url = reverse_lazy('admin:qa_unittestinfo_changelist')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Copy References & Tolerances")
+        form = kwargs.get('form', self.get_form())
+        context['form'] = form
+
+        if form.is_valid() and self.request.POST.get('stage') == '1':
+            cleaned_data = form.cleaned_data
+            source_unit = cleaned_data.get("source_unit")
+            dest_unit = cleaned_data.get("dest_unit")
+            source_testlist_pk = cleaned_data.get("source_testlist")
+            ctype = ContentType.objects.get(model=cleaned_data.get("content_type"))
+
+            ModelClass = ctype.model_class()  # either TestList or TestListCycle
+            source_testlist = ModelClass.objects.get(pk=source_testlist_pk)
+            all_tests = source_testlist.all_tests()
+
+            utis = models.UnitTestInfo.objects.filter(test__in=all_tests).select_related(
+                "reference",
+                "tolerance",
+                "test",
+            ).order_by("test")
+
+            dest_utis = utis.filter(unit=dest_unit)
+            source_utis = utis.filter(unit=source_unit)
+            source_utis = {uti.test.pk: uti for uti in source_utis}
+
+            # Validate test type compatibility
+            test_type_errors = []
+            dest_source_utis = []
+            for dest_uti in dest_utis:
+                if dest_uti.test.pk in source_utis:
+                    source_uti = source_utis[dest_uti.test.pk]
+                    if source_uti.reference and not models.Test.allow_type_transition(dest_uti.test.type, source_uti.test.type):
+                        test_type_errors.append(
+                            _("Cannot copy reference for test '%(test)s' from %(source)s to %(dest)s due to incompatible test types") % {
+                                'test': dest_uti.test.name,
+                                'source': source_unit.name,
+                                'dest': dest_unit.name,
+                            }
+                        )
+                    dest_source_utis.append((dest_uti, source_uti))
+
+            if test_type_errors:
+                for error in test_type_errors:
+                    form.add_error(None, error)
+            else:
+                context["dest_source_utis"] = dest_source_utis
+                context["source_test_list"] = source_testlist
+                context["source_unit"] = source_unit
+                context["dest_unit"] = dest_unit
+
+        return context
+
+    def form_valid(self, form):
+        if self.request.POST.get('stage') == '1':
+            return self.render_to_response(self.get_context_data(form=form))
+        elif self.request.POST.get('confirm') == 'Confirm':
+            try:
+                form.save()
+                messages.success(self.request, _("References and tolerances copied successfully"))
+                return super().form_valid(form)
+            except Exception as e:
+                logger.error("Error copying references and tolerances: %s", str(e))
+                form.add_error(None, _("An error occurred while copying references and tolerances"))
+                return self.form_invalid(form)
+        return self.render_to_response(self.get_context_data(form=form))

@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.conf.urls import include, url
+from django.urls import include, re_path as url
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.templatetags.static import static as static_url
@@ -48,7 +48,7 @@ urlpatterns = [
     url(r'^apple-touch-icon\.png$', touch_view),
 
     # third party
-    url(r'^', include('genericdropdown.urls')),
+    url(r'^', include('qatrack.genericdropdown.urls')),
     url(r'^comments/', include('django_comments.urls')),
     url(r'^admin/dynamic_raw_id/', include('dynamic_raw_id.urls')),
     url(r'^api/', include('qatrack.api.urls')),

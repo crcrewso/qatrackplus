@@ -30,7 +30,7 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 LOG_ROOT = os.path.join(PROJECT_ROOT, "..", "logs")
 
-VERSION = "3.1.1.3"
+VERSION = "3.2.alpha"
 BUG_REPORT_URL = "https://github.com/qatrackplus/qatrackplus/issues/new"
 FEATURE_REQUEST_URL = BUG_REPORT_URL
 
@@ -111,6 +111,7 @@ USE_I18N = True
 
 CONSTANT_PRECISION = 8
 DEFAULT_NUMBER_FORMAT = None
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # This is the warning message given to the user when a test result is out of tolerance
@@ -241,7 +242,7 @@ INSTALLED_APPS = [
     'rest_framework_filters',
     'rest_framework.authtoken',
     'listable',
-    'genericdropdown',
+    'qatrack.genericdropdown',
     'recurrence',
     'widget_tweaks',
     'dynamic_raw_id',
@@ -260,7 +261,7 @@ INSTALLED_APPS = [
     'qatrack.faults',
     'qatrack.attachments',
     'qatrack.reports',
-    'admin_views',
+    'qatrack.form_utils'
 ]
 
 
@@ -771,8 +772,8 @@ if IS_FILE_CACHE and not os.path.isdir(CACHE_LOCATION):
 
 
 if FORCE_SCRIPT_NAME:
-    # Fix URL for Admin Views if FORCE_SCRIPT_NAME_SET in local_settings
-    ADMIN_VIEWS_URL_PREFIX = FORCE_SCRIPT_NAME + "/admin"
+    # Django admin URLs are handled automatically through standard URL routing
+    pass
 
 
 # no longer using EMAIL_NOTIFICATION_USER/PWD but people may have
