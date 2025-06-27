@@ -1,14 +1,16 @@
 import re
 
-from django import VERSION
+from django import VERSION, forms
 from django.apps import apps
 from django.conf import settings
 from django.contrib import admin, messages
-from django.contrib.admin import options, widgets, helpers
+from django.contrib.admin import ModelAdmin, options, widgets, helpers
+from django.contrib.admin.helpers import flatten_fieldsets
 from django.contrib.admin.models import CHANGE, LogEntry
+from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Count, Q
-import django.forms as forms
+from django.forms.widgets import HiddenInput
 from django.shortcuts import HttpResponseRedirect, redirect, render
 from django.template import loader
 from django.template.defaultfilters import date as date_formatter
@@ -20,21 +22,18 @@ from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as _l
+
 from django_mptt_admin.admin import DjangoMpttAdmin
 from dynamic_raw_id.admin import DynamicRawIDMixin
 from dynamic_raw_id.widgets import DynamicRawIDWidget
-from django.contrib.admin.helpers import flatten_fieldsets
-from django.contrib.admin import ModelAdmin
-from django.forms.widgets import HiddenInput
-
-from qatrack.qa import models
-from qatrack.qa.views import admin as admin_views
 
 from qatrack.attachments.admin import (
     SaveInlineAttachmentUserMixin,
     get_attachment_inline,
 )
+from qatrack.qa import models
 from qatrack.qa.utils import format_qc_value
+from qatrack.qa.views import admin as admin_views
 from qatrack.qatrack_core.admin import (
     BaseQATrackAdmin,
     BasicSaveUserAdmin,
@@ -64,7 +63,7 @@ class CategoryAdmin(DjangoMpttAdmin):
 class UnitTestInfoForm(forms.ModelForm):
     """Form for UnitTestInfo model"""
 
-    reference_value = forms.CharField(label=_("New reference value"), required=False, widget=HiddenInput())
+    reference_value = forms.CharField(label=_("New reference value"), required=False)
     reference_set_by = forms.CharField(label=_("Set by"), required=False)
     reference_set = forms.CharField(label=_("Date"), required=False)
     test_type = forms.CharField(required=False)
@@ -84,19 +83,35 @@ class UnitTestInfoForm(forms.ModelForm):
         instance = kwargs.get('instance')
 
         if instance and instance.test:
+            # Set test type
+            self.fields['test_type'].initial = instance.test.get_type_display()
+            
+            # Set reference information if reference exists
+            if instance.reference:
+                self.fields['reference_set_by'].initial = getattr(instance.reference, 'created_by', 'Unknown')
+                # Format the date to be more readable and in user's timezone
+                created_date = getattr(instance.reference, 'created', None)
+                if created_date:
+                    # Use Django's timezone handling which respects site timezone settings
+                    if timezone.is_aware(created_date):
+                        local_date = timezone.localtime(created_date)
+                    else:
+                        local_date = created_date
+                    self.fields['reference_set'].initial = local_date.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    self.fields['reference_set'].initial = 'Unknown'
+            
             # Filter tolerances based on test type
             if instance.test.type == models.BOOLEAN:
                 self.fields['tolerance'].queryset = models.Tolerance.objects.filter(type=models.BOOLEAN)
                 self.fields['reference_value'] = forms.ChoiceField(
                     choices=[("", "---"), (0, "No"), (1, "Yes")],
-                    required=False
+                    required=False,
+                    label=_("New reference value")
                 )
             elif instance.test.type == models.MULTIPLE_CHOICE:
                 self.fields['tolerance'].queryset = models.Tolerance.objects.filter(type=models.MULTIPLE_CHOICE)
-                if instance.test.choices:  # Check if choices exist
-                    choices = [(c.strip(), c.strip()) for c in instance.test.choices.split(",")]
-                    choices = [("", "---")] + choices
-                    self.fields['reference_value'] = forms.ChoiceField(choices=choices, required=False)
+                self.fields['reference_value'].widget = forms.HiddenInput()
             else:
                 # For numerical tests, exclude boolean and multiple choice tolerances
                 self.fields['tolerance'].queryset = models.Tolerance.objects.exclude(
@@ -124,9 +139,15 @@ class UnitTestInfoForm(forms.ModelForm):
                 try:
                     val = float(reference_value)
                     if val == 0:
-                        self.add_error('reference_value', _("Reference value cannot be zero when using a percent tolerance"))
+                        self.add_error(
+                            'reference_value',
+                            _("Reference value cannot be zero when using a percent tolerance")
+                        )
                 except ValueError:
-                    self.add_error('reference_value', _("A numerical reference value is required when using a percent tolerance"))
+                    self.add_error(
+                        'reference_value',
+                        _("A numerical reference value is required when using a percent tolerance")
+                    )
 
         # Validate wraparound tests
         if self.instance.test.type == models.WRAPAROUND:
@@ -279,11 +300,9 @@ class UnitTestInfoAdmin(BaseQATrackAdmin):
                 'reference_set',
                 'comment',
             ),
-            'classes': ('collapse',),
         }),
         (_('History'), {
             'fields': ('history',),
-            'classes': ('collapse',),
         }),
     )
 
@@ -630,17 +649,17 @@ class TestListMembershipInline(DynamicRawIDMixin, admin.TabularInline):
         # so we can override the label_for_value function for the test raw id widget
         db = kwargs.get('using')
         if db_field.name == "test":
-            rel = db_field.remote_field if VERSION[0] == 2 else db_field.rel
+            rel = db_field.remote_field if VERSION[0] >= 2 else db_field.rel
             widget = DynamicRawIDWidget(rel, self.admin_site)
             widget.label_for_value = self.label_for_value
             kwargs['widget'] = widget
             return db_field.formfield(**kwargs)
         elif db_field.name in self.dynamic_raw_id_fields:
-            rel = db_field.remote_field if VERSION[0] == 2 else db_field.rel
+            rel = db_field.remote_field if VERSION[0] >= 2 else db_field.rel
             kwargs['widget'] = DynamicRawIDWidget(rel, self.admin_site)
             return db_field.formfield(**kwargs)
         elif db_field.name in self.raw_id_fields:
-            kwargs['widget'] = widgets.ForeignKeyRawIdWidget(db_field.rel,
+            kwargs['widget'] = widgets.ForeignKeyRawIdWidget(db_field.remote_field if VERSION[0] >= 2 else db_field.rel,
                                                              self.admin_site, using=db)
         elif db_field.name in self.radio_fields:
             kwargs['widget'] = widgets.AdminRadioSelect(attrs={
@@ -681,19 +700,19 @@ class SublistInline(DynamicRawIDMixin, admin.TabularInline):
         # for the test raw id widget
         db = kwargs.get('using')
         if db_field.name == "child":
-            rel = db_field.remote_field if VERSION[0] == 2 else db_field.rel
+            rel = db_field.remote_field if VERSION[0] >= 2 else db_field.rel
             widget = DynamicRawIDWidget(rel, self.admin_site)
             widget.label_for_value = self.label_for_value
             kwargs['widget'] = widget
             return db_field.formfield(**kwargs)
 
         elif db_field.name in self.dynamic_raw_id_fields:
-            rel = db_field.remote_field if VERSION[0] == 2 else db_field.rel
+            rel = db_field.remote_field if VERSION[0] >= 2 else db_field.rel
             kwargs['widget'] = DynamicRawIDWidget(rel, self.admin_site)
             return db_field.formfield(**kwargs)
 
         elif db_field.name in self.raw_id_fields:
-            kwargs['widget'] = widgets.ForeignKeyRawIdWidget(db_field.rel,
+            kwargs['widget'] = widgets.ForeignKeyRawIdWidget(db_field.remote_field if VERSION[0] >= 2 else db_field.rel,
                                                              self.admin_site, using=db)
         elif db_field.name in self.radio_fields:
             kwargs['widget'] = widgets.AdminRadioSelect(attrs={
