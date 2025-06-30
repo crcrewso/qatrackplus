@@ -334,16 +334,60 @@ class UnitTestInfoAdmin(BaseQATrackAdmin):
         return FormWithRequest
 
     def history(self, obj):
-        """Display history of test instances for this UnitTestInfo"""
-        history = obj.get_history(number=5)
-        if not history:
+        """Display history of reference and tolerance changes"""
+        if not obj:
             return _("No history available")
+
+        changes = models.UnitTestInfoChange.objects.filter(
+            unit_test_info=obj
+        ).order_by('-changed')
+
+        if not changes:
+            return _("No history available")
+
+        # Create pairs of changes to show old and new values
+        history = []
+        current = {
+            'reference': obj.reference,
+            'tolerance': obj.tolerance,
+        }
         
-        result = []
-        for date, value, pass_fail, status in history:
-            result.append(f"{date.strftime('%Y-%m-%d %H:%M')}: {value} ({status.name})")
-        return mark_safe("<br>".join(result))
-    history.short_description = _("Test History")
+        for change in changes:
+            history.append((current, change))
+            current = {
+                'reference': change.reference,
+                'tolerance': change.tolerance,
+            }
+
+        t = loader.get_template("admin/qa/unittestinfo/history.html")
+        return t.render({'history': history})
+    history.short_description = _("Reference & Tolerance History")
+
+    def save_model(self, request, test_info, form, change):
+        # Fetch the old instance from the DB before saving changes
+        if test_info.pk:
+            old = models.UnitTestInfo.objects.get(pk=test_info.pk)
+            old_reference = old.reference
+            old_tolerance = old.tolerance
+        else:
+            old_reference = None
+            old_tolerance = None
+
+        # Save the new values
+        super().save_model(request, test_info, form, change)
+
+        # Now create the history record using the old values
+        if any(k in form.changed_data for k in ['comment', 'reference_value', 'tolerance']):
+            if form.instance and form.instance.pk:
+                models.UnitTestInfoChange.objects.create(
+                    unit_test_info=form.instance,
+                    comment=form.cleaned_data["comment"],
+                    reference=old_reference,
+                    reference_changed=old_reference != form.instance.reference,
+                    tolerance=old_tolerance,
+                    tolerance_changed=old_tolerance != form.instance.tolerance,
+                    changed_by=request.user,
+                )
 
     def set_multiple_references_and_tolerances(self, request, queryset):
         """Set references and tolerances for multiple UnitTestInfo objects"""

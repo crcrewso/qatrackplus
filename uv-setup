@@ -1,0 +1,80 @@
+QATrack+ Development Setup Guide
+
+This guide will walk you through setting up a QATrack+ development environment from scratch, from cloning the repository to running tests.
+Cloning your fork to your local system
+Once you have created a fork of QATrack+ on GitHub, you will want to download your fork to your local system to work on.
+
+git clone https://github.com/yourusername/qatrackplus.git
+cd qatrackplus
+
+Setting up your development environment
+QATrack+ now uses modern Python packaging with pyproject.toml, making setup much simpler. We recommend using uv for the fastest and most reliable dependency management.
+
+Using uv (Recommended - Fastest)
+First, install uv globally:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="/home/$USER/.local/bin:$PATH"
+Then create a virtual environment and install all dependencies:
+cd /path/to/qatrackplus
+uv venv -- python3.9 
+source .venv/bin/activate
+# Install setuptools first (required for django-q)
+uv pip install setuptools
+uv pip install -e ".[dev]"
+
+Once you have the requirements installed, copy the debug local_settings.py file from the deploy subdirectory and then create your database:
+
+cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
+mkdir db
+python manage.py migrate
+python manage.py createcachetable
+
+This will put a database called default.db in the db subdirectory.
+
+Running the development server
+
+After the database is created, create a super user so you can log into QATrack+:
+python manage.py createsuperuser
+and then run the development server:
+python manage.py runserver
+Once the development server is running you should be able to visit http://127.0.0.1:8000 in your browser and log into QATrack+.
+
+Running tests
+To verify your development environment is working correctly, you can run the test suite:
+py.test
+This will run all tests. For faster feedback during development, you can run specific test modules:
+Run only admin tests:
+python -m pytest qatrack/qa/tests/test_admin.py
+Run only non-selenium tests (faster):
+python -m pytest -m "not selenium"
+You should see output showing the tests running, with most tests passing. Some selenium-based browser tests may fail depending on your environment, but the core functionality tests should all pass.
+
+
+Troubleshooting
+Missing dependencies: If you encounter import errors, ensure you activated your virtual environment and installed the development dependencies with the [dev] extra.
+pkg_resources error: If you see an error about missing pkg_resources, install setuptools with `uv pip install setuptools`.
+Git dependencies not installing: Make sure git dependencies are specified in the main dependencies section of pyproject.toml using the @ syntax shown above.
+Database issues: Make sure you've copied the local_settings.py file and run migrations before starting the server.
+Test failures: Some selenium browser tests may fail due to browser/environment issues. This is normal and doesn't affect core functionality.
+Missing django-genericdropdown: You can check if this package is installed using `pip list | grep django-genericdropdown`. If it's missing, install it using:
+`pip install -e git+https://github.com/randlet/django-genericdropdown.git@473ff52610af659f7d2a3616a6e3322e21673b4d#egg=django_genericdropdown`
+
+Complete setup commands (copy-paste ready)
+
+Complete uv setup:
+git clone https://github.com/yourusername/qatrackplus.git
+cd qatrackplus
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="/home/$USER/.local/bin:$PATH"
+uv venv -- python3.9 (until program is compatible with newer versions of python)
+source .venv/bin/activate
+uv pip install setuptools  # Required for django-q
+uv pip install -e ".[dev]"
+cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
+mkdir db
+python manage.py migrate
+python manage.py createcachetable
+python manage.py createsuperuser
+python manage.py runserver
+
+You're now ready to start developing QATrack+! 
