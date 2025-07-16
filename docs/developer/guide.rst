@@ -21,17 +21,14 @@ there are lots of steps involved which can be intimidating to newcomers
 or have questions about using git or contributing code then please post to the
 :mailinglist:`mailing list <>` so we can help you out!
 
-In order to develop for QATrack+ you first need to make sure you have a few
-requirements installed.
-
-Python 3.12
+Prerequisites
 ~~~~~~~~~~~~
 
 QATrack+ is developed using Python 3.12. We recommend using the latest stable
 version of Python 3.12 for the best development experience and compatibility.
 
-The easiest way to install and manage Python versions is using uv, which will
-also handle virtual environments and package management for you.
+The easiest way to manage virtual environments and ensure a consistent Python version is by using uv,
+which installs the specified Python version within the virtual environment and handles package management automatically.
 
 Git
 ~~~
@@ -48,11 +45,22 @@ online including a `tutorial by the Django team
 <https://dont-be-afraid-to-commit.readthedocs.io/en/latest/>`__ as well as
 a tutorial on `GitHub <https://try.github.io/>`__.
 
+GitHub Account
+~~~~~~~~~~~~~~
+
+The QATrack+ project currently uses `GitHub <https://github.com>`__ for
+hosting its source code repository. To contribute code to QATrack+
+you will need to create a fork of QATrack+ on GitHub, make your changes,
+then make a pull request to the main QATrack+ project.
+
+Creating a fork of QATrack+ is explained in the `GitHub documentation
+<https://guides.github.com/activities/forking/>`__.
+
 uv Package Manager
 ~~~~~~~~~~~~~~~~~~~
 
-QATrack+ development now uses `uv <https://docs.astral.sh/uv/>`__, a fast Python
-package and project manager. uv handles Python installation, virtual environments,
+QATrack+ development uses `uv <https://docs.astral.sh/uv/>`__, a fast Python
+package and project manager. uv handles Python version management, virtual environments,
 and dependency management in a single tool.
 
 Install uv using the official installer (recommended):
@@ -71,36 +79,8 @@ Alternatively, if you already have Python and pip installed, you can use:
 
 For other installation methods or troubleshooting, see the full installation guide at https://docs.astral.sh/uv/getting-started/installation/
 
-
-GitHub
-~~~~~~
-
-The QATrack+ project currently uses `GitHub <https://github.com>`__ for
-hosting its source code repository.  In general, to contribute code to QATrack+
-you will need to create a fork of QATrack+ on GitHub, make your changes,
-then make a pull request to the main QATrack+ project.
-
-Creating a fork of QATrack+
-...........................
-
-Creating a fork of QATrack+ is explained in the `GitHub documentation
-<https://guides.github.com/activities/forking/>`__.
-
-Cloning your fork to your local system
-......................................
-
-Once you have created a fork of QATrack+ on GitHub, you will want to
-download your fork to your local system to work on. This can either be done
-using the command line or one of the graphical git apps that are available.
-This page assumes you are using bash on linux or the Git Bash shell on Windows.
-
-
 Setting up your development environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-In order to keep your QATrack+ development environment separate from your system Python installation, you will want to set up a virtual environment. QATrack+ now uses uv for this purpose, which simplifies both Python version management and dependency installation.
-I strongly recommend using Python 3.12 specifically for QATrack+ development, as it provides the best compatibility and performance. One benefit of uv is that it can automatically install Python 3.12 for you if it's not already available on your system.
-Using the command line, change to the directory where you installed QATrack+ and create a new virtual environment with Python 3.12:
 
 First, clone your fork and navigate to the directory:
 
@@ -113,8 +93,8 @@ Create a virtual environment with Python 3.12 using uv:
 
 .. code-block:: shell
 
-    # Create virtual environment with Python 3.12 (installs Python 3.12 into a folder called .venv)
-    uv venv .venv --python 3.12
+    # Create virtual environment with Python 3.12
+    uv venv --python 3.12
 
     # Activate the virtual environment on macOS/Linux:
     source .venv/bin/activate
@@ -124,7 +104,7 @@ Install development dependencies:
 .. code-block:: shell
 
     # Install all development dependencies
-    uv sync --dev //Do I need to add e to this command for sphinx install?
+    uv sync --dev
 
 
 
@@ -141,8 +121,8 @@ file from the deploy subdirectory and then create your database:
 
     cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
     mkdir db
-    uv run python manage.py migrate //I don't think uv run is necessary, test it
-    uv run python manage.py createcachetable //uv run? 
+    python manage.py migrate
+    python manage.py createcachetable
 
 
 this will put a database called `default.db` in the `db` subdirectory.
@@ -154,13 +134,13 @@ After the database is created, create a super user so you can log into QATrack+:
 
 .. code-block:: shell
 
-    uv run python manage.py createsuperuser //Same uv run thing
+    python manage.py createsuperuser
 
 and then run the development server:
 
 .. code-block:: shell
 
-    uv run python manage.py runserver //uv run? 
+    python manage.py runserver 
 
 Once the development server is running you should be able to visit
 http://127.0.0.1:8000/ in your browser and log into QATrack+.
@@ -200,13 +180,13 @@ To work with translations in development:
 .. code-block:: shell
 
     # Step 1: Extract translatable strings to .po files
-    uv run python manage.py makemessages -l fr  # Replace 'fr' with your desired language code (e.g., es, de, it, etc.)
+    python manage.py makemessages -l fr  # Replace 'fr' with your desired language code (e.g., es, de, it, etc.)
 
     # Step 2: Translate .po files using the translation script
-    uv run python scripts/translation.py batch fr  # Replace 'fr' with your language code
+    python scripts/translation.py batch fr  # Replace 'fr' with your language code
 
     # Step 3: Compile translations to .mo files
-    uv run python manage.py compilemessages
+    python manage.py compilemessages
 
     # Step 4: Update your local settings to use the new language
     # Add this to your qatrack/local_settings.py:
@@ -216,7 +196,7 @@ After completing these steps, restart your development server to see the transla
 
 .. code-block:: shell
 
-    uv run python manage.py runserver
+    python manage.py runserver
 
 You can also test multiple languages by temporarily changing the ``LANGUAGE_CODE`` setting in your ``local_settings.py`` file and restarting the server. 
 
@@ -412,7 +392,6 @@ development:
   translation files in different languages. Use the translation manager script
   to help automate translations, then refine them manually for accuracy.
   See the "Internationalization & Translation" section above for detailed commands.
-  Please get in touch with the maintainers if you are able to help out with this task!
 
 * **Tutorials:** :ref:`Tutorials <tutorials>` are a great way for newcomers to
   learn their way around QATrack+.  If you have an idea for a tutorial, we
