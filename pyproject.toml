@@ -59,11 +59,12 @@ mysql = [
 postgres = [
     "psycopg2-binary==2.8.6",
 ]
-
 win = [
     "CherryPy==18.0.1",
     "pyreadline",
     "pywin32>=300",
+    "mssql-django>=1.5",
+
 ]
 
 docker = [
@@ -74,16 +75,6 @@ docker = [
 Homepage = "https://qatrackplus.com"
 Documentation = "https://docs.qatrackplus.com"
 Repository = "https://github.com/qatrackplus/qatrackplus"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["qatrack"]
 
 [tool.pytest.ini_options]
 testpaths = ["qatrack"]
