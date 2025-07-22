@@ -1,14 +1,18 @@
 import calendar
 import collections
+import json
 
 from braces.views import JSONResponseMixin, PermissionRequiredMixin
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count, Q
 from django.db.transaction import atomic
 from django.http import Http404, HttpResponseRedirect, JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import get_template
 from django.urls import reverse
 from django.utils import timezone
@@ -22,7 +26,8 @@ from django.views.generic import (
     TemplateView,
     View,
 )
-import pytz
+from listable.views import BaseListableView
+from zoneinfo import ZoneInfo
 
 from qatrack.qatrack_core.dates import format_datetime
 from qatrack.reports.qc.testlistinstance import TestListInstanceDetailsReport
@@ -143,9 +148,7 @@ class ReviewTestListInstance(PermissionRequiredMixin, BaseEditTestListInstance):
         changed_se = review_test_list_instance(test_list_instance, test_instances, statuses, self.request.user)
 
         if len(changed_se) > 0 and self.from_se:
-            msg = _(
-                'Changed status of service event(s) %(service_event_ids)s to "%(serviceeventstatus_name)s".'
-            ) % {
+            msg = _('Changed status of service event(s) %(service_event_ids)s to "%(serviceeventstatus_name)s".') % {
                 'service_event_ids': ', '.join(str(x) for x in changed_se),
                 'serviceeventstatus_name': ServiceEventStatus.get_default().name,
             }
@@ -542,8 +545,7 @@ class DueDateOverview(PermissionRequiredMixin, TemplateView):
     def get_queryset(self):
 
         qs = models.UnitTestCollection.objects.filter(
-            active=True,
-            unit__active=True
+            active=True, unit__active=True
         ).select_related(
             "last_instance",
             "frequency",
@@ -569,18 +571,18 @@ class DueDateOverview(PermissionRequiredMixin, TemplateView):
 
         qs = self.get_queryset()
 
-        tz = pytz.timezone(settings.TIME_ZONE)
+        tz = ZoneInfo(settings.TIME_ZONE)
         now = timezone.now().astimezone(tz)
         today = now.date()
         friday = today + timezone.timedelta(days=(4 - today.weekday()) % 7)
         next_friday = friday + timezone.timedelta(days=7)
-        month_end = tz.localize(timezone.datetime(now.year, now.month, calendar.mdays[now.month])).date()
+        month_end = timezone.datetime(now.year, now.month, calendar.mdays[now.month]).replace(tzinfo=tz).date()
         if calendar.isleap(now.year) and now.month == 2:
             month_end += timezone.timedelta(days=1)
         next_month_start = month_end + timezone.timedelta(days=1)
-        next_month_end = tz.localize(
-            timezone.datetime(next_month_start.year, next_month_start.month, calendar.mdays[next_month_start.month])
-        ).date()
+        next_month_end = timezone.datetime(
+            next_month_start.year, next_month_start.month, calendar.mdays[next_month_start.month]
+        ).replace(tzinfo=tz).date()
 
         due = collections.defaultdict(list)
 
@@ -666,7 +668,11 @@ class OverviewObjects(JSONResponseMixin, View):
             "last_instance__testinstance_set",
             "last_instance__testinstance_set__status",
             "last_instance__modified_by",
-        ).order_by("frequency__nominal_interval", "unit__number", "name", )
+        ).order_by(
+            "frequency__nominal_interval",
+            "unit__number",
+            "name",
+        )
 
         if request.GET.get('user') == 'true':
             qs = qs.filter(visible_to__in=request.user.groups.all())

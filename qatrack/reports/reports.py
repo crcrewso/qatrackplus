@@ -17,7 +17,7 @@ from django.utils.translation import gettext_lazy as _l
 import xlsxwriter
 
 from qatrack.qatrack_core.dates import format_as_date, format_datetime
-from qatrack.qatrack_core.utils import chrometopdf, relative_dates
+from qatrack.qatrack_core.utils import chrometopdf, weasyprint_to_pdf, relative_dates
 
 CSV = "csv"
 XLS = "xlsx"
@@ -161,6 +161,7 @@ class BaseReport(object, metaclass=ReportMeta):
             'queryset': self.filter_set.qs if self.filter_set else None,
             'include_signature': self.base_opts.get("include_signature", False),
             'include_logo': self.base_opts.get("include_logo", True),
+            'paper_size': self.base_opts.get("paper_size", "letter"),
         }
 
     def make_url(self, url, text='', title='', plain=False):
@@ -261,7 +262,23 @@ class BaseReport(object, metaclass=ReportMeta):
         context['base_template'] = "reports/pdf_report.html"
         template = self.get_template(using=None)
         content = template.render(context)
-        return chrometopdf(content, name=fname)
+        paper_size = context.get('paper_size', 'letter')
+        
+        # Use WeasyPrint for paper size support
+        try:
+            return weasyprint_to_pdf(content, name=fname, paper_size=paper_size)
+        except ImportError:
+            # WeasyPrint not available, fall back to Chrome
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("WeasyPrint not available, falling back to Chrome")
+            return chrometopdf(content, name=fname, paper_size=paper_size)
+        except Exception as e:
+            # WeasyPrint failed for some other reason, fall back to Chrome
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"WeasyPrint failed, falling back to Chrome: {e}")
+            return chrometopdf(content, name=fname, paper_size=paper_size)
 
     def to_csv(self):
         context = self.get_context()

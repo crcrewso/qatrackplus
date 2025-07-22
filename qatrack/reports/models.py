@@ -10,9 +10,7 @@ from qatrack.qatrack_core.scheduling import RecurrenceFieldMixin
 
 # ensure Django-Q can pick up all report types on Windows
 from qatrack.reports import (  # noqa: F401
-    faults,
-    qc,
-    service_log,
+    faults, qc, service_log,
 )
 
 from qatrack.reports.reports import report_class
@@ -22,6 +20,7 @@ class SavedReport(models.Model):
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     FORMATS = [('pdf', _l('PDF')), ('xlsx', 'Excel'), ("csv", _l("CSV"))]
+    PAPER_SIZES = [('letter', _l('Letter (8.5" × 11")')), ('a4', _l('A4 (210mm × 297mm)'))]
 
     title = models.CharField(max_length=255, help_text=_l("Give your report a descriptive title"))
     report_type = models.CharField(max_length=255)
@@ -29,6 +28,9 @@ class SavedReport(models.Model):
     filters = models.JSONField(default=dict)
     include_signature = models.BooleanField(default=False)
     include_logo = models.BooleanField(default=True)
+    paper_size = models.CharField(
+        max_length=10, choices=PAPER_SIZES, default='letter', help_text=_l("Select paper size for PDF reports")
+    )
     visible_to = models.ManyToManyField(Group, blank=True)
 
     created = models.DateTimeField(auto_now_add=True)
@@ -49,7 +51,10 @@ class SavedReport(models.Model):
             ("can_create_sql_reports", _l("Can create SQL Data Reports")),
         )
 
-        ordering = ("title", "created",)
+        ordering = (
+            "title",
+            "created",
+        )
 
     def get_filter_class(self):
         return report_class(self.report_type).filter_class
@@ -60,6 +65,7 @@ class SavedReport(models.Model):
             'title': self.title,
             'include_signature': self.include_signature,
             'include_logo': self.include_logo,
+            'paper_size': self.paper_size,
             'report_id': self.id,
         }
 

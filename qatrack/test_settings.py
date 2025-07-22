@@ -5,21 +5,19 @@ try:
 except ImportError:
     pass
 
-try: 
+try:
     from .local_settings import *  # noqa: F403,F401
 except ImportError:
     pass
 
-
 NOTIFICATIONS_ON = False
 DEFAULT_NUMBER_FORMAT = None
 DEBUG = False
-SELENIUM_VIRTUAL_DISPLAY = True
+SELENIUM_VIRTUAL_DISPLAY = True 
 AD_CLEAN_USERNAME = None
 HTTP_OR_HTTPS = "http"
 REVIEW_BULK = True
 TIME_ZONE = 'America/Toronto'
-
 
 
 class SimplePasswordHasher(BasePasswordHasher):

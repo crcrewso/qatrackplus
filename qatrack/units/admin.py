@@ -31,19 +31,13 @@ class UnitFormAdmin(ModelForm):
     service_areas = ModelMultipleChoiceField(
         queryset=ServiceArea.objects.all(),
         required=False,
-        widget=FilteredSelectMultiple(
-            verbose_name=_l('Service areas'),
-            is_stacked=False
-        )
+        widget=FilteredSelectMultiple(verbose_name=_l('Service areas'), is_stacked=False)
     )
     modalities = ModelMultipleChoiceField(
         queryset=Modality.objects.all(),
         required=False,
         label=_l('Treatment and Imaging Modalities'),
-        widget=FilteredSelectMultiple(
-            verbose_name=_l('Treatment and Imaging Modalities'),
-            is_stacked=False
-        )
+        widget=FilteredSelectMultiple(verbose_name=_l('Treatment and Imaging Modalities'), is_stacked=False)
     )
 
     class Meta:
@@ -107,8 +101,7 @@ class UnitFormAdmin(ModelForm):
                     )
                     self.data = data_copy
                     self.add_error(
-                        'service_areas',
-                        (
+                        'service_areas', (
                             'Cannot remove {} from unit {}. '
                             'There exists Service Event(s) with that Unit and Service Area.'
                         ).format(usa.service_area.name, unit.name)
@@ -142,6 +135,7 @@ class UnitAvailableTimeInline(admin.TabularInline):
     verbose_name_plural = 'Unit Schedule'
 
 
+@admin.register(Unit)
 class UnitAdmin(BaseQATrackAdmin):
 
     form = UnitFormAdmin
@@ -163,9 +157,7 @@ class UnitAdmin(BaseQATrackAdmin):
             'inputmask/js/jquery.inputmask.bundle.min.js',
         )
         css = {
-            'all': (
-                'units/css/admin.css',
-            ),
+            'all': ('units/css/admin.css',),
         }
 
     def get_queryset(self, request):
@@ -183,6 +175,7 @@ class UnitAdmin(BaseQATrackAdmin):
         return formfield
 
 
+@admin.register(UnitType)
 class UnitTypeAdmin(BaseQATrackAdmin):
 
     list_display = ['model_name', 'vendor', 'unit_class', 'collapse']
@@ -201,22 +194,19 @@ class UnitTypeAdmin(BaseQATrackAdmin):
         return "{}{}{}".format(vendor_name, obj.name, model)
 
 
+@admin.register(Modality)
 class ModalityAdmin(BaseQATrackAdmin):
 
     list_display = ["name"]
 
 
+@admin.register(Site)
 class SiteAdmin(BaseQATrackAdmin):
     """QC categories admin"""
-    prepopulated_fields = {'slug': ('name',)}
-    list_display = (
-        "name",
-        "slug"
-    )
+    prepopulated_fields = {
+        'slug': ('name',)
+    }
+    list_display = ("name", "slug")
 
 
-admin.site.register(Unit, UnitAdmin)
-admin.site.register(UnitType, UnitTypeAdmin)
-admin.site.register(Modality, ModalityAdmin)
-admin.site.register(Site, SiteAdmin)
 admin.site.register([UnitClass, Vendor], BaseQATrackAdmin)

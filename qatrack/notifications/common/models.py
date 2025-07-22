@@ -68,9 +68,7 @@ class TestListGroup(models.Model):
 
     test_lists = models.ManyToManyField(
         TestList,
-        help_text=_l(
-            "Select which Test Lists should be included in this notification group."
-        ),
+        help_text=_l("Select which Test Lists should be included in this notification group."),
     )
 
     __test__ = False  # supress pytest warning
@@ -86,9 +84,7 @@ class UnitGroup(models.Model):
 
     units = models.ManyToManyField(
         Unit,
-        help_text=_l(
-            "Select which Units should be included in this notification group."
-        ),
+        help_text=_l("Select which Units should be included in this notification group."),
     )
 
     def __str__(self):
