@@ -1,10 +1,9 @@
 # Important Notice
 
-QATrack+ no longer has a maintainer. Please see the announcement on
-the [QATrack+ Mailing List](https://groups.google.com/g/qatrack/c/79EoHF4U54Y)
-
-If you are interested in taking over the project, please contact Randy Taylor
-(randy@randlet.com).
+We are looking for contributors, especially those interested in helping with localization and translation. 
+Community discussion is available both on GitHub via [Discussions](https://github.com/qatrackplus/qatrackplus/discussions) 
+and on [Google Groups](https://groups.google.com/g/qatrack). The project also needs users open to 
+testing upgrade instructions on a copy of their production data. 
 
 # QATrack+
 
@@ -12,7 +11,7 @@ If you are interested in taking over the project, please contact Randy Taylor
 
 ---
 
-QATrack+ is a fully configurable, free, and open source (MIT License) web
+QATrack+ is a fully configurable, free, and open source (Apache License 2.0) web
 application for managing QA data for radiation therapy and medical imaging
 equipment. QATrack+ is now used in many hospitals and clinics [around the
 world](http://qatrackplus.com/#whos-using)! Visit the QATrack+ homepage at
@@ -53,7 +52,7 @@ The main features include:
 
 ## Documentation & Release Notes
 
-The latest version is 3.1.1 Please review the
+The latest version is 4.0.0 Please review the
 [release_notes](https://docs.qatrackplus.com/en/stable/release_notes.html)
 before installing or upgrading.
 
