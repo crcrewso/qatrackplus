@@ -1,6 +1,12 @@
 Developers Guide
 ================
 
+.. note::
+
+    **Disclaimer**: This guide was developed and tested on Ubuntu Linux. 
+    While the instructions should work on other operating systems, some commands, package names, 
+    or installation steps may differ. If you encounter issues on a different OS, please refer 
+    to the specific documentation for your platform or reach out to the community for assistance.
 
 .. toctree::
    :maxdepth: 3
@@ -26,9 +32,6 @@ Prerequisites
 
 QATrack+ is developed using Python 3.12. We recommend using the latest stable
 version of Python 3.12 for the best development experience and compatibility.
-
-The easiest way to manage virtual environments and ensure a consistent Python version is by using uv,
-which installs the specified Python version within the virtual environment and handles package management automatically.
 
 Git
 ~~~
@@ -61,7 +64,7 @@ uv Package Manager
 ~~~~~~~~~~~~~~~~~~~
 
 The QATrack+ project uses `uv <https://docs.astral.sh/uv/>`__, a fast Python
-package and project manager. uv handles Python version management, virtual environments,
+package manager. uv handles Python version management, virtual environments,
 and dependency management.
 
 Install uv using the official installer (recommended):
@@ -130,18 +133,40 @@ Creating your development database
 Rather than using a full blown database server for development work, You can
 use Sqlite3 which is included with Python.
 
-Once you have the requirements installed, copy the debug `local_settings.py`
-file from the deploy subdirectory and then create your database:
+Once you have the requirements installed, copy the debug `local_settings.py` and `local_test_settings.py`
+files from the deploy subdirectory and then create your database:
 
 .. code-block:: shell
 
     cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
+    cp deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
     mkdir db
     python manage.py migrate
     python manage.py createcachetable
 
 
 this will put a database called `default.db` in the `db` subdirectory.
+
+
+Understanding the Settings Files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+QATrack+ uses a layered approach to Django settings, with each file serving a specific purpose. Understanding this hierarchy will help you configure your development and testing environment.
+
+**Settings File Hierarchy (Highest to Lowest Precedence):**
+
+1. **`local_test_settings.py`** - Your custom test environment overrides
+   - Contains all essential development and test settings in one place
+   - This is the main file you'll customize for your testing needs
+
+2. **`local_settings.py`** - Your custom development environment overrides
+   - Contains development-specific settings like database configuration
+
+3. **`test_settings.py`** - Default test environment settings
+   - Contains test-specific defaults like password hashers and notification settings
+
+4. **`settings.py`** - Base Django application settings
+   - Contains core Django configuration, installed apps, middleware, etc.
 
 Collect Static Files
 ~~~~~~~~~~~~~~~~~~~
@@ -151,6 +176,33 @@ Before running the development server, you need to collect all static files to t
 .. code-block:: shell
 
     python manage.py collectstatic --noinput
+
+
+Loading Default Data (Fixtures)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+QATrack+ comes with pre-configured default data that provides a foundation for development and testing. This includes common QA categories, test frequencies, modalities, vendors, and other essential data structures.
+
+To load the default data into your development database:
+
+.. code-block:: shell
+
+    python manage.py loaddata fixtures/defaults/*/*
+
+This command will populate your database all default data.
+
+You can also load specific fixture categories individually if you only need certain data:
+
+.. code-block:: shell
+
+    # Load only QA-related fixtures
+    python manage.py loaddata fixtures/defaults/qa/*
+    
+    # Load only unit-related fixtures
+    python manage.py loaddata fixtures/defaults/units/*
+    
+    # Load only service log fixtures
+    python manage.py loaddata fixtures/defaults/service_log/*
 
 Running the development server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -195,10 +247,16 @@ Internationalization & Translation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Please mark all strings and templates in QATrack+ for translation. This will
-allow for QATrack+ to be made avaialable in multiple languages.  For discussion
+allow for QATrack+ to be made available in multiple languages. For discussion
 of how to mark templates and strings for translation please read the `Django
 docs on translation
 <https://docs.djangoproject.com/en/4.2/topics/i18n/translation/>`__.
+
+**Adding a New Language to QATrack+**
+
+For detailed instructions on adding a new language to QATrack+, including step-by-step
+workflows and translation automation, please refer to the :ref:`Add Language Tutorial <add_language>` 
+in the tutorials section.
 
 
 Tool Tips And User Hints
@@ -256,6 +314,16 @@ configuration sections is included in the setup.cfg file. To run yapf:
 
     make yapf
 
+Using Make Commands
+~~~~~~~~~~~~~~~~~~
+
+QATrack+ includes a Makefile with convenient shortcuts for common development tasks like running tests, formatting code, and building documentation. You can see all available commands by running:
+
+.. code-block:: shell
+
+    make help
+
+For detailed information about using make and understanding Makefiles, refer to the `GNU Make Manual <https://www.gnu.org/software/make/manual/>`_.
 
 Import Order
 ~~~~~~~~~~~~
@@ -356,6 +424,15 @@ you can install either pair using the following commands:
     # Option 2: Install Chromium and chromedriver
     sudo apt install chromium-browser chromium-chromedriver
 
+**Manual Downloads (Alternative Installation)**
+
+If the package manager installation doesn't work or you need a specific version, you can download the drivers manually:
+
+* **geckodriver**: Download from the `official Mozilla website <https://firefox-source-docs.mozilla.org/testing/geckodriver/>`_
+* **chromedriver**: Download from the `official Chrome releases <https://chromedriver.chromium.org/downloads>`_
+
+After downloading, make the driver executable and verify the path.
+
 
 **Configuring Selenium Tests**
 
@@ -367,7 +444,7 @@ You'll need to configure your browser settings in two files. First, update the S
     # Options: 'firefox', 'chromium'
     SELENIUM_BROWSER = ''
     
-    # Browser Driver Paths (leave empty to use system default)
+    # Browser Driver Paths
     SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver as shown above
     SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver as shown above
     
@@ -381,7 +458,7 @@ Then also update `SELENIUM_VIRTUAL_DISPLAY` in `qatrack/test_settings.py`:
 .. code-block::
     
     # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = True  # Set to False to enable visible browser
+    SELENIUM_VIRTUAL_DISPLAY = False  # Set to True to use headless browser for testing (requires xvfb)
 
 **Configuration Examples**
 
@@ -472,6 +549,52 @@ For more information on using py.test, refer to the `py.test documentation
     .. code-block:: shell
 
         make cover
+
+
+Customizing Organization Logos
+-----------------------------
+
+QATrack+ reports include an option to display your organization's logo.
+
+**Adding Your Organization Logo**
+
+1. **Prepare your logo file:**
+   - Use a PNG format for best compatibility
+   - Recommended size: 200x60 pixels or similar aspect ratio
+   - Keep file size reasonable (under 100KB)
+
+2. **Replace the placeholder logo:**
+   - Navigate to ``qatrack/reports/static/reports/img/``
+   - Replace the existing ``logo.png`` file with your own logo
+   - Keep the same filename (``logo.png``) to avoid template changes
+
+3. **Alternative: Use a different filename:**
+   - If you prefer a different filename, edit ``qatrack/reports/templates/reports/_header.html``
+   - Update all references from ``logo.png`` to your preferred filename
+   - Update the alt text and fallback messages as needed
+
+4. **Collect static files:**
+   After making changes, run:
+   
+   .. code-block:: shell
+   
+       python manage.py collectstatic --noinput
+
+**Logo Display Options**
+
+- **HTML Reports:** Logo is displayed using Django's static file handling
+- **PDF Reports:** Logo uses file:// paths for compatibility with PDF generation
+- **Error Handling:** If the logo fails to load, nothing is displayed (no fallback message)
+- **Visibility Control:** Users can toggle logo display on/off in report settings
+
+**Customizing Logo Text**
+
+To change the alt text:
+- Edit ``qatrack/reports/templates/reports/_header.html``
+- Update the translation strings for "Organization Logo"
+- Add translations to your locale files if using multiple languages
+
+**Note:** The logo functionality is designed to be easily customizable without requiring code changes to the core application.
 
 
 Writing Documentation
