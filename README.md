@@ -63,7 +63,18 @@ develop QATrack+.
 Documentation for earlier versions of QATrack+ (v0.2.7-v0.2.9) can be found in
 the [QATrack+ Wiki on BitBucket](https://bitbucket.org/tohccmedphys/qatrackplus/wiki/Home).
 
+
+## Thank you
+
+This project would not be possible without the hard work of many past and current contributors. 
+TODO: List contributors
+TODO: Thank CNSC for funding
+TODO: Thank TOHCC
+
+
 ---
+
+
 
 ## Important notes regarding 3rd party code in QATrack+
 
