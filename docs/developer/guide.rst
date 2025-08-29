@@ -666,10 +666,12 @@ Copyright & Licensing
 The author of the code (or potentially their employer) retains the copyright of
 their work even when contributing code to QATrack+.  However, unless specified
 otherwies, by submitting code to the QATrack+ project you agree to have it
-distributed using the same `MIT license
+distributed using the same `Apache License Version 2.0
 <https://github.com/qatrackplus/qatrackplus/blob/master/LICENSE>`__ as
 QATrack+ uses.
 
+Previous versions of this project have been distributed under the MIT license. This change 
+was made to better align with the licenses used by dependencies. 
 
 I'm not a developer, how can I help out?
 ----------------------------------------
