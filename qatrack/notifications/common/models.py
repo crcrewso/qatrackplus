@@ -18,7 +18,7 @@ from qatrack.units.models import Unit
 
 
 class RecipientGroup(models.Model):
-
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
     name = models.CharField(
         max_length=255,
         help_text=_l("Enter a name for this group of recipients"),
@@ -57,20 +57,27 @@ class RecipientGroup(models.Model):
         self._sort_emails()
         super().save(*args, **kwargs)
 
+    class Meta:
+        verbose_name = _l("Recipient Group")
+        verbose_name_plural = _l("Recipient Groups")
+
     def __str__(self):
         return self.name
 
 
 class TestListGroup(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     name = models.CharField(max_length=255, help_text=_l("Enter a name for this group of TestLists"))
 
     test_lists = models.ManyToManyField(
         TestList,
-        help_text=_l(
-            "Select which Test Lists should be included in this notification group."
-        ),
+        help_text=_l("Select which Test Lists should be included in this notification group."),
     )
+
+    class Meta:
+        verbose_name = _l("Test List Group")
+        verbose_name_plural = _l("Test List Groups")
 
     __test__ = False  # supress pytest warning
 
@@ -79,15 +86,18 @@ class TestListGroup(models.Model):
 
 
 class UnitGroup(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     name = models.CharField(max_length=255, help_text=_l("Enter a name for this group of Units"))
 
     units = models.ManyToManyField(
         Unit,
-        help_text=_l(
-            "Select which Units should be included in this notification group."
-        ),
+        help_text=_l("Select which Units should be included in this notification group."),
     )
+
+    class Meta:
+        verbose_name = _l("Unit Group")
+        verbose_name_plural = _l("Unit Groups")
 
     def __str__(self):
         return self.name

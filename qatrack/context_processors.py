@@ -9,6 +9,10 @@ from django.db.models import ObjectDoesNotExist
 from django.db.models.signals import post_delete, post_save, pre_delete
 from django.dispatch import receiver
 from django.utils.formats import get_format
+from django.utils.translation import get_language_info
+from django.utils.translation import gettext_lazy as _l
+
+import os
 
 from qatrack.faults.models import Fault
 from qatrack.parts.models import PartStorageCollection, PartUsed
@@ -237,3 +241,71 @@ def get_sl_notification_total(request, se_unreviewed, rts_incomplete, rts_unrevi
         ('qa.can_review', rts_unreviewed),
     ]
     return sum(count for perm, count in perms if hasattr(request, 'user') and request.user.has_perm(perm))
+
+
+def available_languages(request):
+    """
+    Context processor to provide available languages for the language switcher dropdown.
+    LANGUAGES setting takes precedence over auto-detection when explicitly set.
+    """
+    languages = []
+    
+    # Check if LANGUAGES is explicitly set in settings
+    languages_explicitly_set = hasattr(settings, 'LANGUAGES') and settings.LANGUAGES
+    
+    # Get languages from Django settings
+    if languages_explicitly_set:
+        for lang_code, lang_name in settings.LANGUAGES:
+            try:
+                # Get detailed language info
+                lang_info = get_language_info(lang_code)
+                languages.append({
+                    'code': lang_code,
+                    'name': lang_info['name_local'],  # Name in the language itself
+                    'name_translated': lang_name,     # Name in current language
+                    'bidi': lang_info['bidi'],       # Right-to-left support
+                })
+            except:
+                # Fallback if language info not available
+                languages.append({
+                    'code': lang_code,
+                    'name': lang_name,
+                    'name_translated': lang_name,
+                    'bidi': False,
+                })
+    
+    # Only scan locale directory if LANGUAGES is NOT explicitly set
+    # This allows auto-detection when no LANGUAGES is specified
+    if not languages_explicitly_set and hasattr(settings, 'LOCALE_PATHS'):
+        for locale_path in settings.LOCALE_PATHS:
+            if os.path.exists(locale_path):
+                try:
+                    for item in os.listdir(locale_path):
+                        item_path = os.path.join(locale_path, item)
+                        if os.path.isdir(item_path) and os.path.exists(os.path.join(item_path, 'LC_MESSAGES')):
+                            # This looks like a valid locale directory
+                            if not any(lang['code'] == item for lang in languages):
+                                try:
+                                    lang_info = get_language_info(item)
+                                    languages.append({
+                                        'code': item,
+                                        'name': lang_info['name_local'],
+                                        'name_translated': lang_info['name'],
+                                        'bidi': lang_info['bidi'],
+                                    })
+                                except:
+                                    # Fallback for unknown languages
+                                    languages.append({
+                                        'code': item,
+                                        'name': item.upper(),
+                                        'name_translated': item.upper(),
+                                        'bidi': False,
+                                    })
+                except (OSError, PermissionError):
+                    # Skip if we can't read the directory
+                    pass
+    
+    # Sort languages by code for consistent ordering
+    languages.sort(key=lambda x: x['code'])
+    
+    return {'available_languages': languages}

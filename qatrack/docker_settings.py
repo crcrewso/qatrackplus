@@ -12,7 +12,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-
 print('Running docker settings')
 
 ALLOWED_HOSTS = ['*']
@@ -32,7 +31,7 @@ except IOError:
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': "postgres",
         'USER': "postgres",
         'PASSWORD': "postgres",

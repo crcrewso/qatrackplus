@@ -12,6 +12,7 @@ from qatrack.units import models as u_models
 
 
 class Supplier(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     name = models.CharField(
         verbose_name=_l("supplier"),
@@ -44,6 +45,8 @@ class Supplier(models.Model):
 
     class Meta:
         ordering = ('name',)
+        verbose_name = _l("Supplier")
+        verbose_name_plural = _l("Suppliers")
 
     def get_absolute_url(self):
         return reverse("supplier_details", kwargs={"pk": self.pk})
@@ -58,11 +61,13 @@ class Supplier(models.Model):
                 )
             )
         return ""
+
     def __str__(self):
         return self.name
 
 
 class Contact(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     supplier = models.ForeignKey(
         Supplier,
@@ -112,6 +117,7 @@ class RoomManager(models.Manager):
 
 
 class Room(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     site = models.ForeignKey(
         u_models.Site,
@@ -132,6 +138,8 @@ class Room(models.Model):
     class Meta:
         ordering = ['site', 'name']
         unique_together = ['site', 'name']
+        verbose_name = _l("Room")
+        verbose_name_plural = _l("Rooms")
 
     def __str__(self):
         return '%s%s' % (self.name, ' (%s)' % self.site.name if self.site else '')
@@ -154,6 +162,7 @@ class StorageManager(models.Manager):
 
 
 class Storage(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     room = models.ForeignKey(
         Room,
@@ -166,18 +175,23 @@ class Storage(models.Model):
 
     location = models.CharField(
         verbose_name=_l("location"),
-        max_length=32, blank=True, null=True,
+        max_length=32,
+        blank=True,
+        null=True,
         help_text=_l('Where is this storage located?'),
     )
     description = models.TextField(
         verbose_name=_l("description"),
-        max_length=255, null=True, blank=True,
+        max_length=255,
+        null=True,
+        blank=True,
         help_text=_l("Optional description of this storage"),
     )
 
     objects = StorageManager()
 
     class Meta:
+        verbose_name = _l("Storage")
         verbose_name_plural = _l("Storage")
         unique_together = ['room', 'location']
 
@@ -196,6 +210,7 @@ class Storage(models.Model):
 
 
 class PartCategory(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     name = models.CharField(
         verbose_name=_l("part category"),
@@ -204,13 +219,15 @@ class PartCategory(models.Model):
     )
 
     class Meta:
-        verbose_name_plural = _l("Categories")
+        verbose_name = _l("Part Category")
+        verbose_name_plural = _l("Part Categories")
 
     def __str__(self):
         return self.name
 
 
 class Part(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     name = models.CharField(
         verbose_name=_l("name"),
@@ -298,6 +315,8 @@ class Part(models.Model):
         unique_together = [
             ('part_number', 'new_or_used'),
         ]
+        verbose_name = _l("Part")
+        verbose_name_plural = _l("Parts")
 
     def __str__(self):
 
@@ -339,6 +358,7 @@ class PartStorageCollectionManager(models.Manager):
 
 
 class PartStorageCollection(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     part = models.ForeignKey(
         Part,
@@ -363,6 +383,8 @@ class PartStorageCollection(models.Model):
     class Meta:
         unique_together = ('part', 'storage')
         default_permissions = ()
+        verbose_name = _l("Part Storage Collection")
+        verbose_name_plural = _l("Part Storage Collections")
 
     def save(self, *args, **kwargs):
         self.quantity = self.quantity if self.quantity >= 0 else 0
@@ -405,9 +427,12 @@ class PartSupplierCollection(models.Model):
     class Meta:
         unique_together = ('part', 'supplier', 'part_number')
         default_permissions = ()
+        verbose_name = _l("Part Supplier Collection")
+        verbose_name_plural = _l("Part Supplier Collections")
 
 
 class PartUsed(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     service_event = models.ForeignKey(
         sl_models.ServiceEvent,
@@ -434,6 +459,10 @@ class PartUsed(models.Model):
         verbose_name=_l("quantity"),
         help_text=_l('Select how many parts were used from this Storage'),
     )
+
+    class Meta:
+        verbose_name = _l("Part Used")
+        verbose_name_plural = _l("Parts Used")
 
     def add_back_to_storage(self):
 

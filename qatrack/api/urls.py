@@ -1,11 +1,10 @@
-from django.conf.urls import include, url
+from django.urls import include, re_path as url
 from rest_framework.authtoken import views as auth_views
 from rest_framework.schemas import get_schema_view
 
 from qatrack.api import views
 
 schema_view = get_schema_view(title='QATrack+ API')
-
 
 urlpatterns = [
     url(r'^$', views.all_api_roots, name="api-root"),

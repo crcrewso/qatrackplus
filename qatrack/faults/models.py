@@ -51,6 +51,8 @@ class FaultType(models.Model):
 
     class Meta:
         ordering = ("code",)
+        verbose_name = _l("Fault Type")
+        verbose_name_plural = _l("Fault Types")
 
     def save(self, *args, **kwargs):
         self.slug = unique_slug_generator(self, self.code)
@@ -70,7 +72,7 @@ class FaultManager(models.Manager):
 
 
 class Fault(models.Model):
-
+    id = models.AutoField(primary_key=True, verbose_name=_l("ID"))
     unit = models.ForeignKey(
         u_models.Unit,
         verbose_name=_l("unit"),
@@ -134,6 +136,8 @@ class Fault(models.Model):
 
     class Meta:
         ordering = ("-occurred",)
+        verbose_name = _l("Fault")
+        verbose_name_plural = _l("Faults")
         permissions = (("can_review", _l("Can review faults")),)
 
     def get_absolute_url(self):
@@ -200,6 +204,10 @@ class FaultReviewGroup(models.Model):
         help_text=_l("Is review by this group required in order to consider a fault reviewed"),
         default=True,
     )
+
+    class Meta:
+        verbose_name = _l("Fault Review Group")
+        verbose_name_plural = _l("Fault Review Groups")
 
 
 class FaultReviewInstance(models.Model):

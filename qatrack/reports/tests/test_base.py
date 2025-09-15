@@ -501,8 +501,8 @@ class TestFilters(TestCase):
         for test_input in test_inputs:
             start, end = cdf.clean(test_input)
             tz = timezone.get_current_timezone()
-            expected_start = tz.localize(timezone.datetime(2019, 1, 1))
-            expected_end = tz.localize(timezone.datetime(2019, 1, 2, 23, 59, 59))
+            expected_start = timezone.datetime(2019, 1, 1).replace(tzinfo=tz)
+            expected_end = timezone.datetime(2019, 1, 2, 23, 59, 59).replace(tzinfo=tz)
             assert (start, end) == (expected_start, expected_end)
 
     def test_category_choices(self):
@@ -814,10 +814,10 @@ class TestBaseReport(TestCase):
     def test_to_html(self):
         assert 'class="container-fluid"' in reports.BaseReport().to_html()
 
-    @mock.patch("qatrack.reports.reports.chrometopdf")
-    def test_to_pdf(self, chrometopdf):
+    @mock.patch("qatrack.reports.reports.weasyprint_to_pdf")
+    def test_to_pdf(self, weasyprint_to_pdf):
         reports.BaseReport().to_pdf()
-        assert 'class="container-fluid"' in chrometopdf.call_args[0][0]
+        assert 'class="container-fluid"' in weasyprint_to_pdf.call_args[0][0]
 
     def test_to_csv(self):
         rep = reports.BaseReport()
@@ -857,7 +857,7 @@ class TestReportInterface(BaseQATests):
         self.select_by_text('id_root-report_type', qc.TestListInstanceSummaryReport.name)
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_work_completed')))
         self.click("preview")
-        self.driver.find_element_by_css_selector('#report .container-fluid')
+        self.driver.find_element(By.CSS_SELECTOR, '#report .container-fluid')
 
     def test_save_report(self):
         """Ensure filling and saving a report results in a SavedReport in the db"""
@@ -922,11 +922,11 @@ class TestReportInterface(BaseQATests):
         self.driver.refresh()
         self.wait.until(e_c.presence_of_element_located((By.ID, 'report-id-%s' % sr.pk)))
         self.click('report-id-%s' % sr.pk)
-        wc = self.driver.find_element_by_id('id_work_completed')
+        wc = self.driver.find_element(By.ID, 'id_work_completed')
         assert wc.get_attribute("value") == "02 Jan 1989 - 04 Jan 1990"
-        heading = self.driver.find_element_by_id("id_reportnote_set-0-heading")
+        heading = self.driver.find_element(By.ID, "id_reportnote_set-0-heading")
         assert heading.get_attribute("value") == "heading"
-        content = self.driver.find_element_by_id("id_reportnote_set-0-content")
+        content = self.driver.find_element(By.ID, "id_reportnote_set-0-content")
         assert content.get_attribute("value") == "content"
 
     def test_load_report_edit_note(self):
@@ -950,7 +950,7 @@ class TestReportInterface(BaseQATests):
         self.driver.refresh()
         self.wait.until(e_c.presence_of_element_located((By.ID, 'report-id-%s' % sr.pk)))
         self.click('report-id-%s' % sr.pk)
-        heading = self.driver.find_element_by_id("id_reportnote_set-0-heading")
+        heading = self.driver.find_element(By.ID, "id_reportnote_set-0-heading")
         heading.send_keys(" add some new text")
         self.click("save")
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'success-message')))
@@ -1033,10 +1033,10 @@ class TestReportInterface(BaseQATests):
         self.click('report-id-%s-schedule' % sr.pk)
 
         self.select_by_index('id_schedule-time', 1)
-        self.driver.find_element_by_id("id_schedule-emails").send_keys("a@b.com")
+        self.driver.find_element(By.ID, "id_schedule-emails").send_keys("a@b.com")
 
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'add-date')))
-        self.driver.find_element_by_class_name("add-date").click()
+        self.driver.find_element(By.CLASS_NAME, "add-date").click()
 
         self.click("schedule")
 
