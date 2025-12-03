@@ -75,3 +75,4 @@ source (or a url where you can find it).
 ## Tasks
 
 TODO: Deprecation Check `python -Wd manage.py check`
+TODO: Detail branches 

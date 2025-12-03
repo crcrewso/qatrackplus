@@ -88,20 +88,28 @@ mysql = [
     "mysqlclient==2.0.3",
 ]
 
-postgres = [
-    "psycopg2-binary==2.8.6",
-]
-win = [
-    "CherryPy==18.0.1",
-    "pyreadline",
-    "pywin32>=300",
+mssql = [
     "mssql-django>=1.5",
     "python-ldap",
     "django-auth-ldap<4.9",
 ]
 
+postgres = [
+    "psycopg[binary]",
+]
+win = [
+    "CherryPy==18.0.1",
+    "pyreadline",
+    "pywin32>=300",
+]
+
 docker = [
     "gunicorn==19.9.0",
+]
+
+translations = [
+    "polib>=1.2.0",
+    "googletrans==4.0.0rc1",
 ]
 
 [project.urls]
