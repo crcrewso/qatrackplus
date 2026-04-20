@@ -103,6 +103,23 @@ the appropriate protocol.
     HTTP_OR_HTTPS = 'https'  # when using https/ssl for your site
 
 
+Local Site Code Function Modules
+................................
+
+You can register deployment-specific helper functions for composite and upload
+calculations by setting ``LOCAL_SITE_CODE_FUNCTION_MODULES`` in
+``local_settings.py``.
+
+.. code-block:: python
+
+    LOCAL_SITE_CODE_FUNCTION_MODULES = (
+        "local_site_code_sample",
+    )
+
+See :doc:`local_site_code_custom_functions` for the full Local Site Code setup,
+usage examples, and maintainability guidance.
+
+
 .. _databases:
 
 DATABASES Setting

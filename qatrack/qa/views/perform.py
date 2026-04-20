@@ -51,6 +51,7 @@ from qatrack.units.models import Site, Unit
 
 from . import forms
 from .. import models, signals, utils
+from ..local_site_code import get_local_site_code_calculation_context
 from .base import BaseEditTestListInstance, TestListInstances, UTCList, logger
 
 pd.plotting.register_matplotlib_converters()  # required so matplotlib can convert dates correctly
@@ -448,6 +449,7 @@ class UploadHandler:
                 ),
         })
         self.calculation_context.update(DEFAULT_CALCULATION_CONTEXT)
+        self.calculation_context.update(get_local_site_code_calculation_context())
 
 
 class Upload(JSONResponseMixin, View):
@@ -600,6 +602,7 @@ class Upload(JSONResponseMixin, View):
                 ),
         })
         self.calculation_context.update(DEFAULT_CALCULATION_CONTEXT)
+        self.calculation_context.update(get_local_site_code_calculation_context())
 
     def get_json_data(self, name):
         """return python data from GET json data"""
@@ -796,6 +799,7 @@ class CompositePerformer:
         })
 
         self.calculation_context.update(DEFAULT_CALCULATION_CONTEXT)
+        self.calculation_context.update(get_local_site_code_calculation_context())
 
         self.context_keys = list(self.calculation_context.keys())
 

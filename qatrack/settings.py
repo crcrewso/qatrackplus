@@ -45,6 +45,15 @@ SITE_ID = 1
 SITE_NAME = "QATrack+"
 
 # -----------------------------------------------------------------------------
+# Local Site Code settings
+#
+# Define one or more dotted module paths in local_settings.py. Each module must
+# expose a dictionary named LOCAL_SITE_CODE_FUNCTIONS where keys are function
+# names and values are callables. These callables are made available in
+# composite/upload calculation context under LOCAL_SITE_CODE and LSC.
+LOCAL_SITE_CODE_FUNCTION_MODULES = ()
+
+# -----------------------------------------------------------------------------
 # Database settings
 
 # if you wish to override the database settings below (e.g. for deployment),

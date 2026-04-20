@@ -56,5 +56,6 @@ described here:
    :maxdepth: 1
 
    config
+   local_site_code_custom_functions
    authentication_backends
    backup
