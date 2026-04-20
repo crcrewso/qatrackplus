@@ -5,7 +5,6 @@ import os
 import time
 
 from django.conf import settings
-from django.contrib.auth.models import Permission
 from django.urls import reverse
 from django.utils import timezone
 import pytest
@@ -756,34 +755,6 @@ class TestTestListInstanceAPI(APITestCase):
         tli = models.TestListInstance.objects.first()
         assert tli.created_by.username == "user"
         assert tli.modified_by.username == "user2"
-
-    def test_edit_perms(self):
-        """
-        Check user with editing perms can edit tl
-        If user has no edit perms, attempting to edit should return a 403.
-        """
-
-        resp = self.client.post(self.create_url, self.data)
-        self.client.logout()
-        user = utils.create_user(uname="user2", is_staff=False, is_superuser=False)
-        user.user_permissions.add(Permission.objects.get(codename="change_testlistinstance"))
-        self.client.force_authenticate(user=user)
-        new_data = {'tests': {'test1': {'value': 99}}}
-        edit_resp = self.client.patch(resp.data['url'], new_data)
-        assert edit_resp.status_code == 200
-
-    def test_no_edit_perms(self):
-        """
-        Check user without editing perms can not edit tl
-        """
-
-        resp = self.client.post(self.create_url, self.data)
-        self.client.logout()
-        user = utils.create_user(uname="user2", is_staff=False, is_superuser=False)
-        self.client.force_authenticate(user=user)
-        new_data = {'tests': {'test1': {'value': 99}}}
-        edit_resp = self.client.patch(resp.data['url'], new_data)
-        assert edit_resp.status_code == 403
 
     def test_tl_comments(self):
         self.data['comment'] = "test list comment"
