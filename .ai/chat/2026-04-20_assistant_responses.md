@@ -117,3 +117,20 @@ This file stores assistant replies per user request.
 - Refactored API permission tests into dedicated file with renamed test names and inline comments indicating previous names.
 - Added baseline test modules for issue tracker app and middleware package in standardized `app/tests/test_*.py` layout.
 - Kept changes focused and prepared commit without executing the updated test suite.
+
+## 2026-04-20 - Test-suite refactor commit, plan artifact, and push
+- Committed the baseline test-suite refactor as `7377da0415e7f473c25521d6e6183cc8336f388b` on branch `feature/test-suite-local-site-code-remediation`.
+- Pushed the branch to origin.
+- Added a GitHub commit comment summarizing the extracted API permission tests and the new issue tracker/middleware baseline suites.
+- Added and separately committed the remediation plan artifact `.ai/reviews/test_suite_remediation_plan.md` as `63420e51e6a3779ea4e16a381a67f7bfcecfbcf9`.
+- Pushed the follow-up plan-artifact commit to origin.
+
+## 2026-04-20 - Dedicated .ai branch and artifact consolidation
+- Created temporary branch `chore/ai-pending-artifacts` to collect outstanding `.ai` artifacts and related planning/deployment documents.
+- Switched back to `feature/test-suite-local-site-code-remediation` to finish and push the remediation-plan follow-up commit.
+- Returned to `chore/ai-pending-artifacts` and committed the pending AI-generated planning/docs/deploy artifacts as `35bfdf793f9a97f7886c2fa859d86bf70006eadf`.
+- Pushed `chore/ai-pending-artifacts` to origin.
+
+## 2026-04-20 - Branch split proposal mirrored locally
+- Added a GitHub commit comment on `35bfdf793f9a97f7886c2fa859d86bf70006eadf` describing a recommended split of the consolidated artifact bundle into future branches.
+- Mirrored that proposal locally in `.ai/github/ai_pending_artifacts_branch_split_proposal.md` so the branch-structure recommendation is preserved in the repository, not only on GitHub.
