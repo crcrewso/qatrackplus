@@ -19,7 +19,7 @@ readme = "README.md"
 requires-python = ">=3.12, <=3.13"
 license = {text = "MIT"}
 authors = [
-    {name = "QATrack+ contributors", email = "randy@multileaf.ca"},
+    {name = "QATrack+ contributors", email = "medphys@crcrewso.ca"},
 ]
 keywords = ["QATrack+", "medical physics", "TG142", "quality assurance", "linac", "CT", "MRI", "radiotherapy", "diagnostic imaging"]
 classifiers = [
@@ -28,7 +28,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Healthcare Industry", 
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python",
@@ -90,8 +90,8 @@ mysql = [
 
 mssql = [
     "mssql-django>=1.5",
-    "python-ldap",
     "django-auth-ldap<4.9",
+    "python-ldap",
 ]
 
 postgres = [
@@ -110,6 +110,7 @@ docker = [
 translations = [
     "polib>=1.2.0",
     "googletrans==4.0.0rc1",
+    "python-gettext==3.0.0",
 ]
 
 [project.urls]

@@ -1,17 +1,11 @@
-Important Notice
-================
-
-QATrack+ no longer has a maintainer. Please see the announcement on
-the `QATrack+ Mailing List <https://groups.google.com/g/qatrack/c/79EoHF4U54Y>`_.
-
 Welcome to QATrack+'s documentation!
 ====================================
 
 
-About QATrack+ v3.1.1
+About QATrack+ v4.0.0
 ---------------------
 
-QATrack+ is a fully configurable, free, and open source (MIT License) web
+QATrack+ is a fully configurable, free, and open source (Apache License, Version 2.0) web
 application for managing QC data for radiation therapy and medical imaging
 equipment. QATrack+ is used in `many hospitals and clinics around the world
 <http://qatrackplus.com/#whos-using>`_!
@@ -121,17 +115,13 @@ Mailing List, General Questions, Discussions or Support?
 If you have general questions, want to have an initial discussion about
 features or the way things work (basically anything that isn't a specific bug
 report or feature request) please use the :mailinglist:`Google QATrack+ Group
-Forum <>`.
+Forum <>` or :discussion:`GitHub Discussions <>`. 
 
 This forum is also a mailing list and it is highly recommended that you
 subscribe to email updates from the forum to get all the announcements about
 QATrack+ releases and discussions.
 
-Commercial Support and Hosting Services
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Commercial support and cloud hosting services for QATrack+ are now available
-from `Multi Leaf Consulting <https://multileaf.ca>`__.
 
 Email
 -----

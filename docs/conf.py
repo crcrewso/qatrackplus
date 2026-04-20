@@ -170,6 +170,7 @@ texinfo_documents = [
 extlinks = {
     'mailinglist': ("https://groups.google.com/forum/#!forum/qatrack/%s", ''),
     'issues': ("https://github.com/qatrackplus/qatrackplus/issues/%s", ''),
+    'discussion': ("https://github.com/qatrackplus/qatrackplus/discussions/%s", ''),
 }
 
 rst_prolog = """

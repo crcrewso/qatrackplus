@@ -25,7 +25,7 @@ started developing for the QATrack+ project will be given here.  That said,
 there are lots of steps involved which can be intimidating to newcomers
 (especially git!).  Try not to get discouraged and if you get stuck on anything
 or have questions about using git or contributing code then please post to the
-:mailinglist:`mailing list <>` so we can help you out!
+:mailinglist:`mailing list <>` or :discussion:`GitHub Discussions <>` so we can help you out!
 
 Prerequisites
 ~~~~~~~~~~~~
@@ -242,7 +242,7 @@ QATrack+ Development Guidelines
 The following lists some guidelines to keep in mind when developing for
 QATrack+.
 
-
+.. _localization-instructions:
 Internationalization & Translation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -666,7 +666,7 @@ Copyright & Licensing
 The author of the code (or potentially their employer) retains the copyright of
 their work even when contributing code to QATrack+.  However, unless specified
 otherwies, by submitting code to the QATrack+ project you agree to have it
-distributed using the same `MIT license
+distributed using the same `Apache License, Version 2.0 
 <https://github.com/qatrackplus/qatrackplus/blob/master/LICENSE>`__ as
 QATrack+ uses.
 
@@ -684,7 +684,7 @@ development:
   internationalization infrastructure. We welcome community contributions for
   translation files in different languages. Use the translation manager script
   to help automate translations, then refine them manually for accuracy.
-  See the "Internationalization & Translation" section above for detailed commands.
+  See the :ref:`localization-instructions` section above for detailed commands.
 
 * **Tutorials:** :ref:`Tutorials <tutorials>` are a great way for newcomers to
   learn their way around QATrack+.  If you have an idea for a tutorial, we
@@ -693,6 +693,8 @@ development:
 * **Mailing List:** QATrack+ has a :mailinglist:`mailing list <>` which
   QATrack+ users and administrators may find useful for getting support and
   discussing bugs and/or features. Join the list and chime in!
+
+* **GitHub Discussions:** QATrack+ also has a :discussion:`GitHub Discussions <>` page for more interactive discussions and community support.
 
 * **Spread the word:** The QATrack+ community has grown primarily through word
   of mouth. Please let others know about QATrack+ when discussing QA/QC

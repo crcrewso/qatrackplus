@@ -17,7 +17,7 @@ Prerequisites
 Supported Languages
 ------------------
 
-QATrack+ supports any language that Django supports. Common language codes include:
+QATrack+ may support any language that Django supports. Common language codes include:
 
 - **French**: ``fr``
 - **Spanish**: ``es`` 
@@ -28,6 +28,19 @@ QATrack+ supports any language that Django supports. Common language codes inclu
 - **Japanese**: ``ja``
 - **Korean**: ``ko``
 - **Russian**: ``ru``
+
+Step 0: uv Package for Translations
+--------------------------------
+
+If you have not already, you will need to install the translation dependencies using uv by adding the `--extra translations` option when installing QATrack+:
+.. code-block:: bash
+
+    uv sync --extra win --extra mssql --extra translations --group dev
+
+This will install the necessary dependencies for translation management, including the translation script that can automate the translation process using Google Translate.
+
+
+_TODO: Update this section after confirming a local settings file that is just for language development and testing. This will allow us to avoid installing translation dependencies in production environments where they are not needed._
 
 Step 1: Generate Translation Files
 ----------------------------------
