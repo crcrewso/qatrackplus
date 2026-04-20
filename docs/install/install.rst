@@ -56,5 +56,6 @@ described here:
    :maxdepth: 1
 
    config
+   site_palette
    authentication_backends
    backup

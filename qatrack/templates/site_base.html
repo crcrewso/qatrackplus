@@ -19,7 +19,7 @@
     <link href="{% static "fontawsome/css/font-awesome.min.css" %}?v={{ VERSION }}" rel="stylesheet">
     <link href="{% static "bootstrap/css/bootstrap.css" %}?v={{ VERSION }}" rel="stylesheet">
     <link href="{% static "adminlte/css/admin-lte.css" %}?v={{ VERSION }}" rel="stylesheet">
-    <link href="{% static "adminlte/css/skins/skin-black-dark.css" %}?v={{ VERSION }}" rel="stylesheet">
+    <link href="{% static "adminlte/css/skins/" %}{{ SITE_SKIN }}.css?v={{ VERSION }}" rel="stylesheet">
     <link href="{% static "qatrack_core/css/custom-adminlte.css" %}?v={{ CSS_VERSION }}" rel="stylesheet">
     <link href="{% static "qatrack_core/css/custom-fontawesome.css" %}?v={{ CSS_VERSION }}" rel="stylesheet">
     <link href="{% static "qatrack_core/css/base.css" %}?v={{ CSS_VERSION }}" rel="stylesheet">
@@ -141,7 +141,7 @@
     {% block head_extra %}{% endblock head_extra %}
   </head>
 
-  <body {# data-instant-allow-query-string="true" #} class="skin-black-dark fixed {% block body_class %}layout-top-nav{% endblock body_class %} preload">
+  <body {# data-instant-allow-query-string="true" #} class="{{ SITE_SKIN }} fixed {% block body_class %}layout-top-nav{% endblock body_class %} preload">
 
     <div class="wrapper">
 

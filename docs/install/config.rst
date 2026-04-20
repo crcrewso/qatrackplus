@@ -103,6 +103,20 @@ the appropriate protocol.
     HTTP_OR_HTTPS = 'https'  # when using https/ssl for your site
 
 
+Site Color Skin Setting
+.......................
+
+You can change the overall QATrack+ color palette by setting ``SITE_SKIN`` in
+your ``local_settings.py`` file.
+
+.. code-block:: python
+
+    SITE_SKIN = 'skin-green-light'
+
+See :doc:`site_palette` for the full list of supported skin values and visual
+examples.
+
+
 .. _databases:
 
 DATABASES Setting

@@ -43,6 +43,22 @@ ROOT_URLCONF = 'qatrack.urls'
 
 SITE_ID = 1
 SITE_NAME = "QATrack+"
+AVAILABLE_ADMINLTE_SKINS = (
+    "skin-black",
+    "skin-black-dark",
+    "skin-black-light",
+    "skin-blue",
+    "skin-blue-light",
+    "skin-green",
+    "skin-green-light",
+    "skin-purple",
+    "skin-purple-light",
+    "skin-red",
+    "skin-red-light",
+    "skin-yellow",
+    "skin-yellow-light",
+)
+SITE_SKIN = "skin-black-dark"
 
 # -----------------------------------------------------------------------------
 # Database settings

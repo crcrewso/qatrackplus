@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Green Light Palette Preview</title>
+  <desc id="desc">Preview of QATrack plus skin-green-light.</desc>
+  <rect width="1200" height="700" fill="#edf7ef"/>
+  <rect x="0" y="0" width="1200" height="84" fill="#00a65a"/>
+  <rect x="0" y="84" width="270" height="616" fill="#007f45"/>
+  <rect x="290" y="120" width="880" height="120" rx="8" fill="#ffffff"/>
+  <rect x="290" y="270" width="430" height="180" rx="8" fill="#ffffff"/>
+  <rect x="740" y="270" width="430" height="180" rx="8" fill="#ffffff"/>
+  <rect x="290" y="480" width="880" height="180" rx="8" fill="#ffffff"/>
+  <rect x="0" y="84" width="270" height="50" fill="#00a65a"/>
+  <text x="36" y="52" font-family="Arial, sans-serif" font-size="34" fill="#ffffff">QATrack+ Green Light</text>
+  <text x="36" y="118" font-family="Arial, sans-serif" font-size="20" fill="#d9f2e3">Navigation</text>
+  <text x="320" y="186" font-family="Arial, sans-serif" font-size="24" fill="#2f3b33">Dashboard Card</text>
+  <circle cx="1090" cy="42" r="16" fill="#007f45"/>
+  <text x="997" y="48" font-family="Arial, sans-serif" font-size="16" fill="#e8fff1">Accent</text>
+</svg>

@@ -122,6 +122,10 @@ def update_colours(*args, **kwargs):
 
 
 def site(request):
+    default_skin = 'skin-black-dark'
+    available_skins = getattr(settings, 'AVAILABLE_ADMINLTE_SKINS', (default_skin, ))
+    configured_skin = getattr(settings, 'SITE_SKIN', default_skin)
+    site_skin = configured_skin if configured_skin in available_skins else default_skin
 
     context = {
         'SELF_REGISTER': settings.ACCOUNTS_SELF_REGISTER,
@@ -135,6 +139,7 @@ def site(request):
         'ICON_SETTINGS_JSON': json.dumps(settings.ICON_SETTINGS),
         'TEST_STATUS_SHORT_JSON': json.dumps(settings.TEST_STATUS_DISPLAY_SHORT),
         'REVIEW_DIFF_COL': settings.REVIEW_DIFF_COL,
+        'SITE_SKIN': site_skin,
         'DEBUG': settings.DEBUG,
         'CSRF_COOKIE_NAME': settings.CSRF_COOKIE_NAME,
         'USE_SQL_REPORTS': settings.USE_SQL_REPORTS,
