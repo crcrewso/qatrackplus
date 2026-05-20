@@ -32,7 +32,7 @@ Windows
 If you happen to be on a Windows system with Visual Studio installed, you
 should just be able to do `pip install python-ldap` and have the latest version of
 the pyldap package installed.  Otherwise,  there are binaries available on this
-page: https://www.lfd.uci.edu/~gohlke/pythonlibs/#python-ldap.  Download the binary
+page: https://github.com/cgohlke/python-ldap-build/releases.  Download the binary
 relevant to your Python 3 installation (e.g.
 python_ldap‑3.3.1‑cp36‑cp36m‑win_amd64.whl) and then pip install it:
 
