@@ -37,6 +37,9 @@ COPY ../../ .
 # Ensure necessary directories exist
 RUN mkdir -p logs qatrack/media qatrack/static
 
+# Copy docker settings into the qatrack package for Django import
+RUN cp deploy/docker/docker_settings.py qatrack/docker_settings.py
+
 # Make entrypoint executable
 RUN chmod +x deploy/docker/django/entrypoint.sh
 
