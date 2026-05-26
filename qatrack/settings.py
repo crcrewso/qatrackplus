@@ -692,9 +692,30 @@ for path in chrome_paths:
 
 import os
 if os.environ.get('USE_DOCKER') == 'true':
-    import sys
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'deploy', 'docker'))
-    from docker_settings import *
+    ALLOWED_HOSTS = ['*']
+
+    SECRET_FILEPATH = os.path.join(PROJECT_ROOT, '..', 'deploy', 'docker', 'user-data', 'secret_key.txt')
+    try:
+        with open(SECRET_FILEPATH, 'r') as f:
+            SECRET_KEY = f.read()
+    except IOError:
+        import secrets
+        SECRET_KEY = secrets.token_urlsafe(64)
+        os.makedirs(os.path.dirname(SECRET_FILEPATH), exist_ok=True)
+        with open(SECRET_FILEPATH, 'w') as f:
+            f.write(SECRET_KEY)
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB', 'qatrackplus'),
+            'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
+            'HOST': 'postgres',
+            'PORT': 5432
+        }
+    }
+
     if 'readonly' not in DATABASES and USE_SQL_REPORTS:
         DATABASES['readonly'] = DATABASES['default']
 else:
