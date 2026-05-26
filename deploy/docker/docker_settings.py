@@ -12,6 +12,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+import os
+
 print('Running docker settings')
 
 ALLOWED_HOSTS = ['*']
@@ -32,10 +34,10 @@ except IOError:
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': "postgres",
-        'USER': "postgres",
-        'PASSWORD': "postgres",
-        'HOST': "qatrack-postgres",
+        'NAME': os.environ.get('POSTGRES_DB', 'qatrackplus'),
+        'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
+        'HOST': 'postgres',
         'PORT': 5432
     }
 }

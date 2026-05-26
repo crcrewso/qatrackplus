@@ -98,6 +98,8 @@ LANGUAGE_CODE = 'en-us'
 # to load the internationalization machinery.
 USE_I18N = True
 USE_L10N = True
+#TODO: Test this as part of appropriate localization testing. 
+#TODO: Should QATrack+ support localization or internationalization?
 LANGUAGES = [('en', 'English'), ('fr', 'Français')]
 CONSTANT_PRECISION = 8
 DEFAULT_NUMBER_FORMAT = None
@@ -660,8 +662,6 @@ def EXPLORER_PERMISSION_VIEW(request):
     return request.user.has_perm("reports.can_run_sql_reports")
 
 
-if os.path.exists('/root/.is_inside_docker') and 'TRAVIS' not in os.environ:
-    from .docker_settings import *  # NOQA
 
 CHROME_PATH = ""
 if os.name.lower() == "nt":
@@ -690,7 +690,15 @@ for path in chrome_paths:
 # local_settings contains anything that should be overridden
 # based on site specific requirements (e.g. deployment, development etc)
 
-from .local_settings import *  # noqa: F403, F401, E402
+import os
+if os.environ.get('USE_DOCKER') == 'true':
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'deploy', 'docker'))
+    from docker_settings import *
+    if 'readonly' not in DATABASES and USE_SQL_REPORTS:
+        DATABASES['readonly'] = DATABASES['default']
+else:
+    from .local_settings import *  # noqa: F403, F401, E402
 
 TEMPLATES[0]['OPTIONS']['debug'] = DEBUG
 

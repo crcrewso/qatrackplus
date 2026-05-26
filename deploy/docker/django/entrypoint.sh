@@ -8,16 +8,13 @@ while ! pg_isready -h postgres -U postgres -d qatrackplus; do
 done
 echo "PostgreSQL started"
 
-# Setup local_settings if not exists
-if [ ! -f qatrack/local_settings.py ]; then
-    echo "from .docker_settings import *" > qatrack/local_settings.py
-fi
+export USE_DOCKER=true
+
+echo "Creating cache table..."
+python manage.py createcachetable
 
 echo "Running migrations..."
 python manage.py migrate --noinput
-
-echo "Creating cache table..."
-python manage.py createcachetable || true
 
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
