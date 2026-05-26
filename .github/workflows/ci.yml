@@ -226,10 +226,10 @@ jobs:
 
       - name: Build Docker Images
         # You can point this to docker-compose.dev.yml or docker-compose.yml depending on what you want to test
-        run: docker-compose -f docker-compose.dev.yml build
+        run: docker compose build
 
       - name: Start Docker Containers
-        run: docker-compose -f docker-compose.dev.yml up -d
+        run: docker compose up -d
 
       - name: Check Running Containers
         run: |
