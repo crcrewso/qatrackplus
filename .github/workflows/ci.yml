@@ -231,6 +231,9 @@ jobs:
           cp .env.example .env
           docker compose build
 
+      - name: Fix script permissions
+        run: chmod +x deploy/docker/django/entrypoint.sh
+
       - name: Start Docker Containers
         working-directory: deploy/docker
         run: docker compose up -d
