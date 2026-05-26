@@ -225,10 +225,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install docker-compose -y
 
       - name: Build Docker Images
-        # You can point this to docker-compose.dev.yml or docker-compose.yml depending on what you want to test
-        run: docker compose build
+        working-directory: deploy/docker
+        run: |
+          cp .env.example .env
+          docker compose build
 
       - name: Start Docker Containers
+        working-directory: deploy/docker
         run: docker compose up -d
 
       - name: Check Running Containers
@@ -238,7 +241,8 @@ jobs:
           sleep 10
           
       - name: Check Container Logs for Errors (Optional)
-        run: docker- ompose logs
+        working-directory: deploy/docker
+        run: docker compose logs
 
       - name: Verify Application is Up (Optional health check)
         # Check if the Django app container remains 'Up' and didn't exit
@@ -251,4 +255,5 @@ jobs:
 
       - name: Tear Down
         if: always()
+        working-directory: deploy/docker
         run: docker compose down -v
