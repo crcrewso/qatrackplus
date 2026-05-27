@@ -12,8 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-"""A set of utilities to manage the docker instance of qatrack
-"""
+"""A set of utilities to manage the docker instance of qatrack"""
 
 from glob import glob
 import os
@@ -24,7 +23,7 @@ import numpy as np
 
 from docker_utilities import QATRACK_DIRECTORY, wait_for_postrgres
 
-FIXTURES_GLOB: str = os.path.join(QATRACK_DIRECTORY, "fixtures/defaults/*/*")
+FIXTURES_GLOB: str = os.path.join(QATRACK_DIRECTORY, 'fixtures/defaults/*/*')
 
 
 def initialisation():
