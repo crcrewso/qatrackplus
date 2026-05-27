@@ -1,14 +1,12 @@
-import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
 from django_q.models import Schedule, Task
-from django_q.tasks import async_task, fetch
+from django_q.tasks import async_task
 
-from qatrack.qatrack_core.tasks import run_periodic_scheduler
 from qatrack.qa import models
-import qatrack.qa.tests.utils as utils
+from qatrack.qatrack_core.tasks import run_periodic_scheduler
 
 
 class TestDjangoQ2BasicFunctionality(TestCase):

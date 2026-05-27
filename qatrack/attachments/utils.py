@@ -1,10 +1,10 @@
 import io
 import os
 
-from PIL import Image
 import imageio
-from matplotlib.figure import Figure
 import pydicom
+from matplotlib.figure import Figure
+from PIL import Image
 
 
 def imsave(obj, fname):
@@ -118,4 +118,4 @@ def to_bytes(obj, fname=None):
     except TypeError:
         pass
 
-    return bytes()
+    return b''

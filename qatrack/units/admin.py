@@ -102,9 +102,9 @@ class UnitFormAdmin(ModelForm):
                     self.data = data_copy
                     self.add_error(
                         'service_areas', (
-                            'Cannot remove {} from unit {}. '
+                            f'Cannot remove {usa.service_area.name} from unit {unit.name}. '
                             'There exists Service Event(s) with that Unit and Service Area.'
-                        ).format(usa.service_area.name, unit.name)
+                        )
                     )
 
         return service_areas
@@ -183,15 +183,15 @@ class UnitTypeAdmin(BaseQATrackAdmin):
     list_editable = ['unit_class', 'vendor', 'collapse']
 
     def get_queryset(self, request):
-        return super(UnitTypeAdmin, self).get_queryset(request).select_related(
+        return super().get_queryset(request).select_related(
             "vendor",
             "unit_class",
         )
 
     def model_name(self, obj):
-        model = ' - {}'.format(obj.model) if obj.model else ''
-        vendor_name = '{}: '.format(obj.vendor.name) if obj.vendor else ''
-        return "{}{}{}".format(vendor_name, obj.name, model)
+        model = f' - {obj.model}' if obj.model else ''
+        vendor_name = f'{obj.vendor.name}: ' if obj.vendor else ''
+        return f"{vendor_name}{obj.name}{model}"
 
 
 @admin.register(Modality)

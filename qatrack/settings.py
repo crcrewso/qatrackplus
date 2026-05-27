@@ -97,8 +97,7 @@ LANGUAGE_CODE = 'en-us'
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
 USE_I18N = True
-USE_L10N = True
-#TODO: Test this as part of appropriate localization testing. 
+# USE_L10N = True # depreciated in Django 4.0+, always on now
 #TODO: Should QATrack+ support localization or internationalization?
 LANGUAGES = [('en', 'English'), ('fr', 'Français')]
 CONSTANT_PRECISION = 8
@@ -690,16 +689,15 @@ for path in chrome_paths:
 # local_settings contains anything that should be overridden
 # based on site specific requirements (e.g. deployment, development etc)
 
-import os
 use_docker = os.environ.get('USE_DOCKER', '').strip().lower() in {'1', 'true', 'yes', 'on'}
 if use_docker:
     ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
 
     SECRET_FILEPATH = os.path.join(PROJECT_ROOT, '..', 'deploy', 'docker', 'user-data', 'secret_key.txt')
     try:
-        with open(SECRET_FILEPATH, 'r') as f:
+        with open(SECRET_FILEPATH) as f:
             SECRET_KEY = f.read()
-    except IOError:
+    except OSError:
         import secrets
         SECRET_KEY = secrets.token_urlsafe(64)
         os.makedirs(os.path.dirname(SECRET_FILEPATH), exist_ok=True)

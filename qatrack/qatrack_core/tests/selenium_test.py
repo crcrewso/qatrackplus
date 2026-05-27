@@ -1,6 +1,6 @@
+import time
 from contextlib import contextmanager
 from functools import wraps
-import time
 
 from django.conf import settings
 from django.contrib.staticfiles.handlers import StaticFilesHandler
@@ -110,7 +110,7 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
     @classmethod
     def setUpClass(cls):
         use_virtual_display = getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False)
-        browser_setting = getattr(settings, 'SELENIUM_BROWSER', 'firefox')
+        use_chrome = getattr(settings, 'SELENIUM_BROWSER', 'firefox') == 'chrome'
 
         if use_virtual_display:
             # Make sure xvfb is installed
@@ -142,7 +142,7 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         cls.maximize()
         cls.wait = WebDriverWait(cls.driver, 5)
 
-        super(SeleniumTests, cls).setUpClass()
+        super().setUpClass()
 
     @classmethod
     def maximize(cls):
@@ -162,7 +162,7 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         cls.driver.quit()
         if cls.display:
             cls.display.stop()
-        super(SeleniumTests, cls).tearDownClass()
+        super().tearDownClass()
 
     @contextmanager
     def wait_for_page_load(self, timeout=10):

@@ -1,4 +1,5 @@
 import json
+import os
 from random import Random
 
 from django.conf import settings
@@ -10,9 +11,6 @@ from django.db.models.signals import post_delete, post_save, pre_delete
 from django.dispatch import receiver
 from django.utils.formats import get_format
 from django.utils.translation import get_language_info
-from django.utils.translation import gettext_lazy as _l
-
-import os
 
 from qatrack.faults.models import Fault
 from qatrack.parts.models import PartStorageCollection, PartUsed
@@ -265,7 +263,7 @@ def available_languages(request):
                     'name_translated': lang_name,     # Name in current language
                     'bidi': lang_info['bidi'],       # Right-to-left support
                 })
-            except:
+            except Exception:
                 # Fallback if language info not available
                 languages.append({
                     'code': lang_code,
@@ -293,7 +291,7 @@ def available_languages(request):
                                         'name_translated': lang_info['name'],
                                         'bidi': lang_info['bidi'],
                                     })
-                                except:
+                                except Exception:
                                     # Fallback for unknown languages
                                     languages.append({
                                         'code': item,

@@ -4,15 +4,13 @@ from django.utils.translation import gettext_lazy as _l
 
 # this import has to be here so that the signal handlers get registered
 from qatrack.notifications.faults import handlers as faults_handlers  # noqa: F401
-from qatrack.notifications.faults_review import \
-    handlers as faults_review_handlers  # noqa: F401
+from qatrack.notifications.faults_review import handlers as faults_review_handlers  # noqa: F401
 from qatrack.notifications.parts import handlers as part_handlers  # noqa: F401
 from qatrack.notifications.qccompleted import handlers as qccompleted_handlers  # noqa: F401
 from qatrack.notifications.qcreview import handlers as qcreview_handlers  # noqa: F401
 from qatrack.notifications.qcscheduling import handlers as qcscheduling_handlers  # noqa: F401
 from qatrack.notifications.service_log import handlers as service_log_handlers  # noqa: F401
-from qatrack.notifications.service_log_scheduling import \
-    handlers as service_log_scheduling_handlers  # noqa: F401
+from qatrack.notifications.service_log_scheduling import handlers as service_log_scheduling_handlers  # noqa: F401
 from qatrack.qa.models import TestList
 from qatrack.units.models import Unit
 
@@ -42,6 +40,17 @@ class RecipientGroup(models.Model):
         blank=True
     )
 
+    class Meta:
+        verbose_name = _l("Recipient Group")
+        verbose_name_plural = _l("Recipient Groups")
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self._sort_emails()
+        super().save(*args, **kwargs)
+
     def recipient_emails(self):
         users = set(self.users.filter(is_active=True).exclude(email='').values_list("email", flat=True))
         group_users = set(
@@ -52,17 +61,6 @@ class RecipientGroup(models.Model):
 
     def _sort_emails(self):
         self.emails = ', '.join(sorted(e.strip() for e in self.emails.split(",")))
-
-    def save(self, *args, **kwargs):
-        self._sort_emails()
-        super().save(*args, **kwargs)
-
-    class Meta:
-        verbose_name = _l("Recipient Group")
-        verbose_name_plural = _l("Recipient Groups")
-
-    def __str__(self):
-        return self.name
 
 
 class TestListGroup(models.Model):

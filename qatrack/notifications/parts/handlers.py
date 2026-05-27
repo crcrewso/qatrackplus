@@ -2,7 +2,7 @@ import logging
 
 from django.conf import settings
 from django.db.models import Q
-from django.db.models.signals import m2m_changed, post_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -56,7 +56,7 @@ def get_notification_recipients(part):
     from qatrack.notifications.parts import models
 
     subs = models.PartNotice.objects.filter(
-        (Q(part_categories=None) | Q(part_categories__part_categories=part.part_category))
+        Q(part_categories=None) | Q(part_categories__part_categories=part.part_category)
     ).select_related("recipients")  # yapf: disable
 
     recipients = set()
