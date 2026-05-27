@@ -19,9 +19,9 @@ ALLOWED_HOSTS = ['*']
 SECRET_FILEPATH = 'deploy/docker/user-data/secret_key.txt'
 
 try:
-    with open(SECRET_FILEPATH, 'r') as f:
+    with open(SECRET_FILEPATH) as f:
         SECRET_KEY = f.read()
-except IOError:
+except OSError:
     import secrets
 
     SECRET_KEY = secrets.token_urlsafe(64)

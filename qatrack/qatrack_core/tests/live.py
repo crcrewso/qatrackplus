@@ -1,20 +1,18 @@
+import shutil
+import time
 from contextlib import contextmanager
 from functools import wraps
-import time
-import shutil
 
+import pytest
 from django.conf import settings
 from django.contrib.staticfiles.handlers import StaticFilesHandler
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.servers.basehttp import WSGIServer
 from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
-import pytest
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.remote.command import Command
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as e_c
@@ -106,8 +104,8 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
             cls.display = None
 
         if browser_setting == 'chromium':
-            from selenium.webdriver.chrome.service import Service as ChromeService
             from selenium.webdriver.chrome.options import Options as ChromeOptions
+            from selenium.webdriver.chrome.service import Service as ChromeService
 
             chromium_driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '')
             chrome_options = ChromeOptions()
@@ -122,8 +120,8 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
             else:
                 cls.driver = webdriver.Chrome(options=chrome_options)
         else:
-            from selenium.webdriver.firefox.service import Service as FirefoxService
             from selenium.webdriver.firefox.options import Options as FirefoxOptions
+            from selenium.webdriver.firefox.service import Service as FirefoxService
 
             ff_options = FirefoxOptions()
             if use_virtual_display:
@@ -156,7 +154,7 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         cls.driver.set_window_size(1920, 1080)
         cls.wait = WebDriverWait(cls.driver, 2)
 
-        super(SeleniumTests, cls).setUpClass()
+        super().setUpClass()
 
     @classmethod
     def maximize(cls):
@@ -176,7 +174,7 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         cls.driver.quit()
         if cls.display:
             cls.display.stop()
-        super(SeleniumTests, cls).tearDownClass()
+        super().tearDownClass()
 
     @contextmanager
     def wait_for_page_load(self, timeout=2):

@@ -1,5 +1,7 @@
+import inspect
 from unittest import mock
 
+import pytest
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
@@ -8,8 +10,6 @@ from django.db.utils import IntegrityError
 from django.test import TestCase
 from django.utils import timezone
 from django_comments.models import Comment
-import pytest
-import inspect
 
 from qatrack.qa import models
 from qatrack.qatrack_core import scheduling
@@ -717,7 +717,7 @@ class TestTestList(TestCase):
 class TestTestListCycle(TestCase):
 
     def setUp(self):
-        super(TestTestListCycle, self).setUp()
+        super().setUp()
 
         daily = utils.create_frequency(interval=1, window_end=0)
         utils.create_status()
