@@ -96,7 +96,8 @@ LANGUAGE_CODE = 'en-us'
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
-USE_L10N = True 
+USE_I18N = True
+USE_L10N = True
 #TODO: Test this as part of appropriate localization testing. 
 #TODO: Should QATrack+ support localization or internationalization?
 LANGUAGES = [('en', 'English'), ('fr', 'Français')]
