@@ -217,10 +217,12 @@ jobs:
     
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Set up Docker Compose
         run: sudo apt-get update && sudo apt-get install docker-compose -y
@@ -249,10 +251,15 @@ jobs:
         run: docker compose -f compose.yaml logs
 
       - name: Verify Application is Up (Optional health check)
-        # Check if the Django app container remains 'Up' and didn't exit
+        # Check if the Django app container remains 'Up' and didn't exit or become unhealthy
         run: |
           if [ $(docker ps -q -f status=exited | wc -l) -gt 0 ]; then
             echo "One or more containers exited unexpectedly!"
+            docker ps -a
+            exit 1
+          fi
+          if [ $(docker ps -q -f health=unhealthy | wc -l) -gt 0 ]; then
+            echo "One or more containers are unhealthy!"
             docker ps -a
             exit 1
           fi
