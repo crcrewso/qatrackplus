@@ -692,7 +692,7 @@ for path in chrome_paths:
 
 import os
 if os.environ.get('USE_DOCKER') == 'true':
-    ALLOWED_HOSTS = ['*']
+    ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
 
     SECRET_FILEPATH = os.path.join(PROJECT_ROOT, '..', 'deploy', 'docker', 'user-data', 'secret_key.txt')
     try:
