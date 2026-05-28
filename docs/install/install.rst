@@ -36,8 +36,10 @@ be expensive!).
 
 Note there is no official support for the platforms listed below.  That doesn't
 necessarily mean they are unreliable, just that you may be on your own if you
-run into any issues.  Of course you can always look for help on the
-:mailinglist:`mailing list <>`.
+run into any issues. The Docker guide is intended as a community/development
+install option. For community support, please use `GitHub Discussions
+<https://github.com/qatrackplus/qatrackplus/discussions>`__ first, with the
+:mailinglist:`mailing list <>` as a fallback.
 
 .. toctree::
    :maxdepth: 2
