@@ -1,6 +1,6 @@
 import re
-import black
 
+import black
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.models import Group, User
@@ -422,21 +422,19 @@ class Frequency(RecurrenceFieldMixin, models.Model):
         ordering = ("nominal_interval",)
         permissions = (("can_choose_frequency", _l("Choose QC by Frequency")),)
 
-    def save(self, *args, **kwargs):
-        """Make sure all recurrences have a start date and calculate an
-        approximate time between recurrences."""
-        self.nominal_interval = scheduling.calc_nominal_interval(self.recurrences)
-        super().save(*args, **kwargs)
+    def __str__(self):
+        return self.name
 
     def __setattr__(self, name, value):
         """Handle string assignments to recurrences field by converting them to proper recurrence objects"""
         if name == 'recurrences' and isinstance(value, str) and value.strip() and not hasattr(value, 'dtstart'):
             # Convert simple string assignments to proper recurrence objects with dtstart
-            import recurrence
             from zoneinfo import ZoneInfo
+
+            import recurrence
+            from dateutil.rrule import rrulestr
             from django.conf import settings
             from django.utils import timezone
-            from dateutil.rrule import rrulestr
 
             try:
                 # Use the recurrence library's built-in parsing for complex rules
@@ -476,15 +474,20 @@ class Frequency(RecurrenceFieldMixin, models.Model):
 
         super().__setattr__(name, value)
 
+    def save(self, *args, **kwargs):  # noqa: DJ012
+        """Make sure all recurrences have a start date and calculate an
+        approximate time between recurrences."""
+        self.nominal_interval = scheduling.calc_nominal_interval(self.recurrences)
+        super().save(*args, **kwargs)
+
+
+
     def natural_key(self):
         return (self.slug,)
 
     @property
     def classical(self):
         return self.window_start is None
-
-    def __str__(self):
-        return self.name
 
 
 class StatusManager(models.Manager):
@@ -550,6 +553,9 @@ class TestInstanceStatus(models.Model):
         verbose_name = _l("Test Instance Status")
         verbose_name_plural = _l("Statuses")
 
+    def __str__(self):
+        return self.name
+
     def save(self, *args, **kwargs):
         """set status to unreviewed if not previously set"""
 
@@ -560,13 +566,10 @@ class TestInstanceStatus(models.Model):
             cur_default.is_default = False
             cur_default.save()
 
-        super(TestInstanceStatus, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     def natural_key(self):
         return (self.slug,)
-
-    def __str__(self):
-        return self.name
 
 
 class AutoReviewRule(models.Model):
@@ -583,12 +586,12 @@ class AutoReviewRule(models.Model):
         help_text=_l("Status to assign test instance based on its pass/fail state"),
     )
 
-    def __str__(self):
-        return "%s => %s" % (PASS_FAIL_CHOICES_DISPLAY[self.pass_fail], self.status)
-
     class Meta:
         verbose_name = _l("Auto Review Rule")
         verbose_name_plural = _l("Auto Review Rules")
+
+    def __str__(self):
+        return "%s => %s" % (PASS_FAIL_CHOICES_DISPLAY[self.pass_fail], self.status)
 
 
 class AutoReviewRuleSet(models.Model):
@@ -612,12 +615,12 @@ class AutoReviewRuleSet(models.Model):
         help_text=_l("Check this option if you want this to be the default rule set for tests"),
     )
 
-    def __str__(self):
-        return self.name
-
     class Meta:
         verbose_name = _l("Auto Review Rule Set")
         verbose_name_plural = _l("Auto Review Rule Sets")
+
+    def __str__(self):
+        return self.name
 
 
 class Reference(models.Model):
@@ -636,6 +639,15 @@ class Reference(models.Model):
     modified = models.DateTimeField(auto_now=True)
     modified_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False, related_name="reference_modifiers")
 
+    class Meta:
+        ordering = ["type", "name"]
+        verbose_name = _l("Reference")
+        verbose_name_plural = _l("References")
+
+    def __str__(self):
+        """more helpful display name"""
+        return self.value_display()
+
     def clean_fields(self):
         if self.type == BOOLEAN and self.value not in (0, 1):
             raise ValidationError({"value": [_("Boolean values must be 0 or 1")]})
@@ -648,15 +660,6 @@ class Reference(models.Model):
         if self.type == BOOLEAN:
             return _("Yes") if int(self.value) == 1 else _("No")
         return "%.6G" % (self.value)
-
-    def __str__(self):
-        """more helpful display name"""
-        return self.value_display()
-
-    class Meta:
-        ordering = ["type", "name"]
-        verbose_name = _l("Reference")
-        verbose_name_plural = _l("References")
 
     def pass_choices(self):
         return self.mc_pass_choices.split(",") if self.mc_pass_choices else []
@@ -744,6 +747,14 @@ class Tolerance(models.Model):
         verbose_name = _l("Tolerance")
         verbose_name_plural = _l("Tolerances")
 
+    def __str__(self):
+        """more helpful display name"""
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.name = get_tolerance_name(self)
+        super().save(*args, **kwargs)
+
     def pass_choices(self):
         return self.mc_pass_choices.split(",") if self.mc_pass_choices else []
 
@@ -804,7 +815,7 @@ class Tolerance(models.Model):
 
     def clean_fields(self, exclude=None):
         """extra validation for Tests"""
-        super(Tolerance, self).clean_fields(exclude)
+        super().clean_fields(exclude)
         self.clean_choices()
         self.clean_tols()
 
@@ -826,16 +837,8 @@ class Tolerance(models.Model):
                 tols[attr] = value * (1. + tv / 100.) if tv is not None else None
         return tols
 
-    def save(self, *args, **kwargs):
-        self.name = get_tolerance_name(self)
-        super(Tolerance, self).save(*args, **kwargs)
-
     def natural_key(self):
         return (self.name,)
-
-    def __str__(self):
-        """more helpful interactive display name"""
-        return self.name
 
 
 def get_tolerance_name(tol):
@@ -1062,6 +1065,20 @@ class Test(models.Model, TestPackMixin):
 
     objects = TestManager()
 
+    class Meta:
+        ordering = ("name",)
+        verbose_name = _l("Test")
+        verbose_name_plural = _l("Tests")
+
+    def __str__(self):
+        """return display representation of object"""
+        return self.name
+
+    def natural_key(self):
+        return (self.name,)
+
+    natural_key.dependencies = ['qa.category']
+
     @classmethod
     def allow_type_transition(self, from_, to):
 
@@ -1233,7 +1250,7 @@ class Test(models.Model, TestPackMixin):
 
     def clean_fields(self, exclude=None):
         """extra validation for Tests"""
-        super(Test, self).clean_fields(exclude)
+        super().clean_fields(exclude)
         self.clean_calculation_procedure()
         self.clean_constant_value()
         self.clean_wrap()
@@ -1254,23 +1271,14 @@ class Test(models.Model, TestPackMixin):
     def get_testpack_dependencies(self):
         return [(Category, [self.category])]
 
-    def natural_key(self):
-        return (self.name,)
-
-    natural_key.dependencies = ['qa.category']
+    def get_display_name(self):
+        """returns display name if set, otherwise name"""
+        return self.display_name or self.name
 
     def display(self):
         """returns display name if set, otherwise name"""
         return self.display_name or self.name
 
-    def __str__(self):
-        """return display representation of object"""
-        return self.name
-
-    class Meta:
-        ordering = ("name",)
-        verbose_name = _l("Test")
-        verbose_name_plural = _l("Tests")
 
 
 def get_utc_tlc_ids(active=None, units=None, frequencies=None):
@@ -1399,10 +1407,13 @@ class UnitTestInfo(models.Model):
 
         permissions = (("can_view_ref_tol", _l("Can view Refs and Tols")),)
 
+    def __str__(self):
+        return "UnitTestInfo(%s)" % self.pk
+
     def clean(self):
         """extra validation for Tests"""
 
-        super(UnitTestInfo, self).clean()
+        super().clean()
         if None not in (self.reference, self.tolerance):
             if self.tolerance.type == PERCENT and self.reference.value == 0:
                 msg = _("Percentage based tolerances can not be used with reference value of zero (0)")
@@ -1422,9 +1433,6 @@ class UnitTestInfo(models.Model):
         hist = self.testinstance_set.select_related("status").all().order_by("-work_completed", "-pk")
         # hist = hist.select_related("status")
         return [(x.work_completed, x.value, x.pass_fail, x.status) for x in reversed(hist[:number])]
-
-    def __str__(self):
-        return "UnitTestInfo(%s)" % self.pk
 
 
 class UnitTestInfoChange(models.Model):
@@ -1486,6 +1494,9 @@ class TestListMembership(models.Model):
         verbose_name = _l("Test List Membership")
         verbose_name_plural = _l("Test List Memberships")
 
+    def __str__(self):
+        return "TestListMembership(pk=%s)" % self.pk
+
     @classmethod
     def get_testpack_fields(cls):
         exclude = ["id"]
@@ -1495,9 +1506,6 @@ class TestListMembership(models.Model):
         return self.test_list.natural_key() + self.test.natural_key()
 
     natural_key.dependencies = ["qa.testlist", "qa.test"]
-
-    def __str__(self):
-        return "TestListMembership(pk=%s)" % self.pk
 
 
 class TestCollectionInterface(models.Model):
@@ -1610,6 +1618,31 @@ class TestList(TestCollectionInterface, TestPackMixin):
 
     objects = TestListManager()
 
+    class Meta:
+        ordering = ("name",)
+        verbose_name_plural = _l("Test Lists")
+
+    def __str__(self):
+        """return display representation of object"""
+        return "(%s) %s" % (self.pk, self.name)
+
+    def __len__(self):
+        return 1
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):  # noqa: DJ012
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+        self.utcs.update(name=self.name)
+
+    def get_absolute_url(self):  # noqa: DJ012
+        return reverse(
+            "admin:qa_testlist_change", args=(self.pk,)
+        )
+
     def test_list_members(self):
         """return all days from this collection"""
         return TestList.objects.filter(pk=self.pk)
@@ -1677,24 +1710,12 @@ class TestList(TestCollectionInterface, TestPackMixin):
             (Sublist, sublists),
         ]
 
+
+
     def natural_key(self):
         return (self.slug,)
 
-    def __len__(self):
-        return 1
 
-    def __str__(self):
-        """return display representation of object"""
-        return "(%s) %s" % (self.pk, self.name)
-
-    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        super(TestList, self).save(
-            force_insert=force_insert,
-            force_update=force_update,
-            using=using,
-            update_fields=update_fields,
-        )
-        self.utcs.update(name=self.name)
 
     def _full_delete(self):
         """Deletes test list, sublists, all tests etc. Use with caution!"""
@@ -1707,15 +1728,6 @@ class TestList(TestCollectionInterface, TestPackMixin):
             child.delete()
 
         self.delete()
-
-    def get_absolute_url(self):
-        return reverse(
-            "admin:qa_testlist_change", args=(self.pk,)
-        )
-
-    class Meta:
-        ordering = ("name",)
-        verbose_name_plural = _l("Test Lists")
 
 
 class Sublist(models.Model):
@@ -1741,6 +1753,9 @@ class Sublist(models.Model):
         verbose_name = _l("Sublist")
         verbose_name_plural = _l("Sublists")
 
+    def __str__(self):
+        return "%s -> %s" % (self.parent, self.child)
+
     @classmethod
     def get_testpack_fields(cls):
         exclude = ["id"]
@@ -1750,9 +1765,6 @@ class Sublist(models.Model):
         return self.parent.natural_key() + self.child.natural_key()
 
     natural_key.dependencies = ["qa.testlist"]
-
-    def __str__(self):
-        return "%s -> %s" % (self.parent, self.child)
 
 
 class UnitTestListManager(models.Manager):
@@ -1831,10 +1843,11 @@ class UnitTestCollection(SchedulingMixin, models.Model):
         help_text=_l("Choose the tests collection object to assign to the unit"),
     )
     tests_object = GenericForeignKey("content_type", "object_id")
-    objects = UnitTestListManager()
     name = models.CharField(max_length=255, db_index=True, default='', editable=False)
 
     last_instance = models.ForeignKey("TestListInstance", null=True, editable=False, on_delete=models.SET_NULL)
+
+    objects = UnitTestListManager()
 
     class Meta:
         unique_together = (
@@ -1847,6 +1860,21 @@ class UnitTestCollection(SchedulingMixin, models.Model):
         # ordering = ("testlist__name","testlistcycle__name",)
         permissions = (("can_view_overview", _l("Can view program overview")),
                        ("can_review_non_visible_tli", _l("Can view tli and utc not visible to user's groups")))
+
+    def __str__(self):
+        return self.name
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+        self.name = self.tests_object.name
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+
+    def get_absolute_url(self):
+        return reverse("perform_qa", kwargs={"pk": self.pk})
 
     def last_instance_for_scheduling(self):
         """ return last test_list_instance with all valid tests """
@@ -1932,8 +1960,7 @@ class UnitTestCollection(SchedulingMixin, models.Model):
 
         return self.tests_object.get_list(day)
 
-    def get_absolute_url(self):
-        return reverse("perform_qa", kwargs={"pk": self.pk})
+
 
     def copy_references(self, dest_unit):
 
@@ -1949,23 +1976,11 @@ class UnitTestCollection(SchedulingMixin, models.Model):
                 reference=source_uti.reference, tolerance=source_uti.tolerance
             )
 
-    def __str__(self):
-        return self.name
-
-    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        self.name = self.tests_object.name
-        super(UnitTestCollection, self).save(
-            force_insert=force_insert,
-            force_update=force_update,
-            using=using,
-            update_fields=update_fields,
-        )
-
 
 class TestInstanceManager(models.Manager):
 
     def in_progress(self):
-        return super(TestInstanceManager, self).filter(test_list_instance__in_progress=True)
+        return super().filter(test_list_instance__in_progress=True)
 
     def complete(self):
         return models.Manager.get_queryset(self).filter(test_list_instance__in_progress=False)
@@ -2056,13 +2071,19 @@ class TestInstance(models.Model):
             ("can_review_own_tests", _l("Can review & approve  self-performed tests")),
         )
 
+    def __str__(self):
+        """return display representation of object"""
+        return "TestInstance(pk=%s)" % self.pk
+
     def save(self, *args, **kwargs):
 
         # if caller has already calculated pass_fail, we don't need to do it again
         do_pass_fail = kwargs.pop('calculate_pass_fail', True)
         if do_pass_fail:
             self.calculate_pass_fail()
-        super(TestInstance, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
+
+
 
     def difference(self):
         """return difference between instance and reference"""
@@ -2203,6 +2224,8 @@ class TestInstance(models.Model):
                 self.status = status
                 self.review_date = timezone.now()
 
+
+
     @property
     def empty(self):
         null_num = self.value is None
@@ -2283,10 +2306,6 @@ class TestInstance(models.Model):
             return None
 
         return attachment.attachment.url
-
-    def __str__(self):
-        """return display representation of object"""
-        return "TestInstance(pk=%s)" % self.pk
 
 
 class TestListInstanceManager(models.Manager):
@@ -2425,6 +2444,17 @@ class TestListInstance(models.Model):
             ("can_save_in_progress", _l("Can save test lists as 'In Progress'")),
         )
 
+    def __str__(self):
+        return "TestListInstance(pk=%s)" % self.pk
+
+    def save(self, *args, **kwargs):
+        if self.work_completed and self.work_completed == self.work_started:
+            self.work_completed += timezone.timedelta(seconds=60)
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse("view_test_list_instance", kwargs={"pk": self.pk})
+
     def pass_fail_status(self):
         """return string with pass fail status of this qa instance"""
         instances = list(self.testinstance_set.all())
@@ -2547,11 +2577,7 @@ class TestListInstance(models.Model):
         borders = construct_sublist_borders(self.test_list, tests)
         return borders
 
-    def get_absolute_url(self):
-        return reverse("view_test_list_instance", kwargs={"pk": self.pk})
 
-    def __str__(self):
-        return "TestListInstance(pk=%s)" % self.pk
 
     def str_verbose(self):
         return '%s (%s - %s)' % (self.pk, self.test_list.name, format_datetime(self.created))
@@ -2560,11 +2586,6 @@ class TestListInstance(models.Model):
         return '%s (%s%s)' % (
             self.pk, format_datetime(self.created), (' - ' + _("All reviewed")) if self.all_reviewed else ''
         )
-
-    def save(self, *args, **kwargs):
-        if self.work_completed and self.work_completed == self.work_started:
-            self.work_completed += timezone.timedelta(seconds=60)
-        super().save(*args, **kwargs)
 
 
 class AutoSave(models.Model):
@@ -2685,12 +2706,26 @@ class TestListCycle(TestCollectionInterface, TestPackMixin):
         ordering = ("name",)
         verbose_name_plural = _l("Test List Cycles")
 
+    def __str__(self):
+        return _(self.name)
+
     def __len__(self):
         """return the number of test_lists"""
         if self.pk:
             return self.test_lists.count()
         else:
             return 0
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):  # noqa: DJ012
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields,
+        )
+        self.utcs.update(name=self.name)
+
+
 
     def test_list_members(self):
         """return all days from this collection"""
@@ -2778,18 +2813,6 @@ class TestListCycle(TestCollectionInterface, TestPackMixin):
     def natural_key(self):
         return (self.slug,)
 
-    def __str__(self):
-        return _(self.name)
-
-    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
-        super(TestListCycle, self).save(
-            force_insert=force_insert,
-            force_update=force_update,
-            using=using,
-            update_fields=update_fields,
-        )
-        self.utcs.update(name=self.name)
-
 
 class TestListCycleMembershipManager(models.Manager):
 
@@ -2817,6 +2840,9 @@ class TestListCycleMembership(models.Model):
         # memberships they can have the same order temporarily when orders are changed
         # unique_together = (("order", "cycle"),)
 
+    def __str__(self):
+        return "TestListCycleMembership(pk=%s)" % self.pk
+
     @classmethod
     def get_testpack_fields(cls):
         exclude = ["id"]
@@ -2826,9 +2852,6 @@ class TestListCycleMembership(models.Model):
         return self.cycle.natural_key() + self.test_list.natural_key()
 
     natural_key.dependencies = ["qa.testlistcycle", "qa.testlist"]
-
-    def __str__(self):
-        return "TestListCycleMembership(pk=%s)" % self.pk
 
 
 def construct_sublist_borders(test_list, tests=None):

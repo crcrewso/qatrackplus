@@ -2,6 +2,7 @@ import calendar
 import collections
 import csv
 from itertools import groupby
+from zoneinfo import ZoneInfo
 
 from braces.views import (
     JSONResponseMixin,
@@ -62,7 +63,6 @@ from listable.views import (
     YESTERDAY,
     BaseListableView,
 )
-from zoneinfo import ZoneInfo
 
 from qatrack.attachments.models import Attachment
 from qatrack.parts import forms as p_forms
@@ -80,9 +80,11 @@ from qatrack.qatrack_core.dates import (
 )
 from qatrack.qatrack_core.serializers import QATrackJSONEncoder
 from qatrack.reports.service_log import ServiceEventDetailsReport
-from qatrack.service_log import forms
+from qatrack.service_log import (
+    forms,
+    signals,  # NOQA: F401
+)
 from qatrack.service_log import models as sl_models
-from qatrack.service_log import signals  # NOQA: F401
 from qatrack.units import models as u_models
 
 
@@ -166,7 +168,7 @@ class SLDashboard(TemplateView):
 
     def get_context_data(self, **kwargs):
 
-        context = super(SLDashboard, self).get_context_data()
+        context = super().get_context_data()
         context['counts'] = self.get_counts()
         context['recent_logs'] = sl_models.ServiceLog.objects.select_related(
             'user', 'service_event', 'service_event__unit_service_area__unit'
@@ -176,7 +178,7 @@ class SLDashboard(TemplateView):
 
     def dispatch(self, request, *args, **kwargs):
         if sl_models.ServiceEventStatus.objects.filter(is_default=True).exists():
-            return super(SLDashboard, self).dispatch(request, *args, **kwargs)
+            return super().dispatch(request, *args, **kwargs)
         else:
             return redirect(reverse('err'))
 
@@ -200,7 +202,7 @@ class ServiceEventUpdateCreate(
 
     def dispatch(self, request, *args, **kwargs):
         self.user = request.user
-        return super(ServiceEventUpdateCreate, self).dispatch(request, *args, **kwargs)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_object(self, queryset=None):
         """
@@ -241,14 +243,14 @@ class ServiceEventUpdateCreate(
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
-        return super(ServiceEventUpdateCreate, self).get(request, *args, **kwargs)
+        return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
-        return super(ServiceEventUpdateCreate, self).post(request, *args, **kwargs)
+        return super().post(request, *args, **kwargs)
 
     def get_form_kwargs(self):
-        kwargs = super(ServiceEventUpdateCreate, self).get_form_kwargs()
+        kwargs = super().get_form_kwargs()
         # group_linkers = models.GroupLinker.objects.all()
         kwargs['group_linkers'] = sl_models.GroupLinker.objects.all()
         kwargs['user'] = self.user
@@ -280,7 +282,7 @@ class ServiceEventUpdateCreate(
             )
 
     def get_context_data(self, *args, **kwargs):
-        context_data = super(ServiceEventUpdateCreate, self).get_context_data(**kwargs)
+        context_data = super().get_context_data(**kwargs)
 
         self.request.session.set_expiry(settings.SESSION_COOKIE_AGE)
 
@@ -708,7 +710,7 @@ class ServiceEventUpdateCreate(
 class CreateServiceEvent(ServiceEventUpdateCreate):
 
     def get_form_kwargs(self):
-        kwargs = super(CreateServiceEvent, self).get_form_kwargs()
+        kwargs = super().get_form_kwargs()
         kwargs['initial_ib'] = self.request.GET.get('ib', None)
         kwargs['initial_u'] = self.request.GET.get('u', None)
         return kwargs
@@ -724,7 +726,7 @@ class CreateServiceEvent(ServiceEventUpdateCreate):
             form.instance.datetime_status_changed = timezone.now()
             form.instance.user_status_changed_by = self.request.user
 
-        form_valid = super(CreateServiceEvent, self).form_valid(form)
+        form_valid = super().form_valid(form)
 
         return form_valid
 
@@ -768,7 +770,7 @@ class UpdateServiceEvent(ServiceEventUpdateCreate):
             # Check if service status was not changed explicitly, but needs to be reset to default status due to other changes.
             self.reset_status(form)
 
-        return super(UpdateServiceEvent, self).form_valid(form)
+        return super().form_valid(form)
 
 
 class DetailsServiceEvent(DetailView):
@@ -777,7 +779,7 @@ class DetailsServiceEvent(DetailView):
     template_name = 'service_log/service_event_detail.html'
 
     def get_context_data(self, **kwargs):
-        context_data = super(DetailsServiceEvent, self).get_context_data(**kwargs)
+        context_data = super().get_context_data(**kwargs)
         # context_data['service_event_tag_colours'] = models.ServiceEvent.get_colour_dict()
         context_data['hours'] = sl_models.Hours.objects.filter(service_event=self.object)
         context_data['rtsqas'] = sl_models.ReturnToServiceQA.objects.filter(service_event=self.object).select_related(
@@ -844,13 +846,13 @@ class DeleteServiceEvent(DeleteView, FormView, PermissionRequiredMixin):
         success_url = self.get_success_url()
         self.object.set_inactive()
 
-        messages.add_message(self.request, messages.INFO, 'Service event {} deleted'.format(self.object.id))
+        messages.add_message(self.request, messages.INFO, f'Service event {self.object.id} deleted')
 
         return HttpResponseRedirect(success_url)
 
     def form_invalid(self, form):
         messages.add_message(
-            self.request, messages.WARNING, 'Could not delete service event {}'.format(form.instance.id)
+            self.request, messages.WARNING, f'Could not delete service event {form.instance.id}'
         )
         return reverse('sl_dash')
 
@@ -913,7 +915,7 @@ class ServiceEventsBaseList(BaseListableView):
 
     def __init__(self, *args, **kwargs):
 
-        super(ServiceEventsBaseList, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.templates = {
             'actions': get_template('service_log/table_context/table_context_se_actions.html'),
             'datetime_service': get_template('service_log/table_context/table_context_datetime.html'),
@@ -963,7 +965,7 @@ class ServiceEventsBaseList(BaseListableView):
         return filters
 
     def get_context_data(self, *args, **kwargs):
-        context = super(ServiceEventsBaseList, self).get_context_data(*args, **kwargs)
+        context = super().get_context_data(*args, **kwargs)
         current_url = resolve(self.request.path_info).url_name
         context['view_name'] = current_url
         context['icon'] = self.get_icon()
@@ -1142,7 +1144,7 @@ class ReturnToServiceQABaseList(BaseListableView):
 
     def __init__(self, *args, **kwargs):
 
-        super(ReturnToServiceQABaseList, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.templates = {
             'actions':
                 get_template("service_log/table_context/table_context_rtsqa_actions.html"),
@@ -1165,7 +1167,7 @@ class ReturnToServiceQABaseList(BaseListableView):
         return 'All Return To Service QC'
 
     def get_context_data(self, *args, **kwargs):
-        context = super(ReturnToServiceQABaseList, self).get_context_data(*args, **kwargs)
+        context = super().get_context_data(*args, **kwargs)
         current_url = resolve(self.request.path_info).url_name
         context['view_name'] = current_url
         context['icon'] = self.get_icon()
@@ -1331,7 +1333,7 @@ class ChooseUnitForNewSE(ChooseUnit):
     unit_serviceable_only = True
 
     def get_context_data(self, *args, **kwargs):
-        context = super(ChooseUnitForNewSE, self).get_context_data(*args, **kwargs)
+        context = super().get_context_data(*args, **kwargs)
         context['new_se'] = True
         return context
 
@@ -1412,7 +1414,7 @@ class ServiceEventDownTimesList(ServiceEventsBaseList):
             hours = total_seconds // 3600
             minutes = (total_seconds % 3600) // 60
 
-            return '{}:{:02}'.format(hours, minutes)
+            return f'{hours}:{minutes:02}'
 
     def duration_service_time(self, se):
         duration = se.duration_service_time
@@ -1421,7 +1423,7 @@ class ServiceEventDownTimesList(ServiceEventsBaseList):
             hours = total_seconds // 3600
             minutes = (total_seconds % 3600) // 60
 
-            return '{}:{:02}'.format(hours, minutes)
+            return f'{hours}:{minutes:02}'
 
 
 @login_required
@@ -1537,7 +1539,7 @@ def handle_unit_down_time(request):
 
         service_events_unit_qs = se_qs.filter(unit_service_area__unit=u)
         potential_time = u.get_potential_time(date_from, date_to)
-        unit_vals = [u.name, u.type.name, '{:.2f}'.format(potential_time) if potential_time > 0 else '0']
+        unit_vals = [u.name, u.type.name, f'{potential_time:.2f}' if potential_time > 0 else '0']
         totals['potential'] += potential_time
 
         for t in all_service_types:
@@ -1550,8 +1552,8 @@ def handle_unit_down_time(request):
             lost = lost.total_seconds() / 3600 if lost else 0
 
             unit_vals.append(repairs)
-            unit_vals.append('{:.2f}'.format(service))
-            unit_vals.append('{:.2f}'.format(lost))
+            unit_vals.append(f'{service:.2f}')
+            unit_vals.append(f'{lost:.2f}')
 
             totals[t.name + '-repairs'] += repairs
             totals[t.name + '-service'] += service
@@ -1566,12 +1568,12 @@ def handle_unit_down_time(request):
 
         total_num = len(service_events_unit_qs)
 
-        unit_vals += ['{:.2f}'.format(total_service_time), '{:.2f}'.format(total_lost_time), total_num]
+        unit_vals += [f'{total_service_time:.2f}', f'{total_lost_time:.2f}', total_num]
 
         if not service_areas:
             available = ((potential_time - total_lost_time) / potential_time) * 100 if potential_time > 0 else 0
             totals['available'] += available
-            unit_vals.append('{:.2f}'.format(available))
+            unit_vals.append(f'{available:.2f}')
 
         totals['total_service'] += total_service_time
         totals['total_lost'] += total_lost_time

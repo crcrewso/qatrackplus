@@ -9,11 +9,11 @@ from django.utils.dateparse import parse_duration
 from django.utils.encoding import force_str
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as _l
-from qatrack.qatrack_core.forms import BetterModelForm
 
 from qatrack.attachments.models import Attachment
 from qatrack.qa import models as qa_models
 from qatrack.qatrack_core.dates import format_datetime
+from qatrack.qatrack_core.forms import BetterModelForm
 from qatrack.service_log import models
 from qatrack.units import models as u_models
 
@@ -35,12 +35,8 @@ def item_val_to_string(item):
         total_seconds = int(item.total_seconds())
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
-        return '{}:{:02}'.format(hours, minutes)
-    elif isinstance(item, (
-        QuerySet,
-        list,
-        tuple,
-    )):
+        return f'{hours}:{minutes:02}'
+    elif isinstance(item, QuerySet | list | tuple):
         return ', '.join([str(i) for i in item])
     else:
         return str(item)
@@ -55,13 +51,13 @@ def duration_string_hours_mins(duration):
     if seconds > 0 and minutes < 1 and hours == 0:
         return '00:01'
 
-    return '{:02d}:{:02d}'.format(hours, minutes)
+    return f'{hours:02d}:{minutes:02d}'
 
 
 class HoursMinDurationField(forms.DurationField):
 
     def __init__(self, *args, **kwargs):
-        super(HoursMinDurationField, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.widget.attrs.update({'class': 'inputmask'})
 
     def prepare_value(self, value):
@@ -78,7 +74,7 @@ class HoursMinDurationField(forms.DurationField):
             return None
         if isinstance(value, timezone.timedelta):
             return value
-        value = '{:04d}'.format(int(value))
+        value = f'{int(value):04d}'
         value = parse_duration(force_str(':'.join([value[:2], value[2:], '00'])))
         if value is None:
             raise ValidationError(self.error_messages['invalid'], code='invalid')
@@ -104,7 +100,7 @@ class HoursForm(forms.ModelForm):
         fields = ('time', 'user_or_thirdparty')
 
     def __init__(self, *args, **kwargs):
-        super(HoursForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         choices = [('', '---------')]
         perm = Permission.objects.get(codename='can_have_hours')
@@ -499,7 +495,7 @@ class ServiceEventForm(BetterModelForm):
         self.group_linkers = kwargs.pop('group_linkers', [])
         self.user = kwargs.pop('user', None)
 
-        super(ServiceEventForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         is_new = self.instance.id is None
         is_bound = self.is_bound
@@ -652,7 +648,7 @@ class ServiceEventForm(BetterModelForm):
                 unit=unit, active=True
             ).order_by('name')
             self.fields['initiated_utc_field'].choices = (('', '---------'),) + tuple(
-                ((utc.id, '(%s) %s' % (utc.frequency if utc.frequency else 'Ad Hoc', utc.name)) for utc in i_utc_f_qs)
+                (utc.id, '(%s) %s' % (utc.frequency if utc.frequency else 'Ad Hoc', utc.name)) for utc in i_utc_f_qs
             )
             if not self.instance.service_type.is_active:
                 st_qs = models.ServiceType.objects.filter(id=self.instance.service_type.id)
@@ -716,7 +712,7 @@ class ServiceEventForm(BetterModelForm):
                 unit=initial_ib_utc_u, active=True
             ).order_by('name')
             choices = (('', '---------'),) + tuple(
-                ((utc.id, '(%s) %s' % (utc.frequency if utc.frequency else 'Ad Hoc', utc.name)) for utc in i_utc_f_qs)
+                (utc.id, '(%s) %s' % (utc.frequency if utc.frequency else 'Ad Hoc', utc.name)) for utc in i_utc_f_qs
                 # noqa: E501
             )
             self.fields['initiated_utc_field'].choices = choices
@@ -752,8 +748,8 @@ class ServiceEventForm(BetterModelForm):
                     'frequency',
                 ).order_by('name')
                 self.fields['initiated_utc_field'].choices = (('', '---------'),) + tuple(
-                    ((utc.id, '(%s) %s' % (utc.frequency if utc.frequency else 'Ad Hoc', utc.name))
-                     for utc in i_utc_f_qs)  # noqa: E501
+                    (utc.id, '(%s) %s' % (utc.frequency if utc.frequency else 'Ad Hoc', utc.name))
+                     for utc in i_utc_f_qs  # noqa: E501
                 )
             except ObjectDoesNotExist:
                 pass
@@ -815,12 +811,12 @@ class ServiceEventForm(BetterModelForm):
             self.instance.is_review_required = True
 
         self.instance.unit_service_area = usa
-        super(ServiceEventForm, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
         return self.instance
 
     def clean(self):
-        super(ServiceEventForm, self).clean()
+        super().clean()
 
         unit_field = self.cleaned_data.get("unit_field")
         if unit_field and "unit_field_fake" in self.errors:
@@ -941,14 +937,14 @@ class ServiceEventTemplateForm(forms.ModelForm):
             elif field not in ['is_review_required', 'copy_to_units_of_same_type']:
                 self.fields[field].widget.attrs.update({'class': 'form-control'})
 
-            self.fields[field].widget.attrs.update({'id': 'template_{}'.format(field)})
+            self.fields[field].widget.attrs.update({'id': f'template_{field}'})
 
     def clean_name(self):
         name = self.cleaned_data.get('name')
         if models.ServiceEventTemplate.objects.filter(name=name).exists():
             self.add_error(
                 'name',
-                'Service event template with name {} already exists'.format(name),
+                f'Service event template with name {name} already exists',
             )
 
         return name

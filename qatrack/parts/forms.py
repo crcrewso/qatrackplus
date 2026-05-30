@@ -4,9 +4,9 @@ from django.core.exceptions import ValidationError
 from django.db.models import ObjectDoesNotExist
 from django.utils.encoding import force_str
 from django.utils.translation import gettext as _
-from qatrack.qatrack_core.forms import BetterModelForm
 
 from qatrack.parts import models as p_models
+from qatrack.qatrack_core.forms import BetterModelForm
 from qatrack.service_log import models as sl_models
 
 
@@ -47,7 +47,7 @@ class PartUsedForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user')
-        super(PartUsedForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         is_new = self.instance.id is None
 
@@ -119,7 +119,7 @@ class PartUsedForm(forms.ModelForm):
             if from_storage and quantity_changed > quantity_storage:
                 self.add_error(
                     'quantity', 'Quantity used greater than quantity in storage. {}'.
-                    format('' if initial_quantity == 0 else '(Originally used {})'.format(initial_quantity))
+                    format('' if initial_quantity == 0 else f'(Originally used {initial_quantity})')
                 )
                 self.add_error('from_storage', '')
 
@@ -190,7 +190,7 @@ class PartForm(BetterModelForm):
         })]
 
     def __init__(self, *args, **kwargs):
-        super(PartForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.fields['quantity_min'].widget.attrs.update({'min': 0, 'step': 1})
         self.fields['quantity_min'].label = 'Low inventory count'
@@ -220,7 +220,7 @@ class PartSupplierCollectionForm(forms.ModelForm):
         model = p_models.PartSupplierCollection
 
     def __init__(self, *args, **kwargs):
-        super(PartSupplierCollectionForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.fields['part'].widget = forms.HiddenInput()
 
         self.fields['part_number'].widget.attrs['class'] = 'form-control part_number'
@@ -295,7 +295,7 @@ class PartStorageCollectionForm(forms.ModelForm):
         fields = ('storage_field', 'room', 'location', 'quantity')
 
     def __init__(self, *args, **kwargs):
-        super(PartStorageCollectionForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         is_new = self.instance.id is None
 
@@ -317,7 +317,7 @@ class PartStorageCollectionForm(forms.ModelForm):
             self.initial['location'] = location_data
 
     def clean(self):
-        cleaned_data = super(PartStorageCollectionForm, self).clean()
+        cleaned_data = super().clean()
         storage_field_value = cleaned_data.get('storage_field')
         room = cleaned_data.get('room')
 

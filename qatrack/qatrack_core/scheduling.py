@@ -1,13 +1,11 @@
-import calendar
-import warnings
-
-import django.apps
 from zoneinfo import ZoneInfo
 
+import django.apps
 from django.conf import settings
 from django.utils import timezone
 
 from qatrack.qatrack_core.dates import end_of_day, start_of_day
+
 from ..qa.models import RecurrenceField
 
 # due date choices. For convenience with colors/icons these are the same as the
@@ -226,6 +224,6 @@ class RecurrenceFieldMixin:
                 continue
 
             for field in model._meta.fields:
-                if isinstance(field, (RecurrenceField,)):
+                if isinstance(field, RecurrenceField):
                     models_with_recurrence.append((model, field.name))
         return models_with_recurrence

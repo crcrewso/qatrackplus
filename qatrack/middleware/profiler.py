@@ -10,23 +10,23 @@
 # To use it, pass 'profile=1' as a GET or POST parameter to any HTTP
 # request.
 
-from base64 import b64decode, b64encode
 import functools
 import pickle
-from io import StringIO
-from decimal import Decimal
-import hotshot
-import hotshot.stats
 import sys
 import tempfile
+from base64 import b64decode, b64encode
+from decimal import Decimal
+from io import StringIO
 
+import hotshot
+import hotshot.stats
 from django.conf import settings
 from django.db import connection, reset_queries
 from django.http import HttpResponse
 from django.utils import html
 
 
-class StdoutWrapper(object):
+class StdoutWrapper:
     """Simple wrapper to capture and overload sys.stdout"""
 
     def __init__(self):
@@ -108,7 +108,7 @@ def unpickle_stats(stats):
     return stats
 
 
-class RadioButton(object):
+class RadioButton:
     """Generate the HTML for a radio button."""
 
     def __init__(self, name, value, description=None, checked=False):
@@ -140,14 +140,14 @@ class RadioButton(object):
         )
 
 
-class RadioButtons(object):
+class RadioButtons:
     """Generate the HTML for a list of radio buttons."""
 
     def __init__(self, name, checked, values):
         self.result = []
         for v in values:
             description = None
-            if isinstance(v, (list, tuple)):
+            if isinstance(v, list | tuple):
                 value = v[0]
                 description = v[1]
             else:
@@ -279,7 +279,7 @@ def display_queries(request, stats, queries):
     return response
 
 
-class ProfileMiddleware(object):
+class ProfileMiddleware:
     """
     Displays hotshot profiling for any view.
     http://yoursite.com/yourview/?profile=1
@@ -301,9 +301,8 @@ class ProfileMiddleware(object):
             return stats, queries
 
         if request.method != 'GET' and \
-           not (request.headers.get('content-type',
-                                 request.headers.get('content-type', '')) in
-                ['multipart/form-data', 'application/x-www-form-urlencoded']):
+           request.headers.get('content-type',
+                                 request.headers.get('content-type', '')) not in ['multipart/form-data', 'application/x-www-form-urlencoded']:
             return
         if (request.REQUEST.get('profile', False) and (settings.DEBUG or request.user.is_staff)):
             request.statsfile = tempfile.NamedTemporaryFile()
