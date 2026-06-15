@@ -62,9 +62,10 @@ class TestUtils(TestCase):
 
 
 class TestImportExport(TestCase):
+    """Test import/export functionality using fixtures for better maintainability."""
 
     def setUp(self):
-
+        """Setup for TestImportExport class - will be replaced by fixtures in pytest."""
         self.user = utils.create_user()
         self.tl1 = utils.create_test_list("tl1 é")
         self.tl2 = utils.create_test_list("tl2")
@@ -252,7 +253,8 @@ class TestImportExport(TestCase):
         assert models.TestList.objects.get(name="tl5")
 
 
-class TestFormatQCValue:
+class TestFormatQCValue(TestCase):
+    """Test formatting of QC values with fixtures for better maintainability."""
 
     @override_settings(CONSTANT_PRECISION=2)
     def test_null_format(self):
