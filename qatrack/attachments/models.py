@@ -1,8 +1,10 @@
+import gc
 import imghdr
 import logging
 import os
 import os.path
 import shutil
+import sys
 import time
 from uuid import uuid4
 
@@ -68,6 +70,11 @@ def move_tmp_file(attach, save=True, force=False, new_name=None):
             os.remove(start_path)
             break
         except PermissionError:
+            # After much hair pulling, it was discovered
+            # that running gc.collect() before os.remove allows Python to delete the file (grrr)
+            if 'win' in sys.platform.lower():
+                gc.collect()
+
             if count == 2:
                 logger.error("Failed to remove %s when moving %s to %s." % (start_path, start_path, new_path))
                 break
@@ -109,6 +116,25 @@ class Attachment(models.Model):
         "part",
         "fault",
     ]
+
+    class Meta:
+        verbose_name = _l("Attachment")
+        verbose_name_plural = _l("Attachments")
+
+    def __str__(self):
+        return "%s(%s, %s)" % (_("Attachment"), self.owner or _("No Owner"), self.attachment.name)
+
+    def save(self, *args, **kwargs):
+        """Save model and move it to final location if possible"""
+
+        super().save(*args, **kwargs)
+
+        if self.can_finalize:
+            self.move_tmp_file()
+
+    def clean(self):
+        if not self.has_owner:
+            raise ValidationError(_("Attachment must have exactly one owner"))
 
     @property
     def _possible_owners(self):
@@ -153,19 +179,6 @@ class Attachment(models.Model):
         """Return bool indicating whether this file is ready to be finalized"""
         return self.has_owner and self.is_in_tmp
 
-    def save(self, *args, **kwargs):
-        """Save model and move it to final location if possible"""
-
-        super(Attachment, self).save(*args, **kwargs)
-
-        if self.can_finalize:
-            self.move_tmp_file()
-
-    def clean(self):
-        nowners = sum(1 for o in self._possible_owners if o)
-        if nowners > 1:
-            raise ValidationError(_l("An attachment should only have one owner"))
-
     @property
     def is_image(self):
 
@@ -178,6 +191,3 @@ class Attachment(models.Model):
         force = ext in displayable
         is_img = img in displayable
         return is_img or force
-
-    def __str__(self):
-        return "%s(%s, %s)" % (_("Attachment"), self.owner or _("No Owner"), self.attachment.name)
