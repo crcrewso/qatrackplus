@@ -1,9 +1,9 @@
 from unittest import mock
 
+import recurrence
 from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
-import recurrence
 
 from qatrack.qa import models
 from qatrack.qa.templatetags import qa_tags
@@ -104,7 +104,10 @@ class TestRefTolSpan(TestCase):
         r = models.Reference(value=1)
         tol = models.Tolerance(
             type=models.ABSOLUTE,
-            act_low=-2, tol_low=-1, tol_high=1, act_high=2,
+            act_low=-2,
+            tol_low=-1,
+            tol_high=1,
+            act_high=2,
         )
         result = qa_tags.reference_tolerance_span(t, r, tol)
         self.assertIn("%s L" % (settings.TEST_STATUS_DISPLAY_SHORT['action']), result)
@@ -146,7 +149,10 @@ class TestToleranceForReference(TestCase):
         r = models.Reference(value=1)
         tol = models.Tolerance(
             type=models.ABSOLUTE,
-            act_low=-2, tol_low=-1, tol_high=1, act_high=2,
+            act_low=-2,
+            tol_low=-1,
+            tol_high=1,
+            act_high=2,
         )
 
         self.assertIn("Between 0 &amp; 2", qa_tags.tolerance_for_reference(tol, r))

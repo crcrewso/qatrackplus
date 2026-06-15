@@ -1,3 +1,5 @@
+from zoneinfo import ZoneInfo
+
 from django.contrib.sites.models import Site
 from django.core.files.base import ContentFile
 from django.test import TestCase
@@ -5,7 +7,6 @@ from django.test.utils import override_settings
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django_comments.models import Comment
-import pytz
 
 from qatrack.attachments.models import Attachment
 from qatrack.qa.models import Frequency, TestListInstance
