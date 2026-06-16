@@ -74,7 +74,7 @@ Activate your virtual environment:
 
     source ~/web/qatrackplus/.venv/bin/activate
 
-Your command prompt should now be prefixed with `(qatrack31)`.
+Your command prompt should now be prefixed with `(.venv)`.
 
 It's also a good idea to upgrade `pip` the Python package installer:
 
