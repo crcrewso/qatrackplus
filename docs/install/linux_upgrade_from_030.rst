@@ -138,16 +138,17 @@ run the following commands:
 
 .. code-block:: bash
 
-    python3 -m venv ~/venvs/qatrack31
+    cd ~/web/qatrackplus
+    python3 -m venv .venv
 
 Anytime you open a new terminal/shell to work with your QATrack+ installation
 you will want to activate your virtual environment.  Do so now like this:
 
 .. code-block:: bash
 
-    source ~/venvs/qatrack31/bin/activate
+    source .venv/bin/activate
 
-Your command prompt should now be prefixed with `(qatrack31)`.
+Your command prompt should now be prefixed with `(.venv)`.
 
 It's also a good idea to upgrade `pip` the Python package installer:
 
@@ -321,7 +322,7 @@ You can also check on the status of your task cluster at any time like this:
 
 .. code-block:: bash
 
-    source ~/venvs/qatrack31/bin/activate
+    source ~/web/qatrackplus/.venv/bin/activate
     cd ~/web/qatrackplus/
     python manage.py qmonitor
 
@@ -345,11 +346,11 @@ Next, lets make sure Apache can write to our logs and media directories:
 Now we can update our default Apache config file so that it points to the
 correct virtualenv.  Edit `/etc/apache2/sites-available/qatrack.conf` and find
 the `WSGIDaemonProcess` line and update the `python-home` variable so that it
-points to `/venvs/qatrack31`.
+points to `/home/YOURUSERNAMEHERE/web/qatrackplus/.venv`.
 
 .. code-block:: apache
 
-    WSGIDaemonProcess qatrackplus python-home=/home/YOURUSERNAMEHERE/venvs/qatrack31 python-path=/home/YOURUSERNAMEHERE/web/qatrackplus
+    WSGIDaemonProcess qatrackplus python-home=/home/YOURUSERNAMEHERE/web/qatrackplus/.venv python-path=/home/YOURUSERNAMEHERE/web/qatrackplus
 
 
 You should also ensure the `WSGIScriptAlias` line and includes the `application-group` directive.

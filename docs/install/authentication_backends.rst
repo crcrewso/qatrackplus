@@ -45,8 +45,8 @@ To confirm your installation is working, activate your virtual env
 
 .. code-block:: console
 
-    cd C:\deploy
-    .\venvs\qatrack3\scripts\activate
+    cd C:\deploy\qatrackplus
+    .\.venv\scripts\activate
     python -c "import ldap; print(ldap.__version__)"
 
 If that commands prints the ldap version then ldap is installed correctly.
@@ -64,7 +64,7 @@ At the time of writing on Ubuntu this looks like:
     sudo apt-get install build-essential python3-dev python2.7-dev \
         libldap2-dev libsasl2-dev slapd ldap-utils
 
-    source ~/venvs/qatrack3/bin/activate
+    source ~/web/qatrackplus/.venv/bin/activate
     pip install python-ldap
 
 See https://www.python-ldap.org/en/latest/installing.html for more details.
@@ -194,5 +194,4 @@ You can have your users automatically added to one or more :ref:`QATrack+
 groups <auth_groups>` based on their Active Directory Group memberships.  For
 more information on configuring this see :ref:`Active Directory Group to
 QATrack+ Groups Map <auth_ad_groups>`.
-
 

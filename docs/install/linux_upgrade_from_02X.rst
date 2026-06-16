@@ -265,9 +265,8 @@ First install virtualenv, then create and activate a new Python 2 environment:
 
     cd ~/web/qatrackplus
     sudo apt install python-virtualenv
-    mkdir -p ~/venvs
-    virtualenv -p python2 ~/venvs/qatrack2
-    source ~/venvs/qatrack2/bin/activate
+    virtualenv -p python2 .venv
+    source .venv/bin/activate
     pip install --upgrade pip
 
 Now install the required Python packages:
@@ -316,9 +315,9 @@ Create and activate a new Python 3 virtual environment:
 
 .. code-block:: console
 
-    mkdir -p ~/venvs
-    python3 -m venv ~/venvs/qatrack3
-    source ~/venvs/qatrack3/bin/activate
+    cd ~/web/qatrackplus
+    python3 -m venv .venv
+    source .venv/bin/activate
     pip install --upgrade pip
 
 We will now install all the libraries required for QATrack+ with PostgresSQL

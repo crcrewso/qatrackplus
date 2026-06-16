@@ -64,10 +64,10 @@ Activate your virtual environment:
 .. code-block:: bash
 
     
-    cd C:\deploy
-    .\venvs\qatrack31\Scripts\Activate.ps1
+    cd C:\deploy\qatrackplus
+    .\.venv\Scripts\Activate.ps1
 
-Your command prompt should now be prefixed with `(qatrack31)`.
+Your command prompt should now be prefixed with `(.venv)`.
 
 It's also a good idea to upgrade `pip` the Python package installer:
 
@@ -107,6 +107,6 @@ Finally we need to restart QATrack+
 
 .. code-block:: bash
 
-    python manage.py QATrack31CherryPyService.py restart
+    python QATrackCherryPyService.py restart
     Stop-ScheduledTask -TaskName "QATrack+ Django Q Cluster"
     Start-ScheduledTask -TaskName "QATrack+ Django Q Cluster"

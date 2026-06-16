@@ -216,12 +216,11 @@ environment:
 
 .. code-block:: console
 
-    cd C:\deploy
-    mkdir venvs
+    cd C:\deploy\qatrackplus
     C:\Python27\python.exe -m pip install --upgrade pip
     C:\Python27\python.exe -m pip install virtualenv
-    C:\Python27\Scripts\virtualenv.exe venvs\qatrack2
-    .\venvs\qatrack2\Scripts\Activate.ps1
+    C:\Python27\Scripts\virtualenv.exe .venv
+    .\.venv\Scripts\Activate.ps1
 
 
 Now checkout v0.2.9 and install the required Python packages:
@@ -298,10 +297,9 @@ Create and activate a new Python 3 virtual environment:
 
 .. code-block:: console
 
-    cd C:\deploy
-    mkdir venvs  # only if you haven't already created it
-    python -m venv venvs\qatrack3
-    .\venvs\qatrack3\Scripts\Activate.ps1
+    cd C:\deploy\qatrackplus
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
     pip install --upgrade pip
 
 We will now install all the libraries required for QATrack+:

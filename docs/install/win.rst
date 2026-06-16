@@ -102,12 +102,11 @@ We're now ready to install all the libraries QATrack+ depends on.
 
 .. code-block:: console
 
-    mkdir venvs
-    python -m pip install --upgrade pip
-    python -m venv venvs\qatrack31
-    .\venvs\qatrack31\Scripts\Activate.ps1
-    python -m pip install --upgrade pip
     cd qatrackplus
+    python -m pip install --upgrade pip
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install --upgrade pip
     git checkout v3.1.1.4
     pip install -r requirements\win.txt
 
@@ -272,16 +271,15 @@ PowerShell and click "Run as Administrator") and run the following commands:
 
 .. code-block:: console
 
-    cd C:\deploy
-    .\venvs\qatrack31\Scripts\Activate.ps1
-    cd qatrackplus
-    cp deploy\win\QATrack31CherryPyService.py .
-    python C:\deploy\venvs\qatrack31\Scripts\pywin32_postinstall.py -install
-    python QATrack31CherryPyService.py --startup=auto install
-    python QATrack31CherryPyService.py start
+    cd C:\deploy\qatrackplus
+    .\.venv\Scripts\Activate.ps1
+    cp deploy\win\QATrackCherryPyService.py .
+    python C:\deploy\qatrackplus\.venv\Scripts\pywin32_postinstall.py -install
+    python QATrackCherryPyService.py --startup=auto install
+    python QATrackCherryPyService.py start
 
 
-Open the Windows Services dialog and confirm the `QATrack 31 CherryPy Service`
+Open the Windows Services dialog and confirm the `QATrack CherryPy Service`
 is installed and has a status of `Running`.   Next open a browser on the server
 and navigate to http://localhost:8080/ and ensure you see a plain login form
 there (it won't look like this once we're finished!). If not, check the
@@ -295,7 +293,7 @@ QATrackCherryPyService configuration dialogue).
 .. note::
 
     If you need to run QATrack+ on a different port, edit
-    C:\\deploy\\qatrackplus\\QATrack3CherryPyService.py and set the PORT
+    C:\\deploy\\qatrackplus\\QATrackCherryPyService.py and set the PORT
     variable to a different port (e.g. 8008)
 
 
@@ -450,7 +448,7 @@ click `OK`.
     QCluster Trigger
 
 Now go to the `Actions` tab and click `New...`.  In the `Program/script:` box
-enter `C:\\deploy\\venvs\\qatrack31\\Scripts\\python.exe`. In the `Add arguments
+enter `C:\\deploy\\qatrackplus\\.venv\\Scripts\\python.exe`. In the `Add arguments
 (optional)`: field enter `manage.py qcluster`, and in the `Start in
 (optional):` field put `C:\\deploy\\qatrackplus`  (no trailing slash!).
 
@@ -501,4 +499,3 @@ Windows.  It is very similar to what is used at The Ottawa Hospital Cancer
 Centre and it has proven to be a very solid setup.  If you're stuck with a
 Windows stack it will likely work for you too.  Please post on the
 :mailinglist:`QATrack+ Google Group <>` if you get stuck!
-

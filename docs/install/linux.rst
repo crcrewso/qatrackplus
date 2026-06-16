@@ -224,8 +224,8 @@ Creating our virtual environment
 
 .. code-block:: bash
 
-    mkdir -p ~/venvs
-    python3 -m venv ~/venvs/qatrack31
+    cd ~/web/qatrackplus
+    python3 -m venv .venv
 
 
 Anytime you open a new terminal/shell to work with your QATrack+ installation
@@ -233,9 +233,9 @@ you will want to activate your virtual environment.  Do so now like this:
 
 .. code-block:: bash
 
-    source ~/venvs/qatrack31/bin/activate
+    source .venv/bin/activate
 
-Your command prompt should now be prefixed with `(qatrack31)`.
+Your command prompt should now be prefixed with `(.venv)`.
 
 It's also a good idea to upgrade `pip` the Python package installer:
 
@@ -439,7 +439,7 @@ You can also check on the status of your task cluster at any time like this:
 
 .. code-block:: bash
 
-    source ~/venvs/qatrack31/bin/activate
+    source ~/web/qatrackplus/.venv/bin/activate
     cd ~/web/qatrackplus/
     python manage.py qmonitor
 

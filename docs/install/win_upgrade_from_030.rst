@@ -48,7 +48,7 @@ Stop your CherryPy Service to Serve QATrack+
 ----------------------------------------------
 
 If you have an existing CherryPy service running for QATrack+, open the windows
-services dialog, find the QATrack3CherryPyService, right click on it and select
+services dialog, find the QATrack CherryPy Service, right click on it and select
 `Stop`. Then right click on it again, select `Properties` and set the `Startup
 type` to disbled before clicking `OK`.
 
@@ -182,7 +182,8 @@ run the following commands:
 
 .. code-block:: bash
 
-    python -m venv C:\deploy\venvs\qatrack31
+    cd C:\deploy\qatrackplus
+    python -m venv .venv
 
 Anytime you open a new terminal/shell to work with your QATrack+ installation
 you will want to activate your virtual environment.  Do so now like this:
@@ -190,10 +191,10 @@ you will want to activate your virtual environment.  Do so now like this:
 .. code-block:: bash
 
     
-    cd C:\deploy
-    .\venvs\qatrack31\Scripts\Activate.ps1
+    cd C:\deploy\qatrackplus
+    .\.venv\Scripts\Activate.ps1
 
-Your command prompt should now be prefixed with `(qatrack31)`.
+Your command prompt should now be prefixed with `(.venv)`.
 
 It's also a good idea to upgrade `pip` the Python package installer:
 
@@ -307,16 +308,15 @@ PowerShell and click "Run as Administrator") and run the following commands:
 
 .. code-block:: console
 
-    cd C:\deploy
-    .\venvs\qatrack31\Scripts\Activate.ps1
-    cd qatrackplus
-    python C:\deploy\venvs\qatrack31\Scripts\pywin32_postinstall.py -install
-    cp deploy\win\QATrack31CherryPyService.py .
-    python QATrack31CherryPyService.py --startup=auto install
-    python QATrack31CherryPyService.py start
+    cd C:\deploy\qatrackplus
+    .\.venv\Scripts\Activate.ps1
+    python C:\deploy\qatrackplus\.venv\Scripts\pywin32_postinstall.py -install
+    cp deploy\win\QATrackCherryPyService.py .
+    python QATrackCherryPyService.py --startup=auto install
+    python QATrackCherryPyService.py start
 
 
-Open the Windows Services dialog and confirm the `QATrack 31 CherryPy Service`
+Open the Windows Services dialog and confirm the `QATrack CherryPy Service`
 is installed and has a status of `Running`.  
 
 Your QATrack+ 3.1.1 installation is now installed as a Windows Service running
@@ -327,7 +327,7 @@ QATrackCherryPyService configuration dialogue).
 .. note::
 
     If you need to run QATrack+ on a different port, edit
-    C:\\deploy\\qatrackplus\\QATrack3CherryPyService.py and set the PORT
+    C:\\deploy\\qatrackplus\\QATrackCherryPyService.py and set the PORT
     variable to a different port (e.g. 8008)
 
 
@@ -360,7 +360,7 @@ click `OK`.
     QCluster Trigger
 
 Now go to the `Actions` tab and click `New...`.  In the `Program/script:` box
-enter `C:\\deploy\\venvs\\qatrack31\\Scripts\\python.exe`. In the `Add arguments
+enter `C:\\deploy\\qatrackplus\\.venv\\Scripts\\python.exe`. In the `Add arguments
 (optional)`: field enter `manage.py qcluster`, and in the `Start in
 (optional):` field put `C:\\deploy\\qatrackplus`  (no trailing slash!).
 

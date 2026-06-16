@@ -72,7 +72,7 @@ Activate your virtual environment:
 
 .. code-block:: bash
 
-    source ~/venvs/qatrack31/bin/activate
+    source ~/web/qatrackplus/.venv/bin/activate
 
 Your command prompt should now be prefixed with `(qatrack31)`.
 
