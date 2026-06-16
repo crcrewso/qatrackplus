@@ -108,6 +108,9 @@ Finally we need to restart QATrack+
 .. code-block:: bash
 
     cp deploy\win\QATrackCherryPyService.py .
-    python QATrackCherryPyService.py restart
+    python QATrack31CherryPyService.py stop
+    python QATrack31CherryPyService.py remove
+    python QATrackCherryPyService.py --startup=auto install
+    python QATrackCherryPyService.py start
     Stop-ScheduledTask -TaskName "QATrack+ Django Q Cluster"
     Start-ScheduledTask -TaskName "QATrack+ Django Q Cluster"

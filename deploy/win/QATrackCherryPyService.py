@@ -51,7 +51,7 @@ def setup():
         shutil.copy(orig_path, new_path)
 
 
-class QATrack030Service(win32serviceutil.ServiceFramework):
+class QATrackCherryPyService(win32serviceutil.ServiceFramework):
 
     """NT Service."""
 
@@ -98,4 +98,4 @@ class QATrack030Service(win32serviceutil.ServiceFramework):
 if __name__ == '__main__':
 
     setup()
-    win32serviceutil.HandleCommandLine(QATrack030Service)
+    win32serviceutil.HandleCommandLine(QATrackCherryPyService)
