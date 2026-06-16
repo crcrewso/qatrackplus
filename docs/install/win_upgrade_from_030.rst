@@ -50,7 +50,7 @@ Stop your CherryPy Service to Serve QATrack+
 If you have an existing CherryPy service running for QATrack+, open the windows
 services dialog, find the QATrack CherryPy Service, right click on it and select
 `Stop`. Then right click on it again, select `Properties` and set the `Startup
-type` to disbled before clicking `OK`.
+type` to disabled before clicking `OK`.
 
 Backing up your database
 ~~~~~~~~~~~~~~~~~~~~~~~~
