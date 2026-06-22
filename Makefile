@@ -26,7 +26,7 @@ dumpdata:
 		--output qatrack-dump-$(DATETIME).json
 
 dumpdata_new:
-	python manage.py dumpdata --natural-foreign --natural-primary -e contenttypes -e auth.Permission --indent 4 --output qatrack-dump-$(DATETIME).json
+	python -Xutf8 manage.py dumpdata --natural-foreign --natural-primary -e contenttypes -e auth.Permission --indent 4 --output qatrack-dump-$(DATETIME).json
 
 
 clearct:
