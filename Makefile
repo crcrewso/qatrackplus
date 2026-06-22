@@ -25,6 +25,10 @@ dumpdata:
 		-v1 --indent=2 --natural-foreign --natural-primary \
 		--output qatrack-dump-$(DATETIME).json
 
+dumpdata_new:
+	python manage.py dumpdata --natural-foreign --natural-primary -e contenttypes -e auth.Permission --indent 4 --output qatrack-dump-$(DATETIME).json
+
+
 clearct:
 	python manage.py shell -c "from qatrack.qa.models import *; [m.objects.all().delete() for m in [ContentType, Tolerance, User]]"
 
