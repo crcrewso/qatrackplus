@@ -9,7 +9,7 @@
 ## Manditory settings:
 ### You must set at least the DATABASES setting here. 
 
-DEBUG = False # Set to True to enable debug mode (not safe for regular use!)
+DEBUG = True # Set to True to enable debug mode (not safe for regular use!)
 TEMPLATE_DBG = True
 
 DATABASES = {
@@ -23,6 +23,8 @@ DATABASES = {
     }
 }
 DATABASES['readonly'] = DATABASES['default']
+
+ALLOWED_HOSTS = ['*'] # Set to your server's IP address or hostname in production
 
 # You can override anything in settings.py by defining it here
 # I would recommend copying the portion of settings.py to this file and then modifying it
