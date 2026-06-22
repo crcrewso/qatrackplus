@@ -42,7 +42,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         base_dir = options["output_dir"]
         if options["add_date"]:
-            base_dir = Path(str(base_dir) + ' ' + timezone.now().strftime("%Y-%m-%d-%H-%M-%S"))
+            base_dir = base_dir / timezone.now().strftime("%Y-%m-%d-%H-%M-%S")
         all_apps = options["all_apps"]
         selected_apps = None if all_apps else set(options["apps"] or self.included_apps)
         base_dir.mkdir(parents=True, exist_ok=True)
