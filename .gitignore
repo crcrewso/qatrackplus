@@ -36,7 +36,9 @@ eggs
 emails/
 env
 .venv/
+venv
 fixtures/dev
+qatrack/local*py
 ldap.debug
 /lib
 lib64
