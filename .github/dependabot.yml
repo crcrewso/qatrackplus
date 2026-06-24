@@ -1,0 +1,47 @@
+# Dependabot configuration
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Dependabot opens pull requests when new versions of dependencies are
+# available. For pip packages this includes Django, Node.js-backed tools,
+# and every other package listed in requirements/*.txt.
+#
+# For LTS-aware upgrade decisions, treat any Dependabot PR that bumps a major
+# version (e.g. Django 4 → 5) as a deliberate upgrade to review against the
+# project's stated release strategy (see README.md).
+
+version: 2
+updates:
+
+  # Python / pip — covers all files in requirements/
+  - package-ecosystem: "pip"
+    directory: "/requirements"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+    groups:
+      django:
+        patterns:
+          - "Django"
+          - "django-*"
+      testing:
+        patterns:
+          - "pytest*"
+          - "coverage*"
+          - "flake8*"
+
+  # GitHub Actions — keeps workflow action versions current
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
