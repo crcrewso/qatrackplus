@@ -158,6 +158,8 @@ the change is needed are merged fastest.
 
 ## Code of conduct
 
-Be kind. Assume good faith. Follow the golden rule. If you witness or experience
-behaviour that makes someone feel unwelcome, contact the maintainer directly at
+This project has a [Code of Conduct](CODE_OF_CONDUCT.md). By participating you
+agree to abide by it. The short version: be kind, assume good faith, and treat
+everyone the way you'd want to be treated. If you witness or experience
+unacceptable behaviour, contact the maintainer at
 [medphys@crcrewso.ca](mailto:medphys@crcrewso.ca).
