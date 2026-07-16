@@ -245,9 +245,16 @@ jobs:
         # qatrack/settings.py loads test_settings.py when pytest is detected,
         # and test_settings.py in turn imports local_test_settings.py (if it
         # exists) as its final override layer.  Writing here enables headless
-        # mode without modifying the committed test_settings.py.
+        # mode and switches to an in-memory SQLite database for faster, isolated
+        # test runs without modifying the committed test_settings.py.
+        # Django automatically enables thread-sharing on ':memory:' connections,
+        # which allows the LiveServer thread to use the same database.
         run: |
-          printf 'SELENIUM_HEADLESS = True\nSELENIUM_BROWSER = "firefox"\n' > qatrack/local_test_settings.py
+          printf '%s\n' \
+            'SELENIUM_HEADLESS = True' \
+            'SELENIUM_BROWSER = "firefox"' \
+            'DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}' \
+            > qatrack/local_test_settings.py
       - name: Run Selenium tests
         run: uv run pytest -m selenium -v --junit-xml=test-results/selenium.xml
 
