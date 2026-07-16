@@ -22,9 +22,8 @@ jobs:
 
     steps:
       - name: Check changed files and post documentation impact comment
-        # TODO: pin to a specific SHA following the repository's security policy,
-        # e.g. actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
-        uses: actions/github-script@v7
+        # Pinned to actions/github-script v7.0.1
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           script: |
             const MARKER = '<!-- docs-impact-bot -->';
