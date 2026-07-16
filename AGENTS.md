@@ -169,6 +169,14 @@ automated heuristic comment on every PR that lists which doc paths may need
 attention. The mapping it uses is reproduced here so that AI agents and
 developers can apply the same logic before a PR is even opened.
 
+The repository also includes an annual workflow
+(`.github/workflows/annual-repository-health-review.yml`) that creates or
+updates a yearly issue with dependency-maintenance signals, a pattern-based
+code style review, an AI-driven code style review, and an AI-assisted
+documentation tone review. Its findings are intentionally heuristic and may
+overlap between sections; contributors should address them incrementally in
+small, distinct PRs throughout the year.
+
 The table also covers **cross-references between documentation files**: the
 developer workflow (`docs/developer/`, `AGENTS.md`) and the installation guides
 (`docs/install/`) overlap on topics such as Python version, Node.js version, and
