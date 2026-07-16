@@ -114,6 +114,25 @@ disable existing tests.
 - PRs that include tests, documentation updates, and a clear *why* are merged
   fastest.
 
+### Dependencies
+
+Prefer **Long-Term Support (LTS)** releases for all runtime dependencies whenever
+one is available. This applies to Python, Django, Node.js, and any other
+framework or major library the project depends on. LTS releases receive security
+and bug-fix backports for a predictable window, which matters for a project
+deployed in clinical environments where upgrades must be planned carefully.
+When proposing a new dependency or a version bump, check whether the target
+version is an LTS release and note it in the PR description.
+
+### Language
+
+**English (Canada)** is the lightly preferred written language for code
+comments, commit messages, documentation, and user-facing strings. Canadian
+English generally follows British spelling conventions (e.g. *behaviour*,
+*colour*, *programme*) while using common North American technical vocabulary.
+Consistency within a file always takes priority over strict adherence to any
+one variant — do not change existing spelling just to match this preference.
+
 ---
 
 ## Documentation
