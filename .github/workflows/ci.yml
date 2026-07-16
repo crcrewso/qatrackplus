@@ -242,6 +242,10 @@ jobs:
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
 
       - name: Configure Selenium settings
+        # qatrack/settings.py loads test_settings.py when pytest is detected,
+        # and test_settings.py in turn imports local_test_settings.py (if it
+        # exists) as its final override layer.  Writing here enables headless
+        # mode without modifying the committed test_settings.py.
         run: |
           printf 'SELENIUM_HEADLESS = True\nSELENIUM_BROWSER = "firefox"\n' > qatrack/local_test_settings.py
       - name: Run Selenium tests
