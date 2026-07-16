@@ -33,7 +33,7 @@ PATTERN_RULES = [
     (re.compile(r'%\s*[a-zA-Z_][a-zA-Z0-9_]*\s*$'), 'low', 'Prefer f-strings or str.format for readability.'),
     (re.compile(r'django\.conf\.urls\s+import\s+url'), 'high', 'Replace deprecated django.conf.urls.url usage.'),
     (re.compile(r'^\s*from\s+django\.utils\s+import\s+six'), 'high', 'Remove django.utils.six usage; migrate to Python-native equivalents.'),
-    (re.compile(r'^\s*assert\s+[^,]+,\s*["\']'), 'medium', 'Avoid assertion messages in production logic paths.'),
+    (re.compile(r'^\s*assert\s+'), 'medium', 'Avoid assert statements in runtime paths; raise explicit exceptions instead.'),
 ]
 
 
@@ -199,7 +199,26 @@ def pattern_code_style_findings() -> list[Finding]:
 def read_style_context() -> str:
     agents = (ROOT / 'AGENTS.md').read_text(encoding='utf-8')
     pyproject = PYPROJECT.read_text(encoding='utf-8')
-    agents_focus = '\n'.join(line for line in agents.splitlines() if 'Language' in line or 'English' in line or 'Dependencies' in line)
+
+    def section(text: str, header: str) -> str:
+        lines = text.splitlines()
+        capture = False
+        captured: list[str] = []
+        for line in lines:
+            if line.strip() == header:
+                capture = True
+                captured.append(line)
+                continue
+            if capture and line.startswith('### '):
+                break
+            if capture:
+                captured.append(line)
+        return '\n'.join(captured).strip()
+
+    dependencies_section = section(agents, '### Dependencies')
+    language_section = section(agents, '### Language')
+    agents_focus = '\n\n'.join(s for s in [dependencies_section, language_section] if s)
+
     pyproject_focus = '\n'.join(
         line
         for line in pyproject.splitlines()
@@ -404,7 +423,8 @@ def find_or_create_issue(owner: str, repo: str, token: str, title: str, body: st
         github_api(f'/repos/{owner}/{repo}/issues?state=open&per_page=100'),
         token,
     )
-    assert isinstance(issues, list)
+    if not isinstance(issues, list):
+        raise RuntimeError(f'Expected list response for issues query, got: {type(issues).__name__}')
     existing = None
     for issue in issues:
         if 'pull_request' in issue:
@@ -414,7 +434,8 @@ def find_or_create_issue(owner: str, repo: str, token: str, title: str, body: st
             break
 
     labels_api = http_json('GET', github_api(f'/repos/{owner}/{repo}/labels?per_page=100'), token)
-    assert isinstance(labels_api, list)
+    if not isinstance(labels_api, list):
+        raise RuntimeError(f'Expected list response for labels query, got: {type(labels_api).__name__}')
     existing_label_names = {item.get('name') for item in labels_api}
     labels = [label for label in DESIRED_LABELS if label in existing_label_names]
 
@@ -428,7 +449,8 @@ def find_or_create_issue(owner: str, repo: str, token: str, title: str, body: st
         print(f'Updated existing annual issue #{issue_number}.')
     else:
         created = http_json('POST', github_api(f'/repos/{owner}/{repo}/issues'), token, payload)
-        assert isinstance(created, dict)
+        if not isinstance(created, dict):
+            raise RuntimeError(f'Expected issue create response object, got: {type(created).__name__}')
         print(f"Created annual issue #{created.get('number')}.")
 
 
