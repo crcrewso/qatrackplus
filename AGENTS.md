@@ -1,4 +1,4 @@
-# Agents.md — AI Agent Guidance for QATrack+
+# AGENTS.md — AI Agent Guidance for QATrack+
 
 This file gives AI coding agents the context they need to contribute effectively
 to QATrack+, a free and open-source Django application for managing quality
