@@ -130,6 +130,52 @@ the relevant `toctree` directive in the section's `index.rst`.
 
 ---
 
+## Documentation impact
+
+When making code changes, check whether any of the following documentation
+pages may be affected. If they are, either update the docs as part of the same
+PR or call them out explicitly in the PR description under a
+**"📚 Documentation to review"** heading.
+
+A GitHub Actions workflow (`.github/workflows/docs-impact.yml`) posts an
+automated heuristic comment on every PR that lists which doc paths may need
+attention. The mapping it uses is reproduced here so that AI agents and
+developers can apply the same logic before a PR is even opened.
+
+| Changed code | Documentation to check |
+|---|---|
+| `qatrack/qa/` | `docs/admin/qa/`, `docs/user/qa/` |
+| `qatrack/service_log/` | `docs/admin/service_log/`, `docs/user/service_log/`, `docs/tutorials/service_log/` |
+| `qatrack/api/` | `docs/api/` |
+| `qatrack/notifications/` | `docs/admin/notifications/` |
+| `qatrack/faults/` | `docs/admin/faults/`, `docs/user/faults/` |
+| `qatrack/parts/` | `docs/admin/service_log/parts.rst`, `docs/user/service_log/parts.rst` |
+| `qatrack/accounts/` | `docs/admin/qa/auth.rst`, `docs/user/auth/` |
+| `qatrack/units/` | `docs/admin/units/`, `docs/user/units/` |
+| `qatrack/reports/` | `docs/user/reports/` |
+| `qatrack/contacts/` | `docs/admin/qa/contacts.rst`, `docs/admin/qa/email.rst` |
+| `qatrack/settings.py` | `docs/install/config.rst` |
+| `qatrack/local_settings*`, `deploy/` | `docs/install/` |
+| `qatrack/qatrack_core/` | `docs/developer/` |
+
+When reviewing or authoring a PR as an AI agent, look specifically for:
+
+- Setting names or default values that appear in the docs but have changed in
+  the code.
+- URL patterns, view names, or admin page names that have been renamed or
+  removed.
+- Model fields that are described in user-facing guides but have been altered.
+- New features or behaviour changes with no corresponding doc update.
+
+If you find affected pages, include a block like this in the PR description:
+
+```
+📚 Documentation to review:
+- `docs/admin/qa/tests.rst` — the `MyModel.some_field` field was renamed
+```
+
+---
+
 ## AI policy
 
 ### Agentic AI is encouraged
