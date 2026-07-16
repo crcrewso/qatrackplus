@@ -592,7 +592,93 @@ For more information on using py.test, refer to the `py.test documentation
         make cover
 
 
-Customizing Organization Logos
+
+Identifying Views Not Covered by Selenium Tests
+------------------------------------------------
+
+The ``coverage`` package is included in the development dependencies and can be
+used to find views that are never exercised by the Selenium test suite.
+
+**Step 1 — Run only the Selenium tests under coverage**
+
+From the repository root, run:
+
+.. code-block:: shell
+
+    coverage run --source=qatrack -m pytest -m selenium
+
+This executes every test marked ``@pytest.mark.selenium`` and records which
+lines of the ``qatrack`` package were reached.
+
+**Step 2 — Report coverage for view files only**
+
+.. code-block:: shell
+
+    coverage report --include="*/views.py" -m
+
+The ``-m`` flag prints the line numbers that were *not* executed.  Example
+output::
+
+    Name                                Stmts   Miss  Cover   Missing
+    -----------------------------------------------------------------
+    qatrack/qa/views/perform.py           312    248    21%   45-60, 112-198, …
+    qatrack/service_log/views.py          187    187     0%   1-187
+    -----------------------------------------------------------------
+    TOTAL                                 499    435    13%
+
+* **0 %** — that view file was never touched during the Selenium run.
+* Any line range in the **Missing** column is a view function that was never
+  called.
+
+**Step 3 — Explore the HTML report (optional)**
+
+For a more readable, colour-coded breakdown:
+
+.. code-block:: shell
+
+    coverage html --include="*/views.py"
+    xdg-open htmlcov/index.html   # or open htmlcov/index.html in any browser
+
+Click any file to see exactly which functions and branches were covered
+(green) and which were missed (red).
+
+**Step 4 — Interpreting the results**
+
++-------------+-------------------------------------------------------------+
+| Coverage    | What it means                                               |
++=============+=============================================================+
+| 0 %         | No Selenium test navigates to any URL served by this view.  |
++-------------+-------------------------------------------------------------+
+| Partial %   | Some code paths inside the view are untested — e.g. the     |
+|             | POST handler is tested but the GET is not, or an error      |
+|             | branch is never triggered.                                  |
++-------------+-------------------------------------------------------------+
+| 100 %       | Every line in the view was reached at least once.  Does     |
+|             | *not* guarantee every assertion was checked.                |
++-------------+-------------------------------------------------------------+
+
+**Step 5 — Compare with the full-suite baseline**
+
+To distinguish views that have no tests at all from views that are only
+covered by non-Selenium tests, compare the two runs:
+
+.. code-block:: shell
+
+    # Full suite
+    coverage run --source=qatrack -m pytest
+    coverage report --include="*/views.py" -m > /tmp/full_coverage.txt
+
+    # Selenium suite only
+    coverage run --source=qatrack -m pytest -m selenium
+    coverage report --include="*/views.py" -m > /tmp/selenium_coverage.txt
+
+    diff /tmp/full_coverage.txt /tmp/selenium_coverage.txt
+
+Lines that appear as *missed* only in the Selenium-only report are views
+covered by unit tests but not by browser tests — those are the best
+candidates for new Selenium tests.
+
+Customizing Organisation Logos
 -----------------------------
 
 QATrack+ reports include an option to display your organization's logo.
