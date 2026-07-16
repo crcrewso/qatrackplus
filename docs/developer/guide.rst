@@ -580,6 +580,198 @@ Run only non-Selenium tests (faster):
 For more information on using py.test, refer to the `py.test documentation
 <https://pytest.org>`__.
 
+Running Tests Against Different Databases
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, the test runner uses whichever database is configured in
+``qatrack/local_settings.py``.  To test against a specific backend, copy
+the matching template from ``deploy/`` to ``qatrack/local_settings.py``
+(or write the ``DATABASES`` dict directly into
+``qatrack/local_test_settings.py`` as a final override) before running
+``pytest``.
+
+.. note::
+
+    ``qatrack/local_test_settings.py`` is imported last by
+    ``qatrack/test_settings.py``, so any setting placed there overrides
+    everything else.  It is the recommended place for developer-local
+    overrides that should not be committed.
+
+**SQLite (file-based — the default)**
+
+No extra dependencies are needed.  Copy the SQLite template and run:
+
+.. code-block:: shell
+
+    cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+    pytest
+
+**SQLite in-memory**
+
+An in-memory database is destroyed after every test run.  It is the fastest
+option and keeps the working directory clean.  Add the following to
+``qatrack/local_test_settings.py``:
+
+.. code-block:: python
+
+    # qatrack/local_test_settings.py
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
+    }
+
+Then run:
+
+.. code-block:: shell
+
+    pytest
+
+.. note::
+
+    Django automatically enables thread-sharing on ``:memory:`` SQLite
+    connections, which allows the ``LiveServer`` thread used by Selenium tests
+    to access the same database that the test thread populates.
+
+**PostgreSQL**
+
+Install the ``psycopg`` driver first, then point ``local_settings.py`` at
+your PostgreSQL instance:
+
+.. code-block:: shell
+
+    uv sync --extra postgres
+    cp deploy/postgres/local_settings.py qatrack/local_settings.py
+    # Edit qatrack/local_settings.py — update HOST, USER, PASSWORD, NAME
+    pytest
+
+The CI matrix uses the following connection in ``local_settings.py``:
+
+.. code-block:: python
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "qatrackplus40",
+            "USER": "qatrack",
+            "PASSWORD": "qatrackpass",
+            "HOST": "127.0.0.1",
+            "PORT": "",
+        },
+        "readonly": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "qatrackplus40",
+            "USER": "qatrack_reports",
+            "PASSWORD": "qatrackpass",
+            "HOST": "127.0.0.1",
+            "PORT": "",
+        },
+    }
+
+**MySQL**
+
+Install the ``mysqlclient`` driver first, then configure ``local_settings.py``:
+
+.. code-block:: shell
+
+    # Ubuntu / Debian — system library required by mysqlclient
+    sudo apt-get install libmysqlclient-dev
+
+    uv sync --extra mysql
+    cp deploy/mysql/local_settings.py qatrack/local_settings.py
+    # Edit qatrack/local_settings.py — update HOST, USER, PASSWORD, NAME
+    pytest
+
+A minimal ``DATABASES`` block for MySQL:
+
+.. code-block:: python
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": "qatrackplus40",
+            "USER": "qatrack",
+            "PASSWORD": "qatrackpass",
+            "HOST": "127.0.0.1",
+            "PORT": "",
+        },
+        "readonly": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": "qatrackplus40",
+            "USER": "qatrack_reports",
+            "PASSWORD": "qatrackpass",
+            "HOST": "127.0.0.1",
+            "PORT": "",
+        },
+    }
+
+.. note::
+
+    The MySQL test user requires ``ALL`` on the live database *and*
+    ``ALL`` on ``test_<NAME>`` (e.g. ``test_qatrackplus40``), which Django
+    creates and drops for each test run.  Load timezone info into MySQL
+    before running the suite:
+
+    .. code-block:: shell
+
+        mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root -p mysql
+
+**MS SQL Server (Windows / mssql-django)**
+
+Install the ``mssql-django`` driver and the Windows extras, then configure
+``local_settings.py``:
+
+.. code-block:: shell
+
+    # Windows PowerShell
+    uv sync --extra mssql --extra win
+    copy deploy\win\local_settings.py qatrack\local_settings.py
+    # Edit qatrack\local_settings.py — update HOST, USER, PASSWORD, NAME, driver
+
+A minimal ``DATABASES`` block for SQL Server:
+
+.. code-block:: python
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "mssql",
+            "NAME": "qatrackplus40",
+            "USER": "qatrack",
+            "PASSWORD": "qatrackpass",
+            "HOST": "",            # blank = localhost default instance
+            "PORT": "",
+            "OPTIONS": {"driver": "ODBC Driver 17 for SQL Server"},
+        },
+        "readonly": {
+            "ENGINE": "mssql",
+            "NAME": "qatrackplus40",
+            "USER": "qatrack_reports",
+            "PASSWORD": "qatrackpass",
+            "HOST": "",
+            "PORT": "",
+            "OPTIONS": {"driver": "ODBC Driver 17 for SQL Server"},
+        },
+    }
+
+Then run (from the repository root):
+
+.. code-block:: shell
+
+    # Windows PowerShell
+    uv run pytest
+
+.. note::
+
+    The SQL Server user must have ``dbcreator`` rights so that Django can
+    create and drop the ``test_<NAME>`` database during the test run.
+    Leave ``NAME`` blank in the ``OPTIONS`` if you want Django to manage the
+    test database name automatically.
+
+    For a named SQL Express instance use
+    ``HOST = r"127.0.0.1\SQLEXPRESS"`` or
+    ``HOST = r"COMPUTERNAME\SQLEXPRESS"``.
+
 .. important::
 
     All new code you write should have tests written for it.  Any non trivial code
