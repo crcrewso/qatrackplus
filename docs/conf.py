@@ -1,5 +1,6 @@
 import os
 import re
+
 # -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
@@ -26,9 +27,9 @@ copyright = '2018 QATrack+ Contributors'
 author = 'Randle Taylor, Ryan Bottema & Contributors'
 
 # The short X.Y version
-settingsf = open(os.path.join("..", 'qatrack', 'settings.py'), 'r')
+settingsf = open(os.path.join("..", 'qatrack', 'settings.py'))
 
-version = re.findall("""VERSION\s+=\s+['"]+(.*)['"]""", settingsf.read())[0]
+version = re.findall(r"""VERSION\s+=\s+['"]+(.*)['"]""", settingsf.read())[0]
 
 # The full version, including alpha/beta/rc tags
 release = version
@@ -48,6 +49,8 @@ extensions = [
     'sphinx.ext.extlinks',
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
+    'sphinx_copybutton',
+    'sphinx_design',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -67,7 +70,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -98,7 +101,7 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -170,18 +173,25 @@ texinfo_documents = [
 extlinks = {
     'mailinglist': ("https://groups.google.com/forum/#!forum/qatrack/%s", ''),
     'issues': ("https://github.com/qatrackplus/qatrackplus/issues/%s", ''),
+    'supportemail': ("mailto:medphys@crcrewso.ca%s", ''),
+    'uvreleases': ("https://github.com/astral-sh/uv/releases/%s", ''),
 }
 
 rst_prolog = """
 
 
 .. |maillist| replace:: https://groups.google.com/forum/#!forum/qatrack
+.. |supportemail| replace:: mailto:medphys@crcrewso.ca
+.. |uvreleases| replace:: https://github.com/astral-sh/uv/releases
 
 
 """
 
 
 # -- Extension configuration -------------------------------------------------
+
+copybutton_prompt_text = ">>  " ## Note the double space at the end, which is intentional to avoid matching the prompt in the output of some commands
+
 
 # -- Options for todo extension ----------------------------------------------
 
