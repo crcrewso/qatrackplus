@@ -169,7 +169,13 @@ automated heuristic comment on every PR that lists which doc paths may need
 attention. The mapping it uses is reproduced here so that AI agents and
 developers can apply the same logic before a PR is even opened.
 
-| Changed code | Documentation to check |
+The table also covers **cross-references between documentation files**: the
+developer workflow (`docs/developer/`, `AGENTS.md`) and the installation guides
+(`docs/install/`) overlap on topics such as Python version, Node.js version, and
+the package manager. Whenever any one of these is updated, the others should be
+reviewed for consistency.
+
+| Changed path | Documentation to check |
 |---|---|
 | `qatrack/qa/` | `docs/admin/qa/`, `docs/user/qa/` |
 | `qatrack/service_log/` | `docs/admin/service_log/`, `docs/user/service_log/`, `docs/tutorials/service_log/` |
@@ -184,6 +190,9 @@ developers can apply the same logic before a PR is even opened.
 | `qatrack/settings.py` | `docs/install/config.rst` |
 | `qatrack/local_settings*`, `deploy/` | `docs/install/` |
 | `qatrack/qatrack_core/` | `docs/developer/` |
+| `AGENTS.md` | `docs/developer/`, `docs/install/` |
+| `docs/developer/` | `docs/install/`, `AGENTS.md` |
+| `docs/install/` | `docs/developer/`, `AGENTS.md` |
 
 When reviewing or authoring a PR as an AI agent, look specifically for:
 

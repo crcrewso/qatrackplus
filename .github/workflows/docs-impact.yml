@@ -109,6 +109,22 @@ jobs:
                 prefix: 'qatrack/qatrack_core/',
                 docs: ['docs/developer/'],
               },
+              // Cross-references: developer workflow ↔ installation guides ↔ AGENTS.md.
+              // These three documents describe overlapping setup information (Python
+              // version, Node.js version, package manager, etc.) and should be kept in
+              // sync with one another whenever any one of them changes.
+              {
+                prefix: 'AGENTS.md',
+                docs: ['docs/developer/', 'docs/install/'],
+              },
+              {
+                prefix: 'docs/developer/',
+                docs: ['docs/install/', 'AGENTS.md'],
+              },
+              {
+                prefix: 'docs/install/',
+                docs: ['docs/developer/', 'AGENTS.md'],
+              },
             ];
 
             // Build the deduplicated set of affected doc paths.
