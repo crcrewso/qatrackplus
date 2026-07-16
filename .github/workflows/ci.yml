@@ -213,6 +213,56 @@ jobs:
       - name: Run Tests
         run: uv run pytest -x -m "not selenium"
 
+  selenium-tests:
+    name: Selenium Tests
+    runs-on: ubuntu-latest
+    needs: [lint, requirements]
+    # Phase 1 — non-blocking: failures are visible in the UI but do not block merges.
+    # Remove continue-on-error once the suite is stable (phase 2).
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Install Firefox
+        run: sudo apt-get update && sudo apt-get install -y firefox
+
+      - name: Setup Database configuration
+        run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+
+      - name: Configure Selenium settings
+        run: |
+          printf 'SELENIUM_HEADLESS = True\nSELENIUM_BROWSER = "firefox"\n' > qatrack/local_test_settings.py
+      - name: Run Selenium tests
+        run: uv run pytest -m selenium -v --junit-xml=test-results/selenium.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-test-results
+          path: test-results/
+          if-no-files-found: ignore
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-screenshots
+          path: selenium-screenshots/
+          if-no-files-found: ignore
+
   docker-check:
     name: Docker Build & Run Check
     runs-on: ubuntu-latest
