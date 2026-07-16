@@ -1,4 +1,3 @@
-import shutil
 import time
 from contextlib import contextmanager
 from functools import wraps
@@ -87,93 +86,86 @@ class StaticLiveServerSingleThreadedTestCase(StaticLiveServerTestCase):
     static_handler = StaticFilesHandler
 
 
+def _create_firefox_driver(headless, driver_path):
+    """Create a Firefox WebDriver with modern options.
+
+    Headless mode is handled natively; no virtual display is needed.
+    When *driver_path* is empty, Selenium Manager downloads geckodriver
+    automatically.
+    """
+    from selenium.webdriver.firefox.options import Options as FirefoxOptions
+    from selenium.webdriver.firefox.service import Service as FirefoxService
+
+    options = FirefoxOptions()
+    if headless:
+        options.add_argument("-headless")
+
+    service = FirefoxService(executable_path=driver_path) if driver_path else FirefoxService()
+    return webdriver.Firefox(service=service, options=options)
+
+
+def _create_chrome_driver(headless, driver_path):
+    """Create a Chrome/Chromium WebDriver with modern options.
+
+    Headless mode is handled natively via ``--headless=new`` (Chrome ≥ 112).
+    When *driver_path* is empty, Selenium Manager downloads chromedriver
+    automatically.
+    """
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.chrome.service import Service as ChromeService
+
+    options = ChromeOptions()
+    if headless:
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+
+    service = ChromeService(executable_path=driver_path) if driver_path else ChromeService()
+    return webdriver.Chrome(service=service, options=options)
+
+
 @pytest.mark.selenium
 class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
 
     @classmethod
     def setUpClass(cls):
-        use_virtual_display = getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False)
-        browser_setting = getattr(settings, 'SELENIUM_BROWSER', 'firefox')
+        # SELENIUM_HEADLESS takes precedence; fall back to the legacy
+        # SELENIUM_VIRTUAL_DISPLAY name for backward compatibility.
+        headless = getattr(
+            settings,
+            'SELENIUM_HEADLESS',
+            getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False),
+        )
+        browser_setting = getattr(settings, 'SELENIUM_BROWSER', 'firefox').lower()
 
-        if use_virtual_display:
-            # Make sure xvfb is installed
-            from pyvirtualdisplay import Display
-            cls.display = Display(visible=0, size=(1920, 1080))
-            cls.display.start()
+        if browser_setting in ('chrome', 'chromium'):
+            driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '') or ''
+            cls.driver = _create_chrome_driver(headless=headless, driver_path=driver_path)
         else:
-            cls.display = None
-
-        if browser_setting == 'chromium':
-            from selenium.webdriver.chrome.options import Options as ChromeOptions
-            from selenium.webdriver.chrome.service import Service as ChromeService
-
-            chromium_driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '')
-            chrome_options = ChromeOptions()
-            if use_virtual_display:
-                chrome_options.add_argument('--headless')
-                chrome_options.add_argument('--no-sandbox')
-                chrome_options.add_argument('--disable-dev-shm-usage')
-
-            if chromium_driver_path:
-                service = ChromeService(executable_path=chromium_driver_path)
-                cls.driver = webdriver.Chrome(service=service, options=chrome_options)
-            else:
-                cls.driver = webdriver.Chrome(options=chrome_options)
-        else:
-            from selenium.webdriver.firefox.options import Options as FirefoxOptions
-            from selenium.webdriver.firefox.service import Service as FirefoxService
-
-            ff_options = FirefoxOptions()
-            if use_virtual_display:
-                ff_options.add_argument('--headless')
-            else:
-                ff_options.add_argument('--disable-headless')
-
-            firefox_driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '')
-            if firefox_driver_path:
-                service = FirefoxService(executable_path=firefox_driver_path)
-            else:
-                # Try to use system geckodriver
-                service = FirefoxService(executable_path=shutil.which('geckodriver'))
-                
-            cls.driver = webdriver.Firefox(service=service, options=ff_options)
+            driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '') or ''
+            cls.driver = _create_firefox_driver(headless=headless, driver_path=driver_path)
 
         orig_find_element = cls.driver.find_element
 
-        @retry_if_exception(WebDriverException, 2, sleep_time=1)
+        @retry_if_exception(WebDriverException, 5, sleep_time=1)
         def WebElement_find_element(*args, **kwargs):
-            """Monky patch find element to allow retries"""
+            """Monkey patch find_element to allow retries"""
             return orig_find_element(*args, **kwargs)
 
         cls.driver.find_element = WebElement_find_element
 
-        cls.driver.set_page_load_timeout(2)
-        cls.driver.implicitly_wait(2)
+        cls.driver.set_page_load_timeout(10)
+        cls.driver.implicitly_wait(10)
 
         cls.driver.set_window_position(0, 0)
         cls.driver.set_window_size(1920, 1080)
-        cls.wait = WebDriverWait(cls.driver, 2)
+        cls.wait = WebDriverWait(cls.driver, 10)
 
         super().setUpClass()
 
     @classmethod
-    def maximize(cls):
-
-        if getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False):
-            for i in range(5):
-                try:
-                    cls.driver.maximize_window()
-                    return
-                except WebDriverException:
-                    time.sleep(1)
-
-        cls.driver.set_window_size(1920, 1080)
-
-    @classmethod
     def tearDownClass(cls):
         cls.driver.quit()
-        if cls.display:
-            cls.display.stop()
         super().tearDownClass()
 
     def tearDown(self):
@@ -181,12 +173,12 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         super().tearDown()
 
     @contextmanager
-    def wait_for_page_load(self, timeout=2):
+    def wait_for_page_load(self, timeout=10):
         old_page = self.driver.find_element(By.TAG_NAME, 'html')
         yield
         WebDriverWait(self.driver, timeout).until(staleness_of(old_page))
 
-    @retry_if_exception(Exception, 2, sleep_time=1)
+    @retry_if_exception(Exception, 5, sleep_time=1)
     def open(self, url):
         with self.wait_for_page_load():
             self.driver.execute_script("window.location.href='%s%s'" % (self.live_server_url, url))

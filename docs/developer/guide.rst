@@ -402,92 +402,88 @@ use 4 spaces for indentation.
 Setting Up Selenium Browser Testing
 ----------------------------------
 
-QATrack+ includes Selenium tests that simulate user interactions with the web interface and are marked with the `@pytest.mark.selenium` decorator.
+QATrack+ includes Selenium tests that simulate user interactions with the web interface and are marked with the ``@pytest.mark.selenium`` decorator.
 
-**This setup should be completed before running the test suite if you want to see the Selenium tests in action.**
+**This setup should be completed before running the test suite if you want to run the Selenium tests.**
 
 **Browser Requirements**
 
-You will need to have both a browser and its corresponding driver installed on your system:
+You will need a supported browser installed on your system.  The driver (geckodriver / chromedriver) can either be installed manually or downloaded automatically by Selenium Manager (included with Selenium 4.6+).
 
-* Option 1. **Firefox + geckodriver**
-* Option 2. **Chromium + chromedriver**
+* Option 1. **Firefox** — driver: geckodriver
+* Option 2. **Chrome / Chromium** — driver: chromedriver
 
-If you are unsure whether or not you have both a browser and its corresponding driver installed, you can run the following commands to check:
+.. note::
 
-**Finding Browser and Driver Paths:**
+    Starting with Selenium 4.6, `Selenium Manager <https://www.selenium.dev/documentation/selenium_manager/>`_ can automatically download and cache the correct driver for your browser version.  You only need to install the browser itself; you do **not** need to install the driver manually unless you want to pin a specific version.
+
+**Checking Installed Components**
 
 .. code-block:: shell
 
-    # Check for Firefox browser
+    # Check for Firefox
     which firefox
-    
-    # Check for geckodriver
+
+    # Check for geckodriver (optional — Selenium Manager can handle this)
     which geckodriver
-    
-    # Check for Chromium browser
-    which chromium
-    
-    # Check for chromedriver
+
+    # Check for Chrome or Chromium
+    which google-chrome || which chromium || which chromium-browser
+
+    # Check for chromedriver (optional — Selenium Manager can handle this)
     which chromedriver
 
-**Example Output:**
-
-.. code-block::
-
-    /usr/bin/firefox
-    /snap/bin/geckodriver
-    /snap/bin/chromium
-    /usr/bin/chromedriver
-
-**Installing Missing Components**
-
-If you do not have both firefox and geckodriver or both chromium and chromedriver,
-you can install either pair using the following commands:
+**Installing the Browser**
 
 .. code-block:: shell
 
-    # Option 1: Install Firefox and geckodriver
-    sudo apt install firefox geckodriver
-    
-    # Option 2: Install Chromium and chromedriver
-    sudo apt install chromium-browser chromium-chromedriver
+    # Option 1: Install Firefox
+    sudo apt install firefox
 
-**Manual Downloads (Alternative Installation)**
+    # Option 2: Install Chromium
+    sudo apt install chromium-browser
 
-If the package manager installation doesn't work or you need a specific version, you can download the drivers manually:
+    # Optional: Install drivers manually if you do not want automatic management
+    sudo apt install firefox geckodriver              # Firefox + driver
+    sudo apt install chromium-browser chromium-chromedriver  # Chromium + driver
 
-* **geckodriver**: Download from the `official Mozilla website <https://firefox-source-docs.mozilla.org/testing/geckodriver/>`_
-* **chromedriver**: Download from the `official Chrome releases <https://chromedriver.chromium.org/downloads>`_
+**Manual Driver Downloads (Alternative)**
 
-After downloading, make the driver executable and verify the path.
+If you need a specific driver version, you can download it manually:
+
+* **geckodriver**: `Mozilla geckodriver releases <https://github.com/mozilla/geckodriver/releases>`_
+* **chromedriver**: `Chrome for Testing availability <https://googlechromelabs.github.io/chrome-for-testing/>`_
+
+After downloading, make the binary executable (``chmod +x <driver>``) and note its full path for the configuration step below.
 
 
 **Configuring Selenium Tests**
 
-You'll need to configure your browser settings in two files. First, update the Selenium configuration in `qatrack/settings.py`:
+Update the Selenium settings in ``qatrack/settings.py``:
 
 .. code-block::
 
     # Selenium Browser Configuration
-    # Options: 'firefox', 'chromium'
-    SELENIUM_BROWSER = ''
-    
-    # Browser Driver Paths
-    SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver as shown above
-    SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver as shown above
-    
-    # Headless Mode
-    # Set to True to run browsers in headless mode (no visible browser window)
-    # Set to False to see the browser during test execution
-    SELENIUM_VIRTUAL_DISPLAY = True
+    # Options: 'firefox' (default), 'chrome', 'chromium'
+    SELENIUM_BROWSER = 'firefox'
 
-Then also update `SELENIUM_VIRTUAL_DISPLAY` in `qatrack/test_settings.py`:
+    # Browser Driver Paths
+    # Leave empty to let Selenium Manager download the driver automatically.
+    SELENIUM_FIREFOX_DRIVER_PATH = ''   # e.g. '/usr/bin/geckodriver'
+    SELENIUM_CHROMIUM_DRIVER_PATH = ''  # e.g. '/usr/bin/chromedriver'
+
+    # Headless Mode
+    # True  — run the browser in headless mode (no visible window).
+    #         Uses the browser's native headless support; no virtual display needed.
+    # False — show the browser window during test execution (useful for debugging).
+    SELENIUM_HEADLESS = False
+
+You may also override this setting in ``qatrack/test_settings.py``:
 
 .. code-block::
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False  # Set to True to use headless browser for testing (requires xvfb)
+
+    # qatrack/test_settings.py
+    SELENIUM_HEADLESS = False  # change to True for CI or headless-only environments
 
 **Configuration Examples**
 
@@ -495,44 +491,60 @@ Then also update `SELENIUM_VIRTUAL_DISPLAY` in `qatrack/test_settings.py`:
 
 .. code-block::
 
-    # In qatrack/settings.py:
+    # qatrack/settings.py
     SELENIUM_BROWSER = 'firefox'
-    SELENIUM_VIRTUAL_DISPLAY = False
-    SELENIUM_FIREFOX_DRIVER_PATH = '/snap/bin/geckodriver' 
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False
+    SELENIUM_HEADLESS = False
+    SELENIUM_FIREFOX_DRIVER_PATH = ''  # let Selenium Manager choose
 
-**Chromium with visible browser:**
+**Firefox in headless mode:**
 
 .. code-block::
 
-    # In qatrack/settings.py:
+    # qatrack/settings.py
+    SELENIUM_BROWSER = 'firefox'
+    SELENIUM_HEADLESS = True
+    SELENIUM_FIREFOX_DRIVER_PATH = ''  # let Selenium Manager choose
+
+**Chrome with visible browser:**
+
+.. code-block::
+
+    # qatrack/settings.py
+    SELENIUM_BROWSER = 'chrome'
+    SELENIUM_HEADLESS = False
+    SELENIUM_CHROMIUM_DRIVER_PATH = ''  # let Selenium Manager choose
+
+**Chrome in headless mode:**
+
+.. code-block::
+
+    # qatrack/settings.py
+    SELENIUM_BROWSER = 'chrome'
+    SELENIUM_HEADLESS = True
+    SELENIUM_CHROMIUM_DRIVER_PATH = ''  # let Selenium Manager choose
+
+**Chromium with a pinned driver path:**
+
+.. code-block::
+
+    # qatrack/settings.py
     SELENIUM_BROWSER = 'chromium'
-    SELENIUM_VIRTUAL_DISPLAY = False
+    SELENIUM_HEADLESS = True
     SELENIUM_CHROMIUM_DRIVER_PATH = '/usr/bin/chromedriver'
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False
 
-**Headless mode**
+.. note::
 
-.. code-block::
-
-    # In qatrack/settings.py:
-    SELENIUM_BROWSER = ''  # This can either be filled in or left blank
-    SELENIUM_VIRTUAL_DISPLAY = True
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = True
-
+    The legacy ``SELENIUM_VIRTUAL_DISPLAY`` setting is still accepted for backward
+    compatibility but is deprecated.  Rename it to ``SELENIUM_HEADLESS`` in your
+    local settings.  The old virtual-display (xvfb / pyvirtualdisplay) approach is
+    no longer used; headless mode is now handled natively by each browser.
 
 Running The Test Suite
 ----------------------
 
 Once you have QATrack+ and its dependencies installed (and optionally configured
 Selenium browser testing above), you can run the test suite from the root
-QATrack+ directory using the `py.test` command:
+QATrack+ directory using the ``py.test`` command:
 
 
 .. code-block:: sh

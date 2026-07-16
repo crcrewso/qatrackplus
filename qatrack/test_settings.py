@@ -13,7 +13,7 @@ except ImportError:
 NOTIFICATIONS_ON = False
 DEFAULT_NUMBER_FORMAT = None
 DEBUG = False
-SELENIUM_VIRTUAL_DISPLAY = False # Set to True to use headless browser for testing (requires xvfb)
+SELENIUM_HEADLESS = False  # Set to True to run browsers in headless mode during testing
 AD_CLEAN_USERNAME = None
 HTTP_OR_HTTPS = "http"
 REVIEW_BULK = True

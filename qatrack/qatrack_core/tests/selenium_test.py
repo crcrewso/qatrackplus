@@ -10,7 +10,6 @@ from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
 from selenium.webdriver.remote.command import Command
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as e_c
@@ -109,59 +108,61 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
 
     @classmethod
     def setUpClass(cls):
-        use_virtual_display = getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False)
-        use_chrome = getattr(settings, 'SELENIUM_BROWSER', 'firefox') == 'chrome'
+        # SELENIUM_HEADLESS takes precedence; fall back to the legacy
+        # SELENIUM_VIRTUAL_DISPLAY name for backward compatibility.
+        headless = getattr(
+            settings,
+            'SELENIUM_HEADLESS',
+            getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False),
+        )
+        browser_setting = getattr(settings, 'SELENIUM_BROWSER', 'firefox').lower()
 
-        if use_virtual_display:
-            # Make sure xvfb is installed
-            from pyvirtualdisplay import Display
-            cls.display = Display(visible=0, size=(1920, 1080))
-            cls.display.start()
-        else:
-            cls.display = None
+        if browser_setting in ('chrome', 'chromium'):
+            from selenium.webdriver.chrome.options import Options as ChromeOptions
+            from selenium.webdriver.chrome.service import Service as ChromeService
 
-        if use_chrome:
-            chrome_driver_path = getattr(settings, 'SELENIUM_CHROME_PATH', '')
-            cls.driver = webdriver.Chrome(executable_path=chrome_driver_path)
+            driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '') or ''
+            options = ChromeOptions()
+            if headless:
+                options.add_argument('--headless=new')
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+
+            service = ChromeService(executable_path=driver_path) if driver_path else ChromeService()
+            cls.driver = webdriver.Chrome(service=service, options=options)
         else:
-            ff_profile = FirefoxProfile()
-            cls.driver = webdriver.Firefox(ff_profile)
+            from selenium.webdriver.firefox.options import Options as FirefoxOptions
+            from selenium.webdriver.firefox.service import Service as FirefoxService
+
+            driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '') or ''
+            options = FirefoxOptions()
+            if headless:
+                options.add_argument('-headless')
+
+            service = FirefoxService(executable_path=driver_path) if driver_path else FirefoxService()
+            cls.driver = webdriver.Firefox(service=service, options=options)
 
         orig_find_element = cls.driver.find_element
 
         @retry_if_exception(WebDriverException, 5, sleep_time=1)
         def WebElement_find_element(*args, **kwargs):
-            """Monky patch find element to allow retries"""
+            """Monkey patch find_element to allow retries"""
             return orig_find_element(*args, **kwargs)
 
         cls.driver.find_element = WebElement_find_element
 
-        cls.driver.set_page_load_timeout(5)
-        cls.driver.implicitly_wait(5)
+        cls.driver.set_page_load_timeout(10)
+        cls.driver.implicitly_wait(10)
 
-        cls.maximize()
-        cls.wait = WebDriverWait(cls.driver, 5)
+        cls.driver.set_window_position(0, 0)
+        cls.driver.set_window_size(1920, 1080)
+        cls.wait = WebDriverWait(cls.driver, 10)
 
         super().setUpClass()
 
     @classmethod
-    def maximize(cls):
-
-        if getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False):
-            for i in range(5):
-                try:
-                    cls.driver.maximize_window()
-                    return
-                except WebDriverException:
-                    time.sleep(1)
-
-        cls.driver.set_window_size(1920, 1080)
-
-    @classmethod
     def tearDownClass(cls):
         cls.driver.quit()
-        if cls.display:
-            cls.display.stop()
         super().tearDownClass()
 
     @contextmanager

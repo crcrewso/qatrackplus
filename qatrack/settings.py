@@ -788,18 +788,18 @@ if EMAIL_NOTIFICATION_PWD and not EMAIL_HOST_PASSWORD:
 # Testing settings
 
 # Selenium Browser Configuration
-# Options: 'firefox', 'chromium'
-# Set to 'firefox' to use Firefox, 'chromium' to use Chromium
+# Options: 'firefox' (default), 'chrome', 'chromium'
 SELENIUM_BROWSER = ''
 
-# Browser Driver Paths (leave empty to use system default)
-SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver
-SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver
+# Browser Driver Paths (leave empty to let Selenium Manager download automatically)
+SELENIUM_FIREFOX_DRIVER_PATH = ''   # Path to geckodriver, e.g. '/usr/bin/geckodriver'
+SELENIUM_CHROMIUM_DRIVER_PATH = ''  # Path to chromedriver, e.g. '/usr/bin/chromedriver'
 
 # Headless Mode
-# Set to True to run browsers in headless mode (no visible browser window)
-# Set to False to see the browser during test execution
-SELENIUM_VIRTUAL_DISPLAY = False  # Set to True to use headless browser for testing (requires xvfb)
+# Set to True to run browsers in headless mode (no visible browser window).
+# Uses the browser's native headless support — no virtual display (xvfb) required.
+# Set to False to see the browser window during test execution.
+SELENIUM_HEADLESS = False
 
 if any([('py.test' in v or 'pytest' in v) for v in sys.argv]):
     DATABASES.pop('readonly', None)
