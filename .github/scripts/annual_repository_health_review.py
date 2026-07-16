@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 import os
 import re
 import sys
@@ -12,7 +13,6 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-
 MAX_DEP_FINDINGS = 30
 MAX_PATTERN_FINDINGS = 50
 MAX_AI_STYLE_FINDINGS = 25
@@ -22,6 +22,7 @@ MAX_DOC_FILES = 16
 
 ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = ROOT / 'pyproject.toml'
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 DESIRED_LABELS = ['maintenance', 'technical debt', 'documentation', 'ai']
 
@@ -88,7 +89,11 @@ def get_pypi_info(package: str) -> dict | None:
     try:
         with urllib.request.urlopen(url, timeout=30) as response:
             return json.loads(response.read().decode('utf-8'))
-    except Exception:
+    except urllib.error.URLError as err:
+        logging.warning('Failed to fetch PyPI metadata for %s: %s', package, err)
+        return None
+    except json.JSONDecodeError as err:
+        logging.warning('Invalid JSON from PyPI for %s: %s', package, err)
         return None
 
 
@@ -168,7 +173,8 @@ def pattern_code_style_findings() -> list[Finding]:
         rel = path.relative_to(ROOT).as_posix()
         try:
             lines = path.read_text(encoding='utf-8').splitlines()
-        except Exception:
+        except (OSError, UnicodeDecodeError) as err:
+            logging.warning('Unable to read %s for pattern scan: %s', rel, err)
             continue
         for idx, line in enumerate(lines, start=1):
             for regex, severity, recommendation in PATTERN_RULES:
@@ -208,7 +214,8 @@ def sample_code_for_ai() -> str:
         rel = path.relative_to(ROOT).as_posix()
         try:
             text = path.read_text(encoding='utf-8')
-        except Exception:
+        except (OSError, UnicodeDecodeError) as err:
+            logging.warning('Unable to read %s for AI code sample: %s', rel, err)
             continue
         snippet = '\n'.join(text.splitlines()[:120])[:7000]
         samples.append(f'FILE: {rel}\n```\n{snippet}\n```')
@@ -224,7 +231,8 @@ def sample_docs_for_ai() -> str:
         rel = path.relative_to(ROOT).as_posix()
         try:
             text = path.read_text(encoding='utf-8')
-        except Exception:
+        except (OSError, UnicodeDecodeError) as err:
+            logging.warning('Unable to read %s for AI docs sample: %s', rel, err)
             continue
         snippet = '\n'.join(text.splitlines()[:140])[:7000]
         samples.append(f'FILE: {rel}\n```\n{snippet}\n```')
