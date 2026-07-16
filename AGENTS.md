@@ -133,6 +133,14 @@ English generally follows British spelling conventions (e.g. *behaviour*,
 Consistency within a file always takes priority over strict adherence to any
 one variant — do not change existing spelling just to match this preference.
 
+Prefer **clear, engaging prose** over technically dry writing. QATrack+ is used
+by medical physicists and clinical staff who bring deep domain expertise but
+may not have a software background. Documentation, docstrings, error messages,
+and UI text should feel approachable and human — explain the *why* alongside
+the *what*, use plain language where technical jargon adds nothing, and write
+as if you are guiding a knowledgeable colleague rather than producing a
+specification.
+
 ---
 
 ## Documentation

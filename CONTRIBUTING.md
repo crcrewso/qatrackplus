@@ -136,6 +136,11 @@ are strongly encouraged to contribute here — you don't need to be a developer.
 - Use clear commit messages: start with a short imperative summary
   (`Fix email notification when recipients list is empty`), then add a blank
   line and more detail if needed.
+- Aim for **engaging, approachable prose** in comments, docstrings, and
+  documentation. QATrack+ is used by clinicians as well as developers — write
+  as if you are guiding a knowledgeable colleague, not drafting a specification.
+  Explain the *why* alongside the *what*, and favour plain language over
+  unnecessary jargon.
 
 ### Running the tests
 
