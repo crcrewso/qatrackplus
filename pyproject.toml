@@ -141,7 +141,8 @@ addopts = "-ra -q"
 django_find_project = true
 DJANGO_SETTINGS_MODULE = "qatrack.settings"
 markers = [
-    "selenium: mark a test as a selenium test",
+    "browser: mark a test as a browser (Playwright) test",
+    "selenium: alias for browser; kept for backwards compatibility",
 ]
 
 [tool.uv.sources]
@@ -157,8 +158,8 @@ dev = [
     "coverage>=6.0,<8.0",
     "django-coverage>=1.2.4,<2.0",
     "freezegun>=1.0.0,<3.0",
-    "selenium>=4.0.0,<5.0",
-    "PyVirtualDisplay==2.0",
+    "playwright>=1.44",
+    "pytest-playwright>=0.5",
     "django-debug-toolbar>=4.0,<5.0",
     "django-upgrade>=1.25.0",
     "pre-commit>=4.2.0",
@@ -212,3 +213,19 @@ ignore = [
 
 [tool.ruff.format]
 quote-style = "single"
+
+[tool.coverage.run]
+source = ["qatrack"]
+omit = [
+    "*/migrations/*",
+    "*/south_migrations/*",
+    "*/fixtures/*",
+    "*/tests/*",
+    "qatrack/settings*.py",
+    "qatrack/local_settings.py",
+    "qatrack/test_settings.py",
+]
+
+[tool.coverage.report]
+skip_covered = true
+show_missing = true
