@@ -219,10 +219,11 @@ def read_style_context() -> str:
     language_section = section(agents, '### Language')
     agents_focus = '\n\n'.join(s for s in [dependencies_section, language_section] if s)
 
+    pyproject_keywords = ('requires-python', 'Django', 'ruff', 'target-version', 'quote-style')
     pyproject_focus = '\n'.join(
         line
         for line in pyproject.splitlines()
-        if 'requires-python' in line or 'Django' in line or 'ruff' in line or 'target-version' in line or 'quote-style' in line
+        if any(keyword in line for keyword in pyproject_keywords)
     )
     return f'AGENTS.md context:\n{agents_focus}\n\npyproject.toml context:\n{pyproject_focus}'
 
@@ -261,8 +262,14 @@ def sample_docs_for_ai() -> str:
 def _extract_json_payload(content: str) -> list[dict]:
     content = content.strip()
     if content.startswith('```'):
-        content = re.sub(r'^```[a-zA-Z0-9_-]*\n', '', content)
-        content = re.sub(r'\n```$', '', content)
+        lines = content.splitlines()
+        if lines and lines[0].startswith('```'):
+            lines = lines[1:]
+        for i, line in enumerate(lines):
+            if line.strip() == '```':
+                lines = lines[:i]
+                break
+        content = '\n'.join(lines).strip()
     try:
         parsed = json.loads(content)
         if isinstance(parsed, list):
@@ -308,8 +315,12 @@ def ai_review(prompt: str) -> tuple[list[dict], str | None]:
             body = json.loads(response.read().decode('utf-8'))
     except urllib.error.HTTPError as err:
         return [], f'AI API HTTP error: {err.code}'
-    except Exception as err:
-        return [], f'AI API error: {err}'
+    except urllib.error.URLError as err:
+        return [], f'AI API URL error: {err}'
+    except TimeoutError as err:
+        return [], f'AI API timeout: {err}'
+    except json.JSONDecodeError as err:
+        return [], f'AI API returned invalid JSON: {err}'
 
     content = body.get('choices', [{}])[0].get('message', {}).get('content', '')
     parsed = _extract_json_payload(content)
@@ -445,7 +456,8 @@ def find_or_create_issue(owner: str, repo: str, token: str, title: str, body: st
 
     if existing:
         issue_number = existing['number']
-        http_json('PATCH', github_api(f'/repos/{owner}/{repo}/issues/{issue_number}'), token, payload={'body': body, 'labels': labels})
+        update_payload = {'body': body, 'labels': labels}
+        http_json('PATCH', github_api(f'/repos/{owner}/{repo}/issues/{issue_number}'), token, payload=update_payload)
         print(f'Updated existing annual issue #{issue_number}.')
     else:
         created = http_json('POST', github_api(f'/repos/{owner}/{repo}/issues'), token, payload)
