@@ -26,6 +26,24 @@ class TestListAdminViewsTest(TestCase):
         self.assertContains(response, _("Export Test Pack"))
         self.assertContains(response, _("Import Test Pack"))
 
+    def test_test_changelist_view_contains_export_import_buttons(self):
+        """Test that the test changelist view contains export and import buttons"""
+        response = self.client.get(reverse('admin:qa_test_changelist'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse('admin:qa_export_testpack'))
+        self.assertContains(response, reverse('admin:qa_import_testpack'))
+        self.assertContains(response, _("Export Test Pack"))
+        self.assertContains(response, _("Import Test Pack"))
+
+    def test_testlistcycle_changelist_view_contains_export_import_buttons(self):
+        """Test that the test list cycle changelist view contains export and import buttons"""
+        response = self.client.get(reverse('admin:qa_testlistcycle_changelist'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse('admin:qa_export_testpack'))
+        self.assertContains(response, reverse('admin:qa_import_testpack'))
+        self.assertContains(response, _("Export Test Pack"))
+        self.assertContains(response, _("Import Test Pack"))
+
     def test_export_testpack_view_requires_permission(self):
         """Test that export testpack view requires proper permission"""
         # Remove superuser status and permissions
