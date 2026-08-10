@@ -928,7 +928,7 @@ class ServiceEventsBaseList(BaseListableView):
         return 'fa-wrench'
 
     def get_page_title(self, f=None):
-        return 'All Service Events'
+        return _('All Service Events')
 
     def get_fields(self, request=None):
 
@@ -1011,7 +1011,7 @@ class ServiceEventsByStatusList(ServiceEventsBaseList):
 
     def get_page_title(self, *args, **kwargs):
         status = get_object_or_404(sl_models.ServiceEventStatus, pk=self.kwargs['pk'])
-        return "Service Events - Status: %s" % status.name
+        return _("Service Events - Status: %s") % status.name
 
     def get_next(self):
         return reverse('sl_list_by_status', kwargs={'pk': self.kwargs['pk']})
@@ -1022,7 +1022,7 @@ class ServiceEventsReviewRequiredList(ServiceEventsBaseList):
     service_status__is_review_required set to True"""
 
     def get_page_title(self, *args):
-        return "Service Events Requiring Review"
+        return _("Service Events Requiring Review")
 
     def get_queryset(self):
         qs = super().get_queryset().filter(is_review_required=True, service_status__is_review_required=True)
@@ -1040,7 +1040,7 @@ class ServiceEventsInitiatedByList(ServiceEventsBaseList):
         title = "%s %s - %s " % (
             tli.unit_test_collection.unit, tli.unit_test_collection.name, format_datetime(tli.work_completed)
         )
-        return "Service Events Initiated By %s" % (title)
+        return _("Service Events Initiated By %s") % (title)
 
     def get_queryset(self):
         tli = get_object_or_404(qa_models.TestListInstance, pk=self.kwargs['tli_pk'])
@@ -1059,7 +1059,7 @@ class ServiceEventsReturnToServiceForList(ServiceEventsBaseList):
         title = "%s %s - %s " % (
             tli.unit_test_collection.unit, tli.unit_test_collection.name, format_datetime(tli.work_completed)
         )
-        return "Service Events with %s as Return To Service" % (title)
+        return _("Service Events with %s as Return To Service") % (title)
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1074,7 +1074,7 @@ class ServiceEventsByUnitList(ServiceEventsBaseList):
 
     def get_page_title(self, *args):
         unit = get_object_or_404(u_models.Unit, number=self.kwargs['unit_number'])
-        return "Service Events For %s" % unit
+        return _("Service Events For %s") % unit
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1164,7 +1164,7 @@ class ReturnToServiceQABaseList(BaseListableView):
         return 'fa-pencil-square-o'
 
     def get_page_title(self, f=None):
-        return 'All Return To Service QC'
+        return _('All Return To Service QC')
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
@@ -1235,7 +1235,7 @@ class ReturnToServiceQABaseList(BaseListableView):
 class ReturnToServiceQAIncompleteList(ReturnToServiceQABaseList):
 
     def get_page_title(self):
-        return "Return to Service QC - Incomplete"
+        return _("Return to Service QC - Incomplete")
 
     def get_queryset(self):
         return super().get_queryset().filter(test_list_instance=None)
@@ -1247,7 +1247,7 @@ class ReturnToServiceQAIncompleteList(ReturnToServiceQABaseList):
 class ReturnToServiceQAUnreviewedList(ReturnToServiceQABaseList):
 
     def get_page_title(self):
-        return "Return to Service QC - Unreviewed"
+        return _("Return to Service QC - Unreviewed")
 
     def get_queryset(self):
         return super().get_queryset().filter(
@@ -1268,7 +1268,7 @@ class ReturnToServiceQAForEventList(ReturnToServiceQABaseList):
             format_datetime(se.datetime_service),
             qa_tags.service_status_label(se.service_status),
         )
-        return mark_safe("Return to Service QC - Service Event %d: %s" % (se.pk, description))
+        return mark_safe(_("Return to Service QC - Service Event %d: %s") % (se.pk, description))
 
     def get_queryset(self):
         get_object_or_404(sl_models.ServiceEvent, pk=self.kwargs['se_pk'])
@@ -1295,7 +1295,7 @@ class TLISelect(UTCInstances):
     def get_page_title(self):
         try:
             utc = qa_models.UnitTestCollection.objects.get(pk=self.kwargs["pk"])
-            return "Select a %s instance" % utc.name
+            return _("Select a %(utcname)s instance") % {"utcname": utc.name}
         except qa_models.UnitTestCollection.DoesNotExist:
             raise Http404
         except KeyError:
@@ -1405,7 +1405,7 @@ class ServiceEventDownTimesList(ServiceEventsBaseList):
         return self.fields
 
     def get_page_title(self, f=None):
-        return 'Filter Service Events and Up Time Summary'
+        return _('Filter Service Events and Up Time Summary')
 
     def duration_lost_time(self, se):
         duration = se.duration_lost_time

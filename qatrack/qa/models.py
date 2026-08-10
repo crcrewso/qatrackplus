@@ -169,7 +169,7 @@ PERMISSIONS = (
             (
                 'qa.can_override_date',
                 _l("Can override date"),
-                _l("Allow a user to override the work_completed data"),
+                _l("Allow a user to override the work_completed date"),
             ),
             (
                 'qa.can_perform_subset',
@@ -248,12 +248,12 @@ PERMISSIONS += ((
         (
             'service_log.perform_returntoserviceqa',
             _l("Can perform Return To Service QC"),
-            _l("Allow user to perform qa linked to service events."),
+            _l("Allow user to perform QC linked to service events."),
         ),
         (
             'service_log.view_returntoserviceqa',
             _l("Can view existing Return To Service QC"),
-            _l("Allow user to view qa linked to service events."),
+            _l("Allow user to view QC linked to service events."),
         ),
         (
             'service_log.add_serviceevent',
@@ -374,9 +374,10 @@ class Frequency(RecurrenceFieldMixin, models.Model):
     """Frequencies for performing QC tasks with configurable due dates"""
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
-    name = models.CharField(max_length=50, unique=True, help_text=_l("Display name for this frequency"))
+    name = models.CharField(verbose_name=_l("Name"), max_length=50, unique=True, help_text=_l("Display name for this frequency"))
 
     slug = models.SlugField(
+        verbose_name=_l("Slug"),
         max_length=50,
         unique=True,
         help_text=_l("Unique identifier made of lowercase characters and underscores for this frequency")
@@ -389,6 +390,7 @@ class Frequency(RecurrenceFieldMixin, models.Model):
     )
 
     nominal_interval = models.PositiveIntegerField(
+        verbose_name=_l("Normal Interval"),
         editable=False,
         help_text=_l("Nominal number of days between test completions (for internal ordering purposes)")
     )
@@ -507,29 +509,33 @@ class StatusManager(models.Manager):
 class TestInstanceStatus(models.Model):
     """Configurable statuses for QC Tests"""
 
-    name = models.CharField(max_length=50, help_text=_l("Display name for this status type"), unique=True)
+    name = models.CharField(verbose_name=_l("Name"), max_length=50, help_text=_l("Display name for this status type"), unique=True)
     slug = models.SlugField(
+        verbose_name=_l("Slug"),
         max_length=50,
         unique=True,
         help_text=_l("Unique identifier made of lowercase characters and underscores for this status")
     )
 
     description = models.TextField(
+        verbose_name=_l("Description"),
         help_text=_l("Give a brief description of what type of test results should be given this status"),
         null=True,
         blank=True
     )
 
     is_default = models.BooleanField(
-        default=False, help_text=_l("Check to make this status the default for new Test Instances")
+        verbose_name=_l("Is Default"), default=False, help_text=_l("Check to make this status the default for new Test Instances")
     )
 
     requires_review = models.BooleanField(
+        verbose_name=_l("Requires Review"),
         default=True,
         help_text=_l("Check to indicate that Test Instances with this status require further review"),
     )
 
     export_by_default = models.BooleanField(
+        verbose_name=_l("Export By Default"),
         default=True,
         help_text=_l(
             "Check to indicate whether tests with this status should be exported by "
@@ -538,6 +544,7 @@ class TestInstanceStatus(models.Model):
     )
 
     valid = models.BooleanField(
+        verbose_name=_l("Valid"),
         default=True,
         help_text=_l(
             "If unchecked, data with this status will not be exported and "
@@ -545,7 +552,7 @@ class TestInstanceStatus(models.Model):
         )
     )
 
-    colour = models.CharField(default=settings.DEFAULT_TEST_STATUS_COLOUR, max_length=22, validators=[validate_color])
+    colour = models.CharField(verbose_name=_l("Colour"), default=settings.DEFAULT_TEST_STATUS_COLOUR, max_length=22, validators=[validate_color])
 
     objects = StatusManager()
 
@@ -576,12 +583,14 @@ class AutoReviewRule(models.Model):
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     pass_fail = models.CharField(
+        verbose_name=_l("Pass Fail"),
         help_text=_l("Pass fail state of test instances to apply this rule to."),
         max_length=15,
         choices=PASS_FAIL_CHOICES,
     )
     status = models.ForeignKey(
         TestInstanceStatus,
+        verbose_name=_l("Status"),
         on_delete=models.CASCADE,
         help_text=_l("Status to assign test instance based on its pass/fail state"),
     )
@@ -627,17 +636,17 @@ class Reference(models.Model):
     """Reference values for various QC :model:`Test`s"""
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
-    name = models.CharField(max_length=255, help_text=_l("Enter a short name for this reference"))
-    type = models.CharField(max_length=15, choices=REF_TYPE_CHOICES, default=NUMERICAL)
-    value = models.FloatField(help_text=_l("Enter the reference value for this test."))
+    name = models.CharField(verbose_name=_l("Name"), max_length=255, help_text=_l("Enter a short name for this reference"))
+    type = models.CharField(verbose_name=_l("Type"), max_length=15, choices=REF_TYPE_CHOICES, default=NUMERICAL)
+    value = models.FloatField(verbose_name=_l("Value"), help_text=_l("Enter the reference value for this test."))
 
     # who created this reference
-    created = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False, related_name="reference_creators")
+    created = models.DateTimeField(verbose_name=_l("Created"), auto_now_add=True)
+    created_by = models.ForeignKey(User, verbose_name=_l("Created by"), on_delete=models.PROTECT, editable=False, related_name="reference_creators")
 
     # who last modified this reference
-    modified = models.DateTimeField(auto_now=True)
-    modified_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False, related_name="reference_modifiers")
+    modified = models.DateTimeField(verbose_name=_l("Modified"), auto_now=True)
+    modified_by = models.ForeignKey(User, verbose_name=_l("Modified by"), on_delete=models.PROTECT, editable=False, related_name="reference_modifiers")
 
     class Meta:
         ordering = ["type", "name"]
@@ -678,9 +687,10 @@ class Tolerance(models.Model):
     """
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
-    name = models.CharField(max_length=255, unique=True, editable=False)
+    name = models.CharField(verbose_name=_l("Name"), max_length=255, unique=True, editable=False)
 
     type = models.CharField(
+        verbose_name=_l("Type"),
         max_length=20,
         help_text=_l("Select whether this will be an absolute or relative tolerance criteria"),
         choices=TOL_TYPE_CHOICES,
@@ -733,12 +743,12 @@ class Tolerance(models.Model):
     )
 
     # who created this tolerance
-    created_date = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False, related_name="tolerance_creators")
+    created_date = models.DateTimeField(verbose_name=_l("Created Date"), auto_now_add=True)
+    created_by = models.ForeignKey(User, verbose_name=_l("Created by"), on_delete=models.PROTECT, editable=False, related_name="tolerance_creators")
 
     # who last modified this tolerance
-    modified_date = models.DateTimeField(auto_now=True)
-    modified_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False, related_name="tolerance_modifiers")
+    modified_date = models.DateTimeField(verbose_name=_l("Modified Date"), auto_now=True)
+    modified_by = models.ForeignKey(User, verbose_name=_l("Modified by"), on_delete=models.PROTECT, editable=False, related_name="tolerance_modifiers")
 
     objects = ToleranceManager()
 
@@ -772,7 +782,7 @@ class Tolerance(models.Model):
                 errors.append(_("Value set for tolerance or action but type is Multiple Choice"))
 
             if self.mc_pass_choices is None or self.mc_pass_choices.strip() == "":
-                errors.append(_("You must give at least l passing choice for a multiple choice tolerance"))
+                errors.append(_("You must give at least 1 passing choice for a multiple choice tolerance"))
             else:
 
                 pass_choices = [x.strip() for x in self.mc_pass_choices.split(",") if x.strip()]
@@ -876,15 +886,15 @@ class Category(MPTTModel):
 
     NK_FIELDS = ['name']
 
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(verbose_name=_l("Name"), max_length=255, unique=True)
     slug = models.SlugField(
-        max_length=255, unique=True, help_text=_l("Unique identifier made of lowercase characters and underscores")
+        verbose_name=_l("Slug"), max_length=255, unique=True, help_text=_l("Unique identifier made of lowercase characters and underscores")
     )
     description = models.TextField(
-        help_text=_l("Give a brief description of what type of tests should be included in this grouping")
+        verbose_name=_l("Description"), help_text=_l("Give a brief description of what type of tests should be included in this grouping")
     )
 
-    parent = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name="children")
+    parent = TreeForeignKey('self', verbose_name=_l("Parent"), on_delete=models.CASCADE, null=True, blank=True, related_name="children")
     objects = CategoryManager()
 
     class Meta:
@@ -953,13 +963,14 @@ class Test(models.Model, TestPackMixin):
         null=True
     )
     procedure = models.CharField(
+        verbose_name=_l("Procedure"),
         max_length=512,
         help_text=_l("Link to document describing how to perform this test"),
         blank=True,
         null=True,
     )
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, help_text=_l("Choose a category for this test"))
-    chart_visibility = models.BooleanField("Test item visible in charts?", default=True)
+    category = models.ForeignKey(Category, verbose_name=_l("Category"), on_delete=models.PROTECT, help_text=_l("Choose a category for this test"))
+    chart_visibility = models.BooleanField(verbose_name=_l("Test item visible in charts?"), default=True)
     autoreviewruleset = models.ForeignKey(
         "AutoReviewRuleSet",
         verbose_name=_l("Auto Review Rules"),
@@ -973,6 +984,7 @@ class Test(models.Model, TestPackMixin):
     )
 
     type = models.CharField(
+        verbose_name=_l("Type"),
         max_length=10,
         choices=TEST_TYPE_CHOICES,
         default=SIMPLE,
@@ -992,39 +1004,42 @@ class Test(models.Model, TestPackMixin):
     )
 
     hidden = models.BooleanField(
-        _l("Hidden"),
+        verbose_name=_l("Hidden"),
         help_text=_l("Don't display this test when performing QC"),
         default=False,
     )
     skip_without_comment = models.BooleanField(
-        _l("Skip without comment"),
+        verbose_name=_l("Skip without comment"),
         help_text=_l("Allow users to skip this test without a comment"),
         default=False,
     )
     require_comment = models.BooleanField(
-        _l("Require Comment"),
+        verbose_name=_l("Require Comment"),
         help_text=_l("Require users to enter a comment when submitting this test."),
         default=False,
     )
     display_image = models.BooleanField(
-        "Display image",
+        verbose_name=_l("Display image"),
         help_text=_l("Image uploads only: Show uploaded images under the testlist"),
         default=False,
     )
     choices = models.CharField(
+        verbose_name=_l("Description"),
         max_length=2048,
         help_text=_l("Comma seperated list of choices for multiple choice test types"),
         null=True,
         blank=True,
     )
-    constant_value = models.FloatField(help_text=_l("Only required for constant value types"), null=True, blank=True)
+    constant_value = models.FloatField(verbose_name=_l("Constant Value"), help_text=_l("Only required for constant value types"), null=True, blank=True)
 
     wrap_low = models.FloatField(
+        verbose_name=_l("Wrap Low"),
         help_text=_l("Minimum value at which test wraps around to maximum value"),
         null=True,
         blank=True,
     )
     wrap_high = models.FloatField(
+        verbose_name=_l("Wrap High"),
         help_text=_l("Maximum value at which test wraps around to minimum value"),
         null=True,
         blank=True,
@@ -1042,6 +1057,7 @@ class Test(models.Model, TestPackMixin):
         "<pre>your_test = True # or False</pre>"
     )
     calculation_procedure = models.TextField(
+        verbose_name=_l("Calculation Procedure"),
         null=True,
         blank=True,
         help_text=calc_proc_help,
@@ -1055,13 +1071,13 @@ class Test(models.Model, TestPackMixin):
         "You may also use new style Python string formatting (e.g. {:06.2f})."
     )
 
-    formatting = models.CharField(blank=True, help_text=fmt_help, default='', max_length=10)
+    formatting = models.CharField(verbose_name=_l("Formatting"), blank=True, help_text=fmt_help, default='', max_length=10)
 
     # for keeping a very basic history
-    created = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False, related_name="test_creator")
-    modified = models.DateTimeField(auto_now=True)
-    modified_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False, related_name="test_modifier")
+    created = models.DateTimeField(verbose_name=_l("Created"), auto_now_add=True)
+    created_by = models.ForeignKey(User, verbose_name=_l("Created by"), on_delete=models.PROTECT, editable=False, related_name="test_creator")
+    modified = models.DateTimeField(verbose_name=_l("Modified"), auto_now=True)
+    modified_by = models.ForeignKey(User, verbose_name=_l("Modified by"), on_delete=models.PROTECT, editable=False, related_name="test_modifier")
 
     objects = TestManager()
 
@@ -1209,7 +1225,7 @@ class Test(models.Model, TestPackMixin):
                 errors.append(_("Wrap low required for Wraparound test"))
 
             if wrap_high_def and wrap_low_def and self.wrap_high < self.wrap_low:
-                errors.append(_("Wrap High must be less than Wrap Low"))
+                errors.append(_("Wrap Low must be less than Wrap High"))
 
         if errors:
             raise ValidationError({"wrap_high": errors})
@@ -1376,8 +1392,8 @@ class UnitTestInfoManager(models.Manager):
 class UnitTestInfo(models.Model):
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
-    unit = models.ForeignKey(Unit, on_delete=models.PROTECT)
-    test = models.ForeignKey(Test, on_delete=models.PROTECT)
+    unit = models.ForeignKey(Unit, verbose_name=_l("Unit"), on_delete=models.PROTECT)
+    test = models.ForeignKey(Test, verbose_name=_l("Test"), on_delete=models.PROTECT)
 
     reference = models.ForeignKey(
         Reference,
@@ -1386,12 +1402,13 @@ class UnitTestInfo(models.Model):
         blank=True,
         on_delete=models.PROTECT,
     )
-    tolerance = models.ForeignKey(Tolerance, null=True, blank=True, on_delete=models.PROTECT)
+    tolerance = models.ForeignKey(Tolerance, verbose_name=_l("Tolerance"), null=True, blank=True, on_delete=models.PROTECT)
 
-    active = models.BooleanField(help_text=_l("Uncheck to disable this test on this unit"), default=True, db_index=True)
+    active = models.BooleanField(verbose_name=_l("Active"), help_text=_l("Uncheck to disable this test on this unit"), default=True, db_index=True)
 
     assigned_to = models.ForeignKey(
         Group,
+        verbose_name=_l("Assigned to"),
         help_text=_l("QC group that this test list should nominally be performed by"),
         null=True,
         blank=True,
@@ -1438,7 +1455,7 @@ class UnitTestInfo(models.Model):
 class UnitTestInfoChange(models.Model):
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
-    unit_test_info = models.ForeignKey(UnitTestInfo, on_delete=models.PROTECT)
+    unit_test_info = models.ForeignKey(UnitTestInfo, verbose_name=_l("Unit Test Info"), on_delete=models.PROTECT)
     reference = models.ForeignKey(
         Reference,
         verbose_name=_l("Old Reference"),
@@ -1446,7 +1463,7 @@ class UnitTestInfoChange(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
-    reference_changed = models.BooleanField()
+    reference_changed = models.BooleanField(verbose_name=_l("Reference Changed"))
     tolerance = models.ForeignKey(
         Tolerance,
         verbose_name=_l("Old Tolerance"),
@@ -1454,10 +1471,10 @@ class UnitTestInfoChange(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
-    tolerance_changed = models.BooleanField()
-    comment = models.TextField(help_text=_l("Reason for the change"))
-    changed = models.DateTimeField(auto_now_add=True)
-    changed_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False)
+    tolerance_changed = models.BooleanField(verbose_name=_l("Tolerance Changed"))
+    comment = models.TextField(verbose_name=_l("Comment"), help_text=_l("Reason for the change"))
+    changed = models.DateTimeField(verbose_name=_l("Changed"), auto_now_add=True)
+    changed_by = models.ForeignKey(User, verbose_name=_l("Changed by"), on_delete=models.PROTECT, editable=False)
 
     class Meta:
         verbose_name = _l("Unit Test Info Change")
@@ -1479,9 +1496,9 @@ class TestListMembership(models.Model):
 
     NK_FIELDS = ['test_list', 'test']
 
-    test_list = models.ForeignKey("TestList", on_delete=models.CASCADE)
-    test = models.ForeignKey(Test, on_delete=models.CASCADE)
-    order = models.IntegerField(db_index=True)
+    test_list = models.ForeignKey("TestList", verbose_name=_l("Test List"), on_delete=models.CASCADE)
+    test = models.ForeignKey(Test, verbose_name=_l("Test"), on_delete=models.CASCADE)
+    order = models.IntegerField(verbose_name=_l("Order"), db_index=True)
 
     objects = TestListMembershipManager()
 
@@ -1511,19 +1528,22 @@ class TestListMembership(models.Model):
 class TestCollectionInterface(models.Model):
     """abstract base class for Tests collection (i.e. TestList's and TestListCycles"""
 
-    name = models.CharField(max_length=255, db_index=True)
+    name = models.CharField(verbose_name=_l("Name"), max_length=255, db_index=True)
     slug = models.SlugField(
+        verbose_name=_l("Slug"),
         max_length=255,
         unique=True,
         help_text=_l("A short unique name for use in the URL of this list"),
         db_index=True,
     )
     description = models.TextField(
+        verbose_name=_l("Description"),
         help_text=_l("A concise description of this test checklist. (You may use HTML markup)"),
         null=True,
         blank=True,
     )
     javascript = models.TextField(
+        verbose_name=_l("JavaScript"),
         help_text=_l('Any extra javascript to run when loading perform page'),
         null=True,
         blank=True,
@@ -1536,16 +1556,18 @@ class TestCollectionInterface(models.Model):
     )
 
     # for keeping a very basic history
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(verbose_name=_l("Created"), auto_now_add=True)
     created_by = models.ForeignKey(
         User,
+        verbose_name=_l("Created by"), 
         on_delete=models.PROTECT,
         related_name="%(app_label)s_%(class)s_created",
         editable=False,
     )
-    modified = models.DateTimeField(auto_now=True)
+    modified = models.DateTimeField(verbose_name=_l("Modified"), auto_now=True)
     modified_by = models.ForeignKey(
         User,
+        verbose_name=_l("Modified by"),
         on_delete=models.PROTECT,
         related_name="%(app_label)s_%(class)s_modified",
         editable=False,
@@ -1594,18 +1616,21 @@ class TestList(TestCollectionInterface, TestPackMixin):
 
     tests = models.ManyToManyField(
         "Test",
+        verbose_name=_l("Tests"),
         help_text=_l("Which tests does this list contain"),
         through=TestListMembership,
     )
 
     test_lists = models.ManyToManyField(
         "TestList",
+        verbose_name=_l("Test Lists"),
         help_text=_l("Which test lists does this list contain"),
         through="Sublist",
         blank=True,
     )
 
     warning_message = models.CharField(
+        verbose_name=_l("Warning Message"),
         max_length=255,
         help_text=_l(
             "Message given when a test value is out of tolerance.  Leave blank to "
@@ -1735,14 +1760,15 @@ class Sublist(models.Model):
 
     NK_FIELDS = ['parent', 'child']
 
-    parent = models.ForeignKey(TestList, on_delete=models.CASCADE, related_name="children")
-    child = models.ForeignKey(TestList, on_delete=models.CASCADE)
+    parent = models.ForeignKey(TestList, verbose_name=_l("Parent"), on_delete=models.CASCADE, related_name="children")
+    child = models.ForeignKey(TestList, verbose_name=_l("Child"), on_delete=models.CASCADE)
     outline = models.BooleanField(
+        verbose_name=_l("Outline"),
         default=False,
         help_text=_l("Check to indicate whether sublist tests should be distinguished visually from parent tests"),
     )
 
-    order = models.IntegerField(db_index=True)
+    order = models.IntegerField(verbose_name=_l("Order"), db_index=True)
 
     class Meta:
         ordering = ("order",)
@@ -1795,35 +1821,40 @@ class UnitTestCollection(SchedulingMixin, models.Model):
     """keeps track of which units should perform which test lists at a given frequency"""
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
-    unit = models.ForeignKey(Unit, on_delete=models.CASCADE)
+    unit = models.ForeignKey(Unit, verbose_name=_l("Unit"), on_delete=models.CASCADE)
 
     frequency = models.ForeignKey(
         Frequency,
+        verbose_name=_l("Frequency"),
         on_delete=models.SET_NULL,
         help_text=_l("Frequency with which this test list is to be performed"),
         null=True,
         blank=True,
         related_name='unittestcollections'
     )
-    due_date = models.DateTimeField(help_text=_l("Next time this item is due"), null=True, blank=True)
+    due_date = models.DateTimeField(verbose_name=_l("Due Date"), help_text=_l("Next time this item is due"), null=True, blank=True)
     auto_schedule = models.BooleanField(
+        verbose_name=_l("Auto Schedule"),
         help_text=_l("If this is checked, due_date will be auto set based on the assigned frequency"),
         default=True,
     )
 
     assigned_to = models.ForeignKey(
         Group,
+        verbose_name=_l("Assigned to"),
         on_delete=models.SET_NULL,
         help_text=_l("QC group that this test list should nominally be performed by"),
         null=True,
     )
     visible_to = models.ManyToManyField(
         Group,
+        verbose_name=_l("Visible to"),
         help_text=_l("Select groups who will be able to see this test collection on this unit"),
         related_name="test_collection_visibility",
     )
 
     active = models.BooleanField(
+        verbose_name=_l("Active"),
         help_text=_l("Uncheck to disable this test on this unit"),
         default=True,
         db_index=True,
@@ -1833,9 +1864,9 @@ class UnitTestCollection(SchedulingMixin, models.Model):
     limit = {'app_label': 'qa', 'model__in': ['testlist', 'testlistcycle']}
     content_type = models.ForeignKey(
         ContentType,
+        verbose_name=_l("Test List or Test List Cycle"),
         on_delete=models.PROTECT,
         limit_choices_to=limit,
-        verbose_name=_l("Test List or Test List Cycle"),
         help_text=_l("Choose whether to use a Test List or Test List Cycle"),
     )
     object_id = models.PositiveIntegerField(
@@ -1843,9 +1874,9 @@ class UnitTestCollection(SchedulingMixin, models.Model):
         help_text=_l("Choose the tests collection object to assign to the unit"),
     )
     tests_object = GenericForeignKey("content_type", "object_id")
-    name = models.CharField(max_length=255, db_index=True, default='', editable=False)
+    name = models.CharField(verbose_name=_l("Name"), max_length=255, db_index=True, default='', editable=False)
 
-    last_instance = models.ForeignKey("TestListInstance", null=True, editable=False, on_delete=models.SET_NULL)
+    last_instance = models.ForeignKey("TestListInstance", verbose_name=_l("Last Instance"), null=True, editable=False, on_delete=models.SET_NULL)
 
     objects = UnitTestListManager()
 
@@ -1995,22 +2026,24 @@ class TestInstance(models.Model):
     """
 
     # review status
-    status = models.ForeignKey(TestInstanceStatus, on_delete=models.PROTECT)
-    review_date = models.DateTimeField(null=True, blank=True, editable=False)
-    reviewed_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, editable=False)
+    status = models.ForeignKey(TestInstanceStatus, verbose_name=_l("Status"), on_delete=models.PROTECT)
+    review_date = models.DateTimeField(verbose_name=_l("Review Date"), null=True, blank=True, editable=False)
+    reviewed_by = models.ForeignKey(User, verbose_name=_l("Reviewed by"), on_delete=models.PROTECT, null=True, blank=True, editable=False)
 
     # did test pass or fail (or was skipped etc)
-    pass_fail = models.CharField(max_length=20, choices=PASS_FAIL_CHOICES, editable=False, db_index=True)
+    pass_fail = models.CharField(verbose_name=_l("Pass Fail"), max_length=20, choices=PASS_FAIL_CHOICES, editable=False, db_index=True)
 
     # values set by user
     value = models.FloatField(
+        verbose_name=_l("Value"),
         help_text=_l("For boolean Tests a value of 0 equals False and any non zero equals True"),
         null=True,
     )
-    string_value = models.TextField(null=True, blank=True)
-    date_value = models.DateField(null=True, blank=True)
-    datetime_value = models.DateTimeField(null=True, blank=True)
+    string_value = models.TextField(verbose_name=_l("String Value"), null=True, blank=True)
+    date_value = models.DateField(verbose_name=_l("Date Value"), null=True, blank=True)
+    datetime_value = models.DateTimeField(verbose_name=_l("Datetime Value"), null=True, blank=True)
     json_value = JSONField(
+        verbose_name=_l("JSON Value"),
         blank=True,
         null=True,
         help_text=_l(
@@ -2019,36 +2052,38 @@ class TestInstance(models.Model):
         ),
     )
 
-    skipped = models.BooleanField(help_text=_l("Was this test skipped for some reason (add comment)"), default=False)
-    comment = models.TextField(help_text=_l("Add a comment to this test"), null=True, blank=True)
+    skipped = models.BooleanField(verbose_name=_l("Skipped"), help_text=_l("Was this test skipped for some reason (add comment)"), default=False)
+    comment = models.TextField(verbose_name=_l("Comment"), help_text=_l("Add a comment to this test"), null=True, blank=True)
 
     # reference used
-    reference = models.ForeignKey(Reference, null=True, blank=True, editable=False, on_delete=models.PROTECT)
-    tolerance = models.ForeignKey(Tolerance, null=True, blank=True, editable=False, on_delete=models.PROTECT)
+    reference = models.ForeignKey(Reference, verbose_name=_l("Reference"), null=True, blank=True, editable=False, on_delete=models.PROTECT)
+    tolerance = models.ForeignKey(Tolerance, verbose_name=_l("Tolerance"), null=True, blank=True, editable=False, on_delete=models.PROTECT)
 
-    unit_test_info = models.ForeignKey(UnitTestInfo, on_delete=models.PROTECT, editable=False)
+    unit_test_info = models.ForeignKey(UnitTestInfo, verbose_name=_l("Unit Test Info"), on_delete=models.PROTECT, editable=False)
 
     # keep track if this test was performed as part of a test list
-    test_list_instance = models.ForeignKey("TestListInstance", on_delete=models.CASCADE, editable=False)
+    test_list_instance = models.ForeignKey("TestListInstance", verbose_name=_l("Test List Instance"), on_delete=models.CASCADE, editable=False)
 
-    work_started = models.DateTimeField(editable=False, db_index=True)
+    work_started = models.DateTimeField(verbose_name=_l("Work Started"), editable=False, db_index=True)
 
     # when was the work actually performed
-    work_completed = models.DateTimeField(default=timezone.now, help_text=settings.DATETIME_HELP, db_index=True)
+    work_completed = models.DateTimeField(verbose_name=_l("Work Completed"), default=timezone.now, help_text=settings.DATETIME_HELP, db_index=True)
 
-    order = models.PositiveIntegerField(default=0)
+    order = models.PositiveIntegerField(verbose_name=_l("Order"), default=0)
 
     # for keeping a very basic history
-    created = models.DateTimeField(default=timezone.now)
+    created = models.DateTimeField(verbose_name=_l("Created"), default=timezone.now)
     created_by = models.ForeignKey(
         User,
+        verbose_name=_l("Created by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="test_instance_creator",
     )
-    modified = models.DateTimeField(auto_now=True)
+    modified = models.DateTimeField(verbose_name=_l("Modified"), auto_now=True)
     modified_by = models.ForeignKey(
         User,
+        verbose_name=_l("Modified by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="test_instance_modifier",
@@ -2357,13 +2392,14 @@ class TestListInstance(models.Model):
     """
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
-    unit_test_collection = models.ForeignKey(UnitTestCollection, on_delete=models.PROTECT, editable=False)
-    test_list = models.ForeignKey(TestList, on_delete=models.PROTECT, editable=False)
+    unit_test_collection = models.ForeignKey(UnitTestCollection, verbose_name=_l("Unit Test Collection"), on_delete=models.PROTECT, editable=False)
+    test_list = models.ForeignKey(TestList, verbose_name=_l("Test List"), on_delete=models.PROTECT, editable=False)
 
-    work_started = models.DateTimeField(db_index=True)
-    work_completed = models.DateTimeField(default=timezone.now, db_index=True, null=True)
+    work_started = models.DateTimeField(verbose_name=_l("Work Started"), db_index=True)
+    work_completed = models.DateTimeField(verbose_name=_l("Work Completed"), default=timezone.now, db_index=True, null=True)
 
     due_date = models.DateTimeField(
+        verbose_name=_l("Due Date"),
         null=True,
         blank=True,
         help_text=_l('When was this session due when it was performed'),
@@ -2373,6 +2409,7 @@ class TestListInstance(models.Model):
     comments = GenericRelation(Comment, object_id_field='object_pk')
 
     in_progress = models.BooleanField(
+        verbose_name=_l("In Progress"),
         help_text=_l(
             "Mark this session as still in progress so you can complete later (will not be submitted for review)"
         ),
@@ -2381,11 +2418,13 @@ class TestListInstance(models.Model):
     )
 
     flagged = models.BooleanField(
+        verbose_name=_l("Flagged"),
         editable=False,
-        help_text=_l("Used in cooperation with Boolean Tests to highligh this TestListInstance"),
+        help_text=_l("Used in cooperation with Boolean Tests to highlight this TestListInstance"),
         default=False,
     )
     user_key = models.CharField(
+        verbose_name=_l("User Key"),
         help_text=_("Optional field that can be used to ensure uniqueness when posting results via the API"),
         unique=True,
         null=True,
@@ -2395,13 +2434,15 @@ class TestListInstance(models.Model):
     )
 
     include_for_scheduling = models.BooleanField(
+        verbose_name=_l("Include for Scheduling"),
         help_text=_l("Should this instance be considered when calculating due dates?"),
         default=True,
     )
 
-    reviewed = models.DateTimeField(null=True, blank=True)
+    reviewed = models.DateTimeField(verbose_name=_l("Reviewed"), null=True, blank=True)
     reviewed_by = models.ForeignKey(
         User,
+        verbose_name=_l("Reviewed by"),
         on_delete=models.PROTECT,
         editable=False,
         null=True,
@@ -2409,21 +2450,23 @@ class TestListInstance(models.Model):
         related_name="test_list_instance_reviewer",
     )
 
-    all_reviewed = models.BooleanField(default=False)
+    all_reviewed = models.BooleanField(verbose_name=_l("All Reviewed"), default=False)
 
-    day = models.IntegerField(default=0)
+    day = models.IntegerField(verbose_name=_l("Day"), default=0)
 
     # for keeping a very basic history
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(verbose_name=_l("Created"), auto_now_add=True)
     created_by = models.ForeignKey(
         User,
+        verbose_name=_l("Created by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="test_list_instance_creator",
     )
-    modified = models.DateTimeField()
+    modified = models.DateTimeField(verbose_name=_l("Modified"))
     modified_by = models.ForeignKey(
         User,
+        verbose_name=_l("Modified by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="test_list_instance_modifier",
@@ -2577,8 +2620,6 @@ class TestListInstance(models.Model):
         borders = construct_sublist_borders(self.test_list, tests)
         return borders
 
-
-
     def str_verbose(self):
         return '%s (%s - %s)' % (self.pk, self.test_list.name, format_datetime(self.created))
 
@@ -2593,66 +2634,66 @@ class AutoSave(models.Model):
 
     unit_test_collection = models.ForeignKey(
         UnitTestCollection,
+        verbose_name=_l("Unit Test Collection"),
         on_delete=models.PROTECT,
         editable=False,
-        verbose_name=_l("Unit Test Collection"),
     )
 
     test_list = models.ForeignKey(
         TestList,
+        verbose_name=_l("Test List"),
         on_delete=models.CASCADE,
         editable=False,
-        verbose_name=_l("Test List"),
     )
 
     test_list_instance = models.ForeignKey(
         TestListInstance,
+        verbose_name=_l("Test List Instance"),
         on_delete=models.CASCADE,
         editable=False,
-        verbose_name=_l("Test List Instance"),
         null=True,
     )
 
     work_started = models.DateTimeField(
-        _l("Work Started"),
+        verbose_name=_l("Work Started"),
         null=True,
     )
     work_completed = models.DateTimeField(
-        _l("Work completed"),
+        verbose_name=_l("Work completed"),
         null=True,
     )
 
     day = models.IntegerField(
-        _l("Day"),
+        verbose_name=_l("Day"),
         default=0,
     )
 
     created = models.DateTimeField(
-        _l("Created"),
+        verbose_name=_l("Created"),
         auto_now_add=True,
     )
     created_by = models.ForeignKey(
         User,
+        verbose_name=_l("Created By"),
         on_delete=models.PROTECT,
         editable=False,
-        verbose_name=_l("Created By"),
         related_name="autosave_creator",
     )
 
     modified = models.DateTimeField(
-        _l("Modified"),
+        verbose_name=_l("Modified"),
         auto_now=True,
     )
     modified_by = models.ForeignKey(
         User,
+        verbose_name=_l("Modified By"),
         on_delete=models.PROTECT,
         editable=False,
-        verbose_name=_l("Modified By"),
         related_name="autosave_modifier",
     )
 
     data = JSONField(
-        _l("Data"),
+        verbose_name=_l("Data"),
         blank=True,
         help_text=_l("Autosaved data"),
     )
@@ -2686,7 +2727,7 @@ class TestListCycle(TestCollectionInterface, TestPackMixin):
         (TEST_LIST_NAME, _l("Test List Name")),
     )
 
-    test_lists = models.ManyToManyField(TestList, through="TestListCycleMembership")
+    test_lists = models.ManyToManyField(TestList, verbose_name=_l("Test Lists"), through="TestListCycleMembership")
     drop_down_label = models.CharField(
         max_length=128,
         default=_l("Choose Day"),
@@ -2825,9 +2866,9 @@ class TestListCycleMembership(models.Model):
 
     NK_FIELDS = ['cycle', 'test_list']
 
-    test_list = models.ForeignKey(TestList, on_delete=models.CASCADE)
-    cycle = models.ForeignKey(TestListCycle, on_delete=models.CASCADE)
-    order = models.IntegerField()
+    test_list = models.ForeignKey(TestList, verbose_name=_l("Test List"), on_delete=models.CASCADE)
+    cycle = models.ForeignKey(TestListCycle, verbose_name=_l("Cycle"), on_delete=models.CASCADE)
+    order = models.IntegerField(verbose_name=_l("Order"))
 
     objects = TestListCycleMembershipManager()
 

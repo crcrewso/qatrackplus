@@ -260,7 +260,7 @@
           <div class="box-header">
             <h3 class="box-title{% if form.part_attachments.errors %} has-error{% endif %}">
               <i class="fa fa-cog fa-fw" aria-hidden="true"></i>
-              Attachments
+              {% trans "Attachments" %}
             </h3>
           </div>
           <div class="box-body">
@@ -269,8 +269,8 @@
                 <table id="attach-table" class="table table-responsive table-condensed">
                   <thead>
                     <tr>
-                      <th>Filename</th>
-                      <th>Delete</th>
+                      <th>{% trans "Filename" %}</th>
+                      <th>{% trans "Delete" %}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -298,7 +298,9 @@
                 {% endfor %}
               </div>
               <label class="qa-input btn btn-default btn-sm btn-flat pull-right" title="Click to add attachments. (Hold Ctrl or Cmd in the dialog to include multiple attachments)">
-                Browse {{ form.part_attachments }}
+                {% blocktrans with part_attachments=form.part_attachments %}
+                Browse {{ part_attachments }}
+                {% endblocktrans%}
               </label>
             {% endif %}
           </div>
@@ -326,12 +328,12 @@
             </div>
             <div class="col-sm-6">
                 <dl>
-                    <dt>File</dt>
+                    <dt>{% trans "File" %}</dt>
                     <dd>
                         <a target="_blank" href="<%= a.url %>"><%= a.name %></a>
                     </dd>
 
-                    <dt>Size</dt>
+                    <dt>{% trans "Size" %}</dt>
                     <dd><%= a.size %></dd>
                 </dl>
             </div>

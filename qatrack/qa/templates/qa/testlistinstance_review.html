@@ -12,7 +12,11 @@
   <link href="{% static "qa/css/qa.css" %}?v={{VERSION}}" rel="stylesheet">
 {% endblock extra_css %}
 
-{% block head_title %}{{tli.work_completed|date}} {{tli.test_list.name}} Details{% endblock %}
+{% block head_title %}
+{% blocktrans with dt=tli.work_completed|date test_list_name=tli.test_list.name %}
+{{dt}} {{test_list_name}} Details
+{% endblocktrans %}
+{% endblock %}
 
 {% block require_javascript %}
     require(['qareview']);
@@ -41,7 +45,9 @@
           <div class="box-header">
             <h3 class="box-title">
               <i class="fa fa-asterisk fa-fw" aria-hidden="true"></i>
-              {{tli.work_completed|date}} {{tli.test_list.name}} Details
+              {% blocktrans with dt=tli.work_completed|date test_list_name=tli.test_list.name %}
+              {{dt}} {{test_list_name}} Details
+              {% endblocktrans %}
             </h3>
           </div>
 
@@ -104,21 +110,21 @@
                     {% endif %}
                   </dd>
 
-                  <dt>Previous Due Date:</dt>
+                  <dt>{% trans "Previous Due Date:" %}</dt>
                   <dd>
                     {% if tli.due_date %}
-                      <abbr title="Due date when this test list was performed">{{ tli.due_date }}</abbr>
+                      <abbr title="{% trans "Due date when this test list was performed" %}">{{ tli.due_date }}</abbr>
                     {% else %}
-                      <em>No due date set</em>
+                      <em>{% trans "No due date set" %}</em>
                     {% endif %}
                   </dd>
 
-                  <dt>Scheduled:</dt>
+                  <dt>{% trans "Scheduled:" %}</dt>
                   <dd>
                     {% if tli.include_for_scheduling %}
-                      <abbr title="This instance is included when calculating due dates">Yes</abbr>
+                      <abbr title="{% trans "This instance is included when calculating due dates" %}">{% trans "Yes" %}</abbr>
                     {% else %}
-                      <abbr title="This instance is not considered when calculating due dates">No</abbr>
+                      <abbr title="{% trans "This instance is not considered when calculating due dates" %}">{% trans "No" %}</abbr>
                     {% endif %}
                   </dd>
 
@@ -144,7 +150,7 @@
                       {% if perms.service_log.add_serviceevent %}
                         <div class="btn-group">
                           <a class="btn btn-default btn-xs btn-flat hover-parent"
-                              title="Create new service event initiated by this test list"
+                              title="{% trans "Create new service event initiated by this test list" %}"
                               href="{% url 'sl_new' %}?ib={{ tli.pk }}&next={{request.path|cut:"data/"}}"
                           >
                             <i class="fa fa-stack fa-fw">
@@ -549,7 +555,7 @@
                   {% endif %}
                   {% if perms.qa.delete_testlistinstance %}
                     <a class="btn btn-danger btn-flat margin-r-5"
-                       title="{% trans "This will redirect you to the admin site where you can permanently delete this qa session" %}"
+                       title="{% trans "This will redirect you to the admin site where you can permanently delete this QC session" %}"
                       href="{% url 'delete_test_list_instance' pk=test_list_instance.pk %}?next={{ request.META.HTTP_REFERER }}">
                       <i class="fa fa-trash-o"></i>
                       {% trans "Delete" %}

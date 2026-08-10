@@ -116,7 +116,7 @@ require(['jquery', 'moment', 'lodash', 'felter'], function ($, moment, _) {
             mainDivClass: 'col-md-12',
             selectAllClass: 'btn btn-flat btn-xs btn-default',
             // choiceDivClass: 'row',
-            label: 'Visible Units',
+            label: gettext('Visible Units'),
             initially_displayed: true,
             selectAll: true,
             selectNone: true,

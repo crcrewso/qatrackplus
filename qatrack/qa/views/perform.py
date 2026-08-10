@@ -1931,7 +1931,7 @@ class UnitList(UTCList):
         return qs.filter(unit__in=self.units)
 
     def get_page_title(self):
-        title = '%(unit_names)s Test Lists' % {'unit_names': ", ".join([x.name for x in self.units])}
+        title = _('%(unit_names)s Test Lists') % {'unit_names': ", ".join([x.name for x in self.units])}
         return title
 
 

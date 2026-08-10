@@ -37,7 +37,7 @@ First, you need to extract all translatable strings from your codebase using Dja
 
 .. code-block:: bash
 
-    # Generate Django template and Python file translations
+    # Generate Django template and Python file translations messages
     python manage.py makemessages -l es
 
 Replace ``es`` with your desired language code (e.g., ``fr`` for French, ``de`` for German).
@@ -47,6 +47,23 @@ This command will:
 * Create a new directory structure: ``qatrack/locale/es/LC_MESSAGES/``
 * Generate a ``django.po`` file
 * Extract all strings marked for translation in your code
+
+To extract the messages from JavaScript files, we run:
+
+.. code-block:: bash
+
+    # Generate JavaScript file translations messages
+    python manage.py makemessages -l es -d djangojs
+
+As before, replace ``es`` with your desired language code (e.g., ``fr`` for French, ``de`` for German).
+
+This command will:
+
+* Generate a ``djangojs.po`` file in the ``qatrack/locale/es/LC_MESSAGES/`` directory
+* Extract all strings marked for translation in the JavaScript files
+
+Specifying the ``djangojs`` domain will have Django's ``makemessages`` command
+search JavaScript files for translatable strings.
 
 Step 2: Translate the Strings
 -----------------------------

@@ -6,7 +6,7 @@
 {% load comments %}
 {% load static %}
 
-{% block head_title %}{{test_list_instance.work_completed|date}} {{test_list_instance.test_list.name}} Details{% endblock %}
+{% block head_title %}{{test_list_instance.work_completed|date}} {{test_list_instance.test_list.name}} {% trans "Details" %}{% endblock %}
 
 {% block extra_css %}
   <link href="{% static "qatrack_core/css/tables.css" %}?v={{VERSION}}" rel="stylesheet">
@@ -30,9 +30,9 @@
 
             <div class="box">
                 <div class="box-header">
-                    <h3 class="box-title">{{test_list_instance.work_completed|date}} {{test_list_instance.test_list.name}} Details</h3>
+                    <h3 class="box-title">{{test_list_instance.work_completed|date}} {{test_list_instance.test_list.name}} {% trans "Details" %}</h3>
                     {% if cycle_name %}
-                        <div><em>From cycle : {{ cycle_name }}</em></div>
+                        <div><em>{% trans "From cycle : " %}{{ cycle_name }}</em></div>
                     {% endif %}
                 </div>
 
@@ -43,25 +43,25 @@
                         {% with tli=test_list_instance %}
                             <div class="col-md-4">
                                 <dl class="dl-horizontal">
-                                    <dt>Unit :</dt>
+                                    <dt>{% trans "Unit :" %}</dt>
                                     <dd>{{tli.unit_test_collection.unit.name}}</dd>
 
-                                    <dt>Collection :</dt>
+                                    <dt>{% trans "Collection :" %}</dt>
                                     <dd>{{tli.unit_test_collection.tests_object.name}}</dd>
 
-                                    <dt>Test List :</dt>
+                                    <dt>{% trans "Test List :" %}</dt>
                                     <dd>
                                         {% if tli.test_list.description%}
-                                        <a class="show-hide" id="test-list-info-toggle" title="Click to view description and general instructions for this test list">{{tli.test_list.name}} <i class="fa fa-info" ></i></a>
+                                        <a class="show-hide" id="test-list-info-toggle" title="{% trans "Click to view description and general instructions for this test list" %}">{{tli.test_list.name}} <i class="fa fa-info" ></i></a>
                                         {% else %}
                                            {{tli.test_list.name}}
                                         {% endif %}
                                     </dd>
 
-                                    <dt>Performed By :</dt>
+                                    <dt>{% trans "Performed By :" %}</dt>
                                     <dd>{{tli.created_by}}</dd>
 
-                                    <dt>User Key:</dt>
+                                    <dt>{% trans "User Key :" %}</dt>
                                     <dd>
                                       {% if tli.user_key %}
                                         {{tli.user_key }}
@@ -74,14 +74,14 @@
                             <div class="col-md-4">
                                 <dl class="dl-horizontal">
 
-                                    <dt>Work Started :</dt>
+                                    <dt>{% trans "Work Started :" %}</dt>
                                     <dd>{{tli.work_started}}</dd>
 
-                                    <dt>Work Completed :</dt>
+                                    <dt>{% trans "Work Completed :" %}</dt>
                                     <dd>
                                         {% if tli.in_progress %}
                                             <span class="label label-warning">
-                                                <em>In Progress</em>
+                                                <em>{% trans "In Progress" %}</em>
                                             </span>
                                         {% else %}
                                             <span class="label label-success">
@@ -90,37 +90,37 @@
                                         {% endif %}
                                     </dd>
 
-                                    <dt>Duration :</dt>
+                                    <dt>{% trans "Duration :" %}</dt>
                                     <dd>
                                         {% if not tli.in_progress%}
                                             {{tli.duration|as_time_delta}}
                                         {% else %}
-                                            <em>In Progress</em>
+                                            <em>{%trans "In Progress" %}</em>
                                         {% endif %}
                                     </dd>
 
-                                    <dt>Previous Due Date:</dt>
+                                    <dt>{% trans "Previous Due Date:" %}</dt>
                                     <dd>
                                       {% if tli.due_date %}
-                                        <abbr title="Due date when this test list was performed">{{ tli.due_date }}</abbr>
+                                        <abbr title="{% trans "Due date when this test list was performed" %}">{{ tli.due_date }}</abbr>
                                       {% else %}
-                                        <em>No due date set</em>
+                                        <em>{% trans "No due date set" %}</em>
                                       {% endif %}
                                     </dd>
 
-                                    <dt>Scheduled:</dt>
+                                    <dt>{% trans "Scheduled:" %}</dt>
                                     <dd>
                                       {% if tli.include_for_scheduling %}
-                                        <abbr title="This instance is included when calculating due dates">Yes</abbr>
+                                        <abbr title="{% trans "This instance is included when calculating due dates" %}">{% trans "Yes" %}</abbr>
                                       {% else %}
-                                        <abbr title="This instance is not considered when calculating due dates">No</abbr>
+                                        <abbr title="{% trans "This instance is not considered when calculating due dates" %}">{% trans "No" %}</abbr>
                                       {% endif %}
                                     </dd>
 
-                                    <dt>Last Modification :</dt>
+                                    <dt>{% trans "Last Modification :" %}</dt>
                                     <dd>{{tli.modified_by}} @ {{tli.modified}}</dd>
 
-                                    <dt>Reviewed by:</dt>
+                                    <dt>{% trans "Reviewed by:" %}</dt>
                                     <dd>
                                       {% if tli.reviewed %}
                                         {{tli.reviewed_by}} @ {{tli.reviewed}}
@@ -143,17 +143,17 @@
                                         {% if perms.service_log.add_serviceevent %}
                                             <div class="btn-group">
                                                 <a class="btn btn-default btn-xs btn-flat hover-parent"
-                                                    title="Create new service event initiated by this list"
+                                                    title="{% trans "Create new service event initiated by this list" %}"
                                                     href="{% url 'sl_new' %}?ib={{ tli.pk }}&next={{request.path|cut:"data/"}}"
                                                 >
                                                     <i class="fa fa-stack fa-fw">
                                                         <i class="fa fa-wrench fa-stack-custom-main"></i>
                                                         <i class="fa fa-plus fa-stack-custom-sub upper-0 hover-sub-success"></i>
                                                     </i>
-                                                    {% if service_events_ib|length == 0 %}Initiate Service Event{% endif %}
+                                                    {% if service_events_ib|length == 0 %}{% trans "Initiate Service Event" %}{% endif %}
                                                 </a>
                                                 <a class="btn btn-default btn-xs btn-flat hover-parent new-tab-link"
-                                                    title="New tab: Create new service event initiated by this list"
+                                                    title="{% trans "New tab: Create new service event initiated by this list" %}"
                                                     href="{% url 'sl_new' %}?ib={{ tli.pk }}&next={{request.path|cut:"data/"}}"
                                                     target="_blank"
                                                 >
@@ -161,7 +161,7 @@
                                                 </a>
                                             </div>
                                         {% endif %}
-                                        {% if service_events_ib|length > 0 %}Service Events Initiated:{% endif %}
+                                        {% if service_events_ib|length > 0 %}{% trans "Service Events Initiated:" %}{% endif %}
                                     </label>
                                     <div class="col-md-4">
                                         {% for se in service_events_ib %}
@@ -170,13 +170,13 @@
                                                     <a href="{% url 'sl_details' pk=se.id %}"
                                                         class="btn btn-xs btn-flat service-event-btn"
                                                         data-bgcolour="{{ se.service_status.colour }}"
-                                                        title="View service event"
+                                                        title="{% trans "View service event" %}"
                                                     >{{ se.id }}</a>
                                                     <a class="btn btn-default btn-xs btn-flat new-tab-link service-event-btn"
                                                         href="{% url 'sl_details' pk=se.id %}"
                                                         target="_blank"
                                                         data-bgcolour="{{ se.service_status.colour }}"
-                                                        title="New tab: view service event"
+                                                        title="{% trans "New tab: view service event" %}"
                                                     >
                                                         <i class="fa fa-chevron-right" aria-hidden="true"></i>
                                                     </a>
@@ -191,7 +191,7 @@
                                 {% if service_events_rtsqa|length > 0 %}
                                     <div class="row margin-top-10">
                                         <label class="col-md-8">
-                                            RTS QC for Service Events:
+                                            {% trans "RTS QC for Service Events:" %}
                                         </label>
                                         <div class="col-md-4">
                                             {% for se in service_events_rtsqa %}
@@ -200,13 +200,13 @@
                                                         <a href="{% url 'sl_details' pk=se.id %}"
                                                             class="btn btn-xs btn-flat service-event-btn"
                                                             data-bgcolour="{{ se.service_status.colour }}"
-                                                            title="View service event"
+                                                            title="{% trans "View service event" %}"
                                                         >{{ se.id }}</a>
                                                         <a class="btn btn-default btn-xs btn-flat new-tab-link service-event-btn"
                                                             href="{% url 'sl_details' pk=se.id %}"
                                                             target="_blank"
                                                             data-bgcolour="{{ se.service_status.colour }}"
-                                                            title="New tab: view service event"
+                                                            title="{% trans "New tab: view service event" %}"
                                                         >
                                                             <i class="fa fa-chevron-right" aria-hidden="true"></i>
                                                         </a>
@@ -225,7 +225,7 @@
                             <div class="row">
                                 <div class="col-md-4">
                                     <dl class="dl-horizontal">
-                                        <dt>Description:</dt>
+                                        <dt>{% trans "Description:" %}</dt>
                                     </dl>
                                 </div>
                             </div>
@@ -277,11 +277,11 @@
                             <table id="review-table" class="table table-bordered table-striped table-condensed" >
                                 <thead>
                                     <tr>
-                                        <th>Test<div></div></th>
-                                        <th class="review-value">Value</th>
-                                        <th class="review-ref">Reference</th>
-                                        <th>Comment</th>
-                                        <th class="qa-history">History<br/>
+                                        <th>{% trans "Test" %}<div></div></th>
+                                        <th class="review-value">{% trans "Value" %}</th>
+                                        <th class="review-ref">{% trans "Reference" %}</th>
+                                        <th>{% trans "Comment" %}</th>
+                                        <th class="qa-history">{% trans "History" %}<br/>
                                             {% for tli_url, d in instances_and_dates.1 %}
                                               <a href="{{ tli_url}}" title="{% blocktrans %}Click to view this test list instance performed at {{ d }}{% endblocktrans %}">
                                                 <span class="label history-label">{{d|date:"dMy"}}</span>
@@ -289,7 +289,7 @@
                                             {% endfor %}
                                             <div></div>
                                         </th>
-                                        <th class="review-status">Status</th>
+                                        <th class="review-status">{% trans "Status" %}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -387,7 +387,7 @@
                                           {% endif %}
                                           {% if ti.attachment_set.exists %}
                                               <tr class="qa-attach no-hover">
-                                                  <td>{{ti.unit_test_info.test}} Attachments</td>
+                                                  <td>{{ti.unit_test_info.test}} {% trans "Attachments" %}</td>
                                                   <td colspan="{% qa_table_colspan perms offset=1 %}"  class="">
                                                       <ul>
                                                           {% for attach in ti.attachment_set.all %}
@@ -412,7 +412,7 @@
                                     {% endfor %}
                                     {% if test_list_instance.attachment_set.exists %}
                                         <tr>
-                                            <td><strong>Attachments</strong></td>
+                                            <td><strong>{% trans "Attachments" %}</strong></td>
 
                                             <td id="tli-attachment-names" colspan="{% qa_table_colspan perms offset=2 %}">
                                                 {% for attach in test_list_instance.attachment_set.all %}
@@ -430,15 +430,15 @@
                 </div>
                 <div class="box-footer">
                     {% if perms.qa.delete_testlistinstance %}
-                      <a class="btn btn-danger btn-flat" title="This will redirect you to a page where you can permanently delete this qa session" href="{% url 'delete_test_list_instance' pk=test_list_instance.pk %}">Delete</a>
+                      <a class="btn btn-danger btn-flat" title="{% trans "This will redirect you to a page where you can permanently delete this qa session" %}" href="{% url 'delete_test_list_instance' pk=test_list_instance.pk %}">{% trans "Delete" %}</a>
                     {% endif %}
                     {% if test_list_instance.in_progress %}
-                        <a class="btn btn-default pull-right btn-flat margin-r-5" title="Continue this list" href="{%url 'continue_tli' pk=test_list_instance.pk%}?next={{request.get_full_path}}" >Continue</a>
+                        <a class="btn btn-default pull-right btn-flat margin-r-5" title="{% trans "Continue this list" %}" href="{%url 'continue_tli' pk=test_list_instance.pk%}?next={{request.get_full_path}}" >{% trans "Continue" %}</a>
                     {% elif perms.qa.change_testlistinstance %}
-                        <a class="btn btn-default pull-right btn-flat margin-r-5" title="Edit this list" href="{%url 'edit_tli' pk=test_list_instance.pk%}?next={{request.get_full_path}}" >Edit</a>
+                        <a class="btn btn-default pull-right btn-flat margin-r-5" title="{% trans "Edit this list" %}" href="{%url 'edit_tli' pk=test_list_instance.pk%}?next={{request.get_full_path}}" >{% trans "Edit" %}</a>
                     {% endif %}
                     {% if perms.qa.can_review %}
-                        <a href="{% url 'review_test_list_instance' pk=test_list_instance.pk %}?next={{request.get_full_path}}" class="btn pull-right btn-default btn-flat margin-r-5">Review</a>
+                        <a href="{% url 'review_test_list_instance' pk=test_list_instance.pk %}?next={{request.get_full_path}}" class="btn pull-right btn-default btn-flat margin-r-5">{% trans "Review" %}</a>
                     {% endif %}
                 </div>
 
@@ -448,7 +448,13 @@
                             {% if test.display_image %}
                                 <div class="row">
                                     <div class="col-sm-12">
-                                        <strong><p>Images for {{ test }} Test: </p></strong>
+                                        <strong>
+                                            <p>
+                                                {% blocktrans with test_name=test %}
+                                                    Images for {{ test_name }} Test:
+                                                {% endblocktrans %}
+                                            </p>
+                                        </strong>
                                     </div>
                                 </div>
                                 <div class="row">
@@ -474,7 +480,7 @@
                 <div class="box-header">
                     <h3 class="box-title">
                         <i class="fa fa-commenting-o fa-fw"></i>
-                        Comments
+                        {% trans "Comments" %}
                     </h3>
                 </div>
                 <div class="box-body">
@@ -499,7 +505,7 @@
                             </form>
                             <div class="row">
                                 <div class="col-md-12">
-                                    <button id="post-comment" class="btn btn-flat btn-info btn-sm pull-right" disabled="disabled">Post Comment</button>
+                                    <button id="post-comment" class="btn btn-flat btn-info btn-sm pull-right" disabled="disabled">{% trans "Post Comment" %}</button>
                                 </div>
                             </div>
                         </div>

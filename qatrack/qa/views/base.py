@@ -382,14 +382,14 @@ class TestListInstances(BaseListableView):
     order_by = ["unit_test_collection__unit__name", "-work_completed"]
 
     headers = {
-        "unit_test_collection__unit__site__name": _("Site"),
-        "unit_test_collection__unit__name": _("Unit"),
-        "unit_test_collection__frequency__name": _("Frequency"),
-        "test_list__name": _("Test List Name"),
-        "work_completed": _("Work Completed"),
-        "created_by__username": _("Created By"),
-        "review_status": _("Review Status"),
-        "pass_fail": _("Pass Fail"),
+        "unit_test_collection__unit__site__name": _l("Site"),
+        "unit_test_collection__unit__name": _l("Unit"),
+        "unit_test_collection__frequency__name": _l("Frequency"),
+        "test_list__name": _l("Test List Name"),
+        "work_completed": _l("Work Completed"),
+        "created_by__username": _l("Created By"),
+        "review_status": _l("Review Status"),
+        "pass_fail": _l("Pass Fail"),
         "attachments": mark_safe('<i class="fa fa-paperclip fa-fw" aria-hidden="true"></i>'),
     }
 
@@ -453,7 +453,7 @@ class TestListInstances(BaseListableView):
         return 'fa-question-circle'
 
     def get_page_title(self):
-        return "All Test Collections"
+        return _("All Test Collections")
 
     def get_fields(self, request=None):
 

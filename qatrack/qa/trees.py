@@ -60,7 +60,7 @@ class BaseTree:
         freq_slug = freq_slug or "ad-hoc"
         freq_name = self.freqs[freq_slug]
         href = reverse("qa_by_unit_frequency", kwargs={"frequency": freq_slug, 'unit_number': unit_number})
-        title = _("Click to peform {frequency} QC on Unit {unit}").format(
+        title = _("Click to perform {frequency} QC on Unit {unit}").format(
             frequency=freq_name, unit=self.units[unit_number]
         )
         text = '%s <a href="%s" title="%s"><i class="fa fa-clock-o"></i></a>' % (freq_name, href, title)

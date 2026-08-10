@@ -1038,7 +1038,7 @@ class TestTestListInstanceAPI(APITestCase):
 
         response = self.client.post(self.create_url, self.data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "test list instance with this user key already exists." in response.json()['user_key']
+        assert "test list instance with this User Key already exists." in response.json()['user_key']
 
 
 class TestPerformTestListCycleAPI(APITestCase):

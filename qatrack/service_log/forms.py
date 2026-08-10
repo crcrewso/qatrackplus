@@ -381,7 +381,7 @@ class ServiceEventForm(BetterModelForm):
     initiated_utc_field = forms.ModelChoiceField(
         required=False,
         queryset=qa_models.UnitTestCollection.objects.none(),
-        label='Initiated By',
+        label=_l('Initiated By'),
         help_text=_l('Was there a QC session that initiated this service event?')
     )
     service_event_template = forms.ModelChoiceField(
@@ -408,7 +408,7 @@ class ServiceEventForm(BetterModelForm):
     )
 
     se_attachments = forms.FileField(
-        label="Attachments",
+        label=_l("Attachments"),
         max_length=150,
         required=False,
         widget=forms.FileInput(attrs={

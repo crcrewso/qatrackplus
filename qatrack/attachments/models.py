@@ -93,17 +93,17 @@ class Attachment(models.Model):
     label = models.CharField(verbose_name=_l("Label"), max_length=255, blank=True)
     comment = models.TextField(verbose_name=_l("Comment"), blank=True)
 
-    test = models.ForeignKey(qam.Test, on_delete=models.CASCADE, null=True, blank=True)
-    testlist = models.ForeignKey(qam.TestList, on_delete=models.CASCADE, null=True, blank=True)
-    testlistcycle = models.ForeignKey(qam.TestListCycle, on_delete=models.CASCADE, null=True, blank=True)
-    testinstance = models.ForeignKey(qam.TestInstance, on_delete=models.CASCADE, null=True, blank=True)
-    testlistinstance = models.ForeignKey(qam.TestListInstance, on_delete=models.CASCADE, null=True, blank=True)
-    serviceevent = models.ForeignKey(slm.ServiceEvent, on_delete=models.CASCADE, null=True, blank=True)
-    part = models.ForeignKey(partsm.Part, on_delete=models.CASCADE, null=True, blank=True)
-    fault = models.ForeignKey(faultsm.Fault, on_delete=models.CASCADE, null=True, blank=True)
+    test = models.ForeignKey(qam.Test, verbose_name=_l("Test"), on_delete=models.CASCADE, null=True, blank=True)
+    testlist = models.ForeignKey(qam.TestList, verbose_name=_l("Test List"), on_delete=models.CASCADE, null=True, blank=True)
+    testlistcycle = models.ForeignKey(qam.TestListCycle, verbose_name=_l("Test List Cycle"), on_delete=models.CASCADE, null=True, blank=True)
+    testinstance = models.ForeignKey(qam.TestInstance, verbose_name=_l("Test Instance"), on_delete=models.CASCADE, null=True, blank=True)
+    testlistinstance = models.ForeignKey(qam.TestListInstance, verbose_name=_l("Test List Instance"), on_delete=models.CASCADE, null=True, blank=True)
+    serviceevent = models.ForeignKey(slm.ServiceEvent, verbose_name=_l("Service Event"), on_delete=models.CASCADE, null=True, blank=True)
+    part = models.ForeignKey(partsm.Part, verbose_name=_l("Part"), on_delete=models.CASCADE, null=True, blank=True)
+    fault = models.ForeignKey(faultsm.Fault, verbose_name=_l("Fault"), on_delete=models.CASCADE, null=True, blank=True)
 
-    created = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.PROTECT, editable=False)
+    created = models.DateTimeField(verbose_name=_l("Created"), auto_now_add=True)
+    created_by = models.ForeignKey(User, verbose_name=_l("Created by"), on_delete=models.PROTECT, editable=False)
 
     OWNER_MODELS = [
         "test",

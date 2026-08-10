@@ -31,7 +31,7 @@
 
 <p>{% trans "Hello" %},</p>
 <p>
-  The following Units have Faults <a href="{{ domain }}{% url "fault_list_unreviewed" %}">Awaiting Review</a>.
+  {% trans "The following Units have Faults " %}<a href="{{ domain }}{% url "fault_list_unreviewed" %}"> {% trans "Awaiting Review" %}</a>.
 </p>
 <table style="border: none;" cellspacing="0" cellpadding="0">
   <thead>

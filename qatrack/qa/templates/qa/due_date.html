@@ -1,3 +1,4 @@
+{% load i18n %}
 {% load qa_tags %}
 <span
   {% if unit_test_collection.due_date %}title="QC window: {{ unit_test_collection | as_qc_window }}"{% endif %}
@@ -16,8 +17,8 @@
     {% with unit_test_collection.due_date as due_date %}
         {% if due_date %}
             {{due_date|date:"DATE_FORMAT"}}
-        {%else%}
-            Not Due
-        {%endif%}
+        {% else %}
+            {% trans "Not Due" %}
+        {% endif %}
     {% endwith %}
 </span>

@@ -65,6 +65,7 @@ class UnitTestInfoForm(forms.ModelForm):
     reference_set = forms.CharField(label=_("Date"), required=False)
     test_type = forms.CharField(required=False)
     comment = forms.CharField(
+        label=_l("Comment"),
         widget=forms.Textarea,
         required=False,
         help_text=_("Include an optional comment about why this reference/tolerance is being updated")
@@ -232,6 +233,7 @@ class SetMultipleReferencesAndTolerancesForm(forms.Form):
     )
     reference = forms.FloatField(required=False)
     comment = forms.CharField(
+        label=_l("Comment"),
         widget=forms.Textarea,
         required=False,
         help_text=_("Include an optional comment about why these references/tolerances are being updated")
@@ -1036,7 +1038,7 @@ class TestForm(forms.ModelForm):
                     )
                     links.append((url, name))
 
-                title = _(_("Click to edit the reference and tolerance l(opens in new window)"))
+                title = _("Click to edit the reference and tolerance (opens in new window)")
                 html_links = format_html_join(
                     ", ", '<a href="{}" title="{}" target="_blank">{}</a>', ((u, title, l) for (u, l) in links)
                 )

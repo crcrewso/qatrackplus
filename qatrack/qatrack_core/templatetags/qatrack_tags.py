@@ -74,9 +74,14 @@ def render_log(service_log, user, link=True, show_rtsqa=False):
     today = timezone.now().date()
     if service_log.datetime.date() == today:
         if timezone.now() - service_log.datetime < timezone.timedelta(hours=1):
-            datetime_display = '%s %s' % (
-                int((timezone.now() - service_log.datetime).total_seconds() / 60), _('minutes ago')
+            minutes = int(
+                (timezone.now() - service_log.datetime).total_seconds() / 60
             )
+            datetime_display = ngettext(
+                '%(minutes)d minute ago',
+                '%(minutes)d minutes ago',
+                minutes
+            ) % {'minutes': minutes}
         else:
             datetime_display = format_as_time(service_log.datetime)
     elif service_log.datetime.date() == today - timezone.timedelta(days=1):

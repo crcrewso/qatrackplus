@@ -308,7 +308,7 @@ class Part(models.Model):
         null=True,
         help_text=_l('Additional comments about this part'),
     )
-    is_obsolete = models.BooleanField(default=False, help_text=_l('Is this part now obsolete?'))
+    is_obsolete = models.BooleanField(verbose_name=_l("Is obsolete"), default=False, help_text=_l('Is this part now obsolete?'))
 
     class Meta:
         ordering = ['part_number']

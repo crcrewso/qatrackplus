@@ -1,9 +1,10 @@
 {% extends "site_base.html" %}
 
+{% load i18n %}
 {% load static %}
 {% load qa_tags %}
 
-{% block head_title %}QC Program Overview{% endblock %}
+{% block head_title %}{% trans "QC Program Overview" %}{% endblock %}
 
 {% block extra_css %}
   <link href="{% static "qa/css/qa.css" %}?v={{ VERSION }}" rel="stylesheet">
@@ -45,7 +46,7 @@
                                 <div id="due-count-ndd" class="count-box small-box bg-aqua-gradient">
                                     <div class="inner">
                                         <h3></h3>
-                                        <p>No Due Date</p>
+                                        <p>{% trans "No Due Date" %}</p>
                                     </div>
                                     <div class="icon">
                                         <i class="fa fa-calendar-o" aria-hidden="true"></i>
@@ -57,7 +58,7 @@
                                 <div id="due-count-nd" class="count-box small-box bg-green-gradient">
                                     <div class="inner">
                                         <h3></h3>
-                                        <p>Not Due</p>
+                                        <p>{% trans "Not Due" %}</p>
                                     </div>
                                     <div class="icon">
                                         <i class="fa fa-calendar-check-o" aria-hidden="true"></i>
@@ -69,7 +70,7 @@
                                 <div id="due-count-d" class="count-box small-box bg-yellow-gradient">
                                     <div class="inner">
                                         <h3></h3>
-                                        <p>Due</p>
+                                        <p>{% trans "Due" %}</p>
                                     </div>
                                     <div class="icon">
                                         <i class="fa fa-calendar-minus-o" aria-hidden="true"></i>
@@ -81,7 +82,7 @@
                                 <div id="due-count-od" class="count-box small-box bg-red-gradient">
                                     <div class="inner">
                                         <h3></h3>
-                                        <p>Overdue</p>
+                                        <p>{% trans "Overdue" %}</p>
                                     </div>
                                     <div class="icon">
                                         <i class="fa fa-calendar-times-o" aria-hidden="true"></i>
@@ -126,9 +127,9 @@
                 <table class="table-responsive table-hover {% comment %}table-condensed {% endcomment %}overview-table units">
                     <thead>
                         <tr>
-                            <th><b>Test List</b></th>
-                            <th><b>Due Date</b></th>
-                            <th><b>Last QC Status</b></th>
+                            <th><b>{% trans "Test List" %}</b></th>
+                            <th><b>{% trans "Due Date" %}</b></th>
+                            <th><b>{% trans "Last QC Status" %}</b></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -148,7 +149,7 @@
                 </div>
                 <div>
                     <b>
-                        Loading Overview
+                        {% trans "Loading Overview" %}
                     </b>
                 </div>
 

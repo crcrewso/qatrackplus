@@ -25,7 +25,7 @@ class FaultDetailsReport(FaultReportMixin, BaseReport):
     name = _l("Fault Details")
     filter_class = filters.FaultDetailsFilter
     description = mark_safe(
-        _l("This report includes details of all Faults from a given"
+        _l("This report includes details of all Faults from a given "
            "time period for selected units")
     )
 

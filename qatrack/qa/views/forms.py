@@ -330,9 +330,9 @@ class BaseTestListInstanceForm(forms.ModelForm):
 
     status = forms.ModelChoiceField(queryset=models.TestInstanceStatus.objects, required=False)
 
-    work_completed = forms.DateTimeField(required=False)
+    work_completed = forms.DateTimeField(label=_l("Work Completed"), required=False)
 
-    modified = forms.DateTimeField(required=False)
+    modified = forms.DateTimeField(label=_l("Modified"), required=False)
 
     service_events = ServiceEventMultipleField(queryset=sl_models.ServiceEvent.objects.none(), required=False)
     rtsqa_id = forms.IntegerField(required=False, widget=HiddenInput())

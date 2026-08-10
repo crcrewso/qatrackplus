@@ -19,6 +19,7 @@ class FaultForm(BetterModelForm):
     prefix = "fault"
 
     comment = forms.CharField(
+        label=_l("Comment"),
         widget=forms.Textarea,
         required=False,
         help_text=_l("Include any relevant comment i.e. describe what you were doing when the fault occurred"),
@@ -45,7 +46,7 @@ class FaultForm(BetterModelForm):
     )
 
     attachments = forms.FileField(
-        label="Attachments",
+        label=_l("Attachments"),
         max_length=150,
         required=False,
         widget=forms.FileInput(attrs={

@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import ObjectDoesNotExist
 from django.utils.encoding import force_str
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _l
 
 from qatrack.parts import models as p_models
 from qatrack.qatrack_core.forms import BetterModelForm
@@ -148,12 +149,13 @@ class CostInputField(forms.CharField):
 class PartForm(BetterModelForm):
 
     cost = CostInputField(
+        label=_l("Cost"),
         help_text=p_models.Part._meta.get_field('cost').help_text,
         required=False,
     )
 
     part_attachments = forms.FileField(
-        label="Attachments",
+        label=_l("Attachments"),
         max_length=150,
         required=False,
         widget=forms.FileInput(attrs={

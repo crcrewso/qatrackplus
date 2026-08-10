@@ -104,14 +104,13 @@ DATETIME_HELP = "Format DD MMM YYYY hh:mm (hh:mm is 24h time e.g. 31 May 2012 14
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
 USE_I18N = True
 # USE_L10N = True # depreciated in Django 4.0+, always on now
-#TODO: Should QATrack+ support localization or internationalization?
-LANGUAGES = [('en', 'English'), ('fr', 'Français')]
+LANGUAGES = [('en', 'English'), ('fr', 'Français'), ('fr-ca', 'Français (Canada)'), ('es', 'Español')]
 CONSTANT_PRECISION = 8
 DEFAULT_NUMBER_FORMAT = None
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

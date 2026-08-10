@@ -276,7 +276,13 @@ Internationalization & Translation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Please mark all strings and templates in QATrack+ for translation. This will
-allow for QATrack+ to be made available in multiple languages. For discussion
+allow for QATrack+ to be made available in multiple languages. Note that
+translatable labels for form fields (i.e. `my_form_field = FieldClass(label=_l("the_label"), ...)`)
+and translatable verbose names for model fields (i.e. `my_model_field = ModelClass(verbose_name=_l("the_verbose_name"), ...)`)
+are often required for the rendering of translated strings in the frontend, so
+the recommendation, as stated in the Django docs, is to always include them.
+
+For discussion
 of how to mark templates and strings for translation please read the `Django
 docs on translation
 <https://docs.djangoproject.com/en/4.2/topics/i18n/translation/>`__.

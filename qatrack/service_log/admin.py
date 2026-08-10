@@ -243,6 +243,7 @@ class SEScheduleServiceTypeFilter(admin.SimpleListFilter):
 class ServiceEventScheduleAdminForm(forms.ModelForm):
 
     unit = forms.CharField(
+        label=_l("Unit"),
         required=False,
         widget=forms.widgets.TextInput(attrs={
             'readonly': 'readonly',

@@ -147,7 +147,7 @@ class TestListInstanceByUTCFilter(BaseReportFilterSet):
 
     unit_test_collection = django_filters.filters.MultipleChoiceFilter(
         label=_l("Test List (Cycle) Assignment"),
-        help_text=_l("Select the Unit Test List (Cycle) Assignment)"),
+        help_text=_l("Select the Unit Test List (Cycle) Assignment"),
         required=True,
     )
 
@@ -585,7 +585,7 @@ class ServiceEventSchedulingFilter(BaseReportFilterSet):
     """Service Event Schedule equivalent of UnitTestCollectionSchedulingFilter"""
     due_date = RelativeDateRangeFilter(
         label=_l("Time Period"),
-        help_text=_l("Dates to include scheduled QA data from"),
+        help_text=_l("Dates to include scheduled QC data from"),
     )
     assigned_to = django_filters.filters.ModelMultipleChoiceFilter(
         label=_l("Assigned To"),

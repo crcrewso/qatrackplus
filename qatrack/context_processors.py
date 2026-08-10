@@ -167,17 +167,17 @@ def available_languages(request):
                 # Get detailed language info
                 lang_info = get_language_info(lang_code)
                 languages.append({
-                    'code': lang_code,
-                    'name': lang_info['name_local'],  # Name in the language itself
-                    'name_translated': lang_name,     # Name in current language
+                    'code': lang_code.upper(),
+                    'name': lang_info['name_local'].capitalize(),  # Name in the language itself
+                    'name_translated': lang_name.capitalize(),     # Name in current language
                     'bidi': lang_info['bidi'],       # Right-to-left support
                 })
             except Exception:
                 # Fallback if language info not available
                 languages.append({
-                    'code': lang_code,
-                    'name': lang_name,
-                    'name_translated': lang_name,
+                    'code': lang_code.upper(),
+                    'name': lang_name.capitalize(),
+                    'name_translated': lang_name.capitalize(),
                     'bidi': False,
                 })
     

@@ -23,7 +23,7 @@ class SavedReport(models.Model):
     PAPER_SIZES = [('letter', _l('Letter (8.5" × 11")')), ('a4', _l('A4 (210mm × 297mm)'))]
 
     title = models.CharField(
-        max_length=255, 
+        max_length=255,
         verbose_name=_l("Title"),
         help_text=_l("Give your report a descriptive title")
     )
@@ -32,8 +32,8 @@ class SavedReport(models.Model):
         verbose_name=_l("Report type")
     )
     report_format = models.CharField(
-        max_length=4, 
-        choices=FORMATS, 
+        max_length=4,
+        choices=FORMATS,
         default=FORMATS[0][0],
         verbose_name=_l("Report format")
     )
@@ -47,23 +47,24 @@ class SavedReport(models.Model):
         verbose_name=_l("Include logo")
     )
     paper_size = models.CharField(
-        max_length=10, 
-        choices=PAPER_SIZES, 
-        default='letter', 
+        max_length=10,
+        choices=PAPER_SIZES,
+        default='letter',
         verbose_name=_l("Paper size"),
         help_text=_l("Select paper size for PDF reports")
     )
     visible_to = models.ManyToManyField(
-        Group, 
+        Group,
         blank=True,
         verbose_name=_l("Visible to")
     )
 
-    created = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    modified = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(verbose_name=_l("Created"), auto_now_add=True)
+    created_by = models.ForeignKey(User, verbose_name=_l("Created by"), on_delete=models.CASCADE)
+    modified = models.DateTimeField(verbose_name=_l("Modified"), auto_now=True)
     modified_by = models.ForeignKey(
         User,
+        verbose_name=_l("Modified"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="report_modifier",
@@ -122,12 +123,14 @@ class SavedReport(models.Model):
 
 class ReportNote(models.Model):
 
-    report = models.ForeignKey(SavedReport, on_delete=models.CASCADE)
+    report = models.ForeignKey(SavedReport, verbose_name=_l("Report"), on_delete=models.CASCADE)
 
     heading = models.TextField(
+        verbose_name=_l("Heading"),
         help_text=_l("Add a heading for this note"),
     )
     content = models.TextField(
+        verbose_name=_l("Content"),
         help_text=_l("Add the content of this note"),
         blank=True,
     )
@@ -153,6 +156,7 @@ class ReportSchedule(RecurrenceFieldMixin, models.Model):
 
     report = models.OneToOneField(
         SavedReport,
+        verbose_name=_l("Report"),
         on_delete=models.CASCADE,
         help_text=_l("Select the report this schedule pertains to"),
         related_name="schedule",
@@ -171,6 +175,7 @@ class ReportSchedule(RecurrenceFieldMixin, models.Model):
 
     groups = models.ManyToManyField(
         Group,
+        verbose_name=_l("Group"),
         help_text=_l("Select which groups this report should be sent to."),
         blank=True,
         related_name="scheduledreports",
@@ -178,6 +183,7 @@ class ReportSchedule(RecurrenceFieldMixin, models.Model):
 
     users = models.ManyToManyField(
         User,
+        verbose_name=_l("Users"),
         help_text=_l("Select individual users this report should be sent to."),
         blank=True,
         related_name="scheduledreports",
@@ -189,18 +195,20 @@ class ReportSchedule(RecurrenceFieldMixin, models.Model):
         blank=True
     )
 
-    last_sent = models.DateTimeField(null=True, editable=False)
+    last_sent = models.DateTimeField(verbose_name=_l("Last Sent"), null=True, editable=False)
 
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(verbose_name=_l("Created"), auto_now_add=True)
     created_by = models.ForeignKey(
         User,
+        verbose_name=_l("Created by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="reportschedule_creator",
     )
-    modified = models.DateTimeField(auto_now=True)
+    modified = models.DateTimeField(verbose_name=_l("Modified"), auto_now=True)
     modified_by = models.ForeignKey(
         User,
+        verbose_name=_l("Modified by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="reportschedule_modifier",

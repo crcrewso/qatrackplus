@@ -30,13 +30,14 @@ def can_review_faults(user):
 class FaultType(models.Model):
 
     code = models.CharField(
-        _l("code"),
+        verbose_name=_l("code"),
         max_length=255,
         help_text=_l('Enter the fault code or number'),
         db_index=True,
         unique=True,
     )
     slug = models.SlugField(
+        verbose_name=_l("Slug"),
         max_length=255,
         editable=False,
         unique=True,
@@ -44,7 +45,7 @@ class FaultType(models.Model):
     )
 
     description = models.TextField(
-        _l("description"),
+        verbose_name=_l("description"),
         help_text=_l("Enter a description for this fault type"),
         blank=True,
     )
@@ -101,7 +102,7 @@ class Fault(models.Model):
     occurred = models.DateTimeField(
         verbose_name=_l("Date & Time fault occurred"),
         default=timezone.now,
-        help_text="When did this fault occur. " + settings.DATETIME_HELP,
+        help_text=_l("When did this fault occur. ") + settings.DATETIME_HELP,
         db_index=True
     )
 
@@ -117,16 +118,18 @@ class Fault(models.Model):
         object_id_field="object_pk",
     )
 
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(verbose_name=_l("Created"), auto_now_add=True)
     created_by = models.ForeignKey(
         User,
+        verbose_name=_l("Created by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="faults_created",
     )
-    modified = models.DateTimeField(auto_now=True)
+    modified = models.DateTimeField(verbose_name=_l("Modified"), auto_now=True)
     modified_by = models.ForeignKey(
         User,
+        verbose_name=_l("Modified by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="faults_modified",
@@ -200,7 +203,7 @@ class FaultReviewGroup(models.Model):
     )
 
     required = models.BooleanField(
-        _l("required"),
+        verbose_name=_l("required"),
         help_text=_l("Is review by this group required in order to consider a fault reviewed"),
         default=True,
     )
@@ -219,6 +222,7 @@ class FaultReviewInstance(models.Model):
     )
     reviewed_by = models.ForeignKey(
         User,
+        verbose_name=_l("Reviewed by"),
         on_delete=models.PROTECT,
         editable=False,
         related_name="faults_reviewed",

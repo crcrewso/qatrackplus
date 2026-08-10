@@ -1,9 +1,11 @@
 {% extends "site_base.html" %}
 
+{% load i18n %}
+
 {% block require_javascript %}
 {% endblock require_javascript %}
 
-{% block head_title %}Choose Frequency for Review{% endblock %}
+{% block head_title %}{% trans "Choose Frequency for Review" %}{% endblock %}
 
 {% block body %}
 
@@ -12,15 +14,15 @@
             <div class="box">
                 <div class="box-header">
                     <i class="fa fa-clock-o" aria-hidden="true"></i>
-                    <h3 class="box-title">Review QC By Frequency</h3>
-                    <p>Choose a frequency below to review test lists.</p>
+                    <h3 class="box-title">{% trans "Review QC By Frequency" %}</h3>
+                    <p>{% trans "Choose a frequency below to review test lists." %}</p>
                 </div>
                 <div class="box-body pad">
                     <div class="btn-group btn-default btn-flat">
                         {% for freq in frequencies %}
                             <a class="btn btn-default btn-flat" href="{% url 'review_by_frequency' frequency=freq.slug %}">{{freq.name}}</a>
                         {% endfor %}
-                        <a class="btn btn-default btn-flat" href="{% url 'review_by_frequency' frequency="ad-hoc" %}">Ad hoc</a>
+                        <a class="btn btn-default btn-flat" href="{% url 'review_by_frequency' frequency="ad-hoc" %}">{% trans "Ad hoc" %}</a>
                     </div>
                 </div>
                 <div class="box-footer"></div>

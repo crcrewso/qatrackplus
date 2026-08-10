@@ -28,26 +28,26 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
     var $submit = $("#submit-qa");
 
     function processing_on(){
-        $calcStatusSpinners.addClass("fa-spin fa-circle-o-notch").removeClass("fa-check-circle").attr("title", "Calculating");
-        $calcStatusContent.html("Performing calculations...");
+        $calcStatusSpinners.addClass("fa-spin fa-circle-o-notch").removeClass("fa-check-circle").attr("title", gettext("Calculating"));
+        $calcStatusContent.html(gettext("Performing calculations..."));
         $calcStatus.removeClass("label-info").addClass("label-warning");
     }
 
     function processing_off(){
-        $calcStatusSpinners.removeClass("fa-spin fa-circle-o-notch").addClass("fa-check-circle").attr("title", "Idle");
-        $calcStatusContent.html("Calculations Complete");
+        $calcStatusSpinners.removeClass("fa-spin fa-circle-o-notch").addClass("fa-check-circle").attr("title", gettext("Idle"));
+        $calcStatusContent.html(gettext("Calculations Complete"));
         $calcStatus.removeClass("label-warning").addClass("label-info");
     }
 
     function autosaving_on(){
-        $autoSaveStatusSpinners.addClass("fa-spin fa-circle-o-notch").removeClass("fa-save").attr("title", "Saving");
-        $autoSaveStatusContent.html("Auto-saving...");
+        $autoSaveStatusSpinners.addClass("fa-spin fa-circle-o-notch").removeClass("fa-save").attr("title", gettext("Saving"));
+        $autoSaveStatusContent.html(gettext("Auto-saving..."));
         $autoSaveStatus.removeClass("label-info").addClass("label-warning");
     }
 
     function autosaving_off(){
         var saved = moment().format(siteConfig.MOMENT_DATETIME_FMT);
-        $autoSaveStatusSpinners.removeClass("fa-spin fa-circle-o-notch").addClass("fa-save").attr("title", "Last auto saved at " + saved);
+        $autoSaveStatusSpinners.removeClass("fa-spin fa-circle-o-notch").addClass("fa-save").attr("title", gettext("Last auto saved at ") + saved);
         $autoSaveStatusContent.html(saved);
         $autoSaveStatus.removeClass("label-warning").addClass("label-info");
     }
@@ -55,14 +55,14 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
     function disable_submit(){
         $submit.attr({
             "disabled": true,
-            "title": "Please wait until the calculations complete before submitting"
+            "title": gettext("Please wait until the calculations complete before submitting")
         });
     }
 
     function enable_submit(){
         $submit.attr({
             "disabled": false,
-            "title": "Click to submit your QC data"
+            "title": gettext("Click to submit your QC data")
         });
     }
 

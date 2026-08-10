@@ -31,7 +31,7 @@
               <form class="form form-horizontal text-right" action="" method="post">
                 {% csrf_token %}
                 <p>
-                  {% trans "Are you sure you want to <strong>permanently</strong> this fault?" %}
+                  {% trans "Are you sure you want to <strong>permanently delete</strong> this fault?" %}
                 </p>
                 <button class="btn btn-danger btn-flat" type="submit"><i class="fa fa-trash-o"></i> Delete</button>
                 <a href="{{ request.META.HTTP_REFERER }}" class="btn btn-default btn-flat">

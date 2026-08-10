@@ -130,7 +130,7 @@ class IssueList(BaseListableView):
 
     def get_page_title(self, f=None):
         if not f:
-            return 'All Issues'
+            return _('All Issues')
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)

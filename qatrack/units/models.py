@@ -140,10 +140,10 @@ class UnitType(models.Model):
 
     unit_class = models.ForeignKey(
         UnitClass,
+        verbose_name=_l("unit class"),
         null=True,
         blank=True,
         on_delete=models.PROTECT,
-        verbose_name=_l("unit class"),
     )
 
     name = models.CharField(
@@ -202,7 +202,7 @@ class Modality(models.Model):
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     name = models.CharField(
-        _l('Name'),
+        verbose_name=_l('Name'),
         max_length=255,
         help_text=_l('Descriptive name for this treatment or imaging modality.'),
         unique=True
@@ -238,26 +238,27 @@ class Unit(models.Model):
     id = models.AutoField(primary_key=True, verbose_name=("ID"))
 
     type = models.ForeignKey(UnitType, verbose_name=_l("Unit Type"), on_delete=models.PROTECT)
-    site = models.ForeignKey(Site, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_l("Clinical Site"))
+    site = models.ForeignKey(Site, verbose_name=_l("Clinical Site"), null=True, blank=True, on_delete=models.PROTECT)
 
     number = models.PositiveIntegerField(
+        verbose_name=_l("number"),
         null=False,
         blank=True,
         unique=True,
         help_text=_l('A unique number for this unit. Leave blank to have it assigned automatically'),
     )
-    name = models.CharField(max_length=256, help_text=_l('The display name for this unit'))
-    serial_number = models.CharField(max_length=256, null=True, blank=True, help_text=_l('Optional serial number'))
-    location = models.CharField(max_length=256, null=True, blank=True, help_text=_l('Optional location information'))
-    install_date = models.DateField(null=True, blank=True, help_text=_l('Optional install date'))
+    name = models.CharField(verbose_name=_l("name"), max_length=256, help_text=_l('The display name for this unit'))
+    serial_number = models.CharField(verbose_name=_l("serial number"), max_length=256, null=True, blank=True, help_text=_l('Optional serial number'))
+    location = models.CharField(verbose_name=_l("location"), max_length=256, null=True, blank=True, help_text=_l('Optional location information'))
+    install_date = models.DateField(verbose_name=_l("install date"), null=True, blank=True, help_text=_l('Optional install date'))
     date_acceptance = models.DateField(
         verbose_name=_l("Acceptance date"),
         help_text=_l('Changing acceptance date will delete unit available times that occur before it'),
     )
-    active = models.BooleanField(default=True, help_text=_l('Set to false if unit is no longer in use'))
+    active = models.BooleanField(verbose_name=_l("active"), default=True, help_text=_l('Set to false if unit is no longer in use'))
     # restricted = models.BooleanField(default=False, help_text=_l('Set to false to restrict unit from operation'))
     is_serviceable = models.BooleanField(
-        default=True, help_text=_l('Set to true to enable this unit to be selectable in service events')
+        verbose_name=_l("is serviceable"), default=True, help_text=_l('Set to true to enable this unit to be selectable in service events')
     )
 
     modalities = models.ManyToManyField(Modality)
@@ -337,11 +338,11 @@ class UnitAvailableTimeEdit(models.Model):
     """
     A one off change to unit available time (holiday's, extended hours for a single day, etc)
     """
-    unit = models.ForeignKey(Unit, on_delete=models.CASCADE)
+    unit = models.ForeignKey(Unit, verbose_name=_l("unit"), on_delete=models.CASCADE)
 
-    name = models.CharField(max_length=64, help_text=_l('A quick name or reason for the change'), blank=True, null=True)
-    date = models.DateField(help_text=_l('Date of available time change'))
-    hours = models.DurationField(help_text=_l('New duration of availability'))
+    name = models.CharField(max_length=64, verbose_name=_l("name"), help_text=_l('A quick name or reason for the change'), blank=True, null=True)
+    date = models.DateField(verbose_name=_l("date"), help_text=_l('Date of available time change'))
+    hours = models.DurationField(verbose_name=_l("hours"), help_text=_l('New duration of availability'))
 
     class Meta:
         ordering = ['-date']
@@ -357,16 +358,16 @@ class UnitAvailableTimeEdit(models.Model):
 
 class UnitAvailableTime(models.Model):
 
-    unit = models.ForeignKey(Unit, on_delete=models.CASCADE)
+    unit = models.ForeignKey(Unit, verbose_name=_l("unit"), on_delete=models.CASCADE)
 
-    date_changed = models.DateField(blank=True, help_text=_l('Date the units available time changed or will change'))
-    hours_sunday = models.DurationField(help_text=_l('Duration of available time on Sundays'))
-    hours_monday = models.DurationField(help_text=_l('Duration of available time on Mondays'))
-    hours_tuesday = models.DurationField(help_text=_l('Duration of available time on Tuesdays'))
-    hours_wednesday = models.DurationField(help_text=_l('Duration of available time on Wednesdays'))
-    hours_thursday = models.DurationField(help_text=_l('Duration of available time on Thursdays'))
-    hours_friday = models.DurationField(help_text=_l('Duration of available time on Fridays'))
-    hours_saturday = models.DurationField(help_text=_l('Duration of available time on Saturdays'))
+    date_changed = models.DateField(blank=True, verbose_name=_l("Date Changed"), help_text=_l('Date the units available time changed or will change'))
+    hours_sunday = models.DurationField(verbose_name=_l("Hours Sunday"), help_text=_l('Duration of available time on Sundays'))
+    hours_monday = models.DurationField(verbose_name=_l("Hours Monday"), help_text=_l('Duration of available time on Mondays'))
+    hours_tuesday = models.DurationField(verbose_name=_l("Hours Tuesday"), help_text=_l('Duration of available time on Tuesdays'))
+    hours_wednesday = models.DurationField(verbose_name=_l("Hours Wednesday"), help_text=_l('Duration of available time on Wednesdays'))
+    hours_thursday = models.DurationField(verbose_name=_l("Hours Thursday"), help_text=_l('Duration of available time on Thursdays'))
+    hours_friday = models.DurationField(verbose_name=_l("Hours Friday"), help_text=_l('Duration of available time on Fridays'))
+    hours_saturday = models.DurationField(verbose_name=_l("Hours Saturday"), help_text=_l('Duration of available time on Saturdays'))
 
     class Meta:
         ordering = ['-date_changed']
@@ -377,7 +378,7 @@ class UnitAvailableTime(models.Model):
         verbose_name_plural = _l('Unit Available Times')
 
     def __str__(self):
-        return 'Available time schedule change'
+        return _('Available time schedule change')
 
     def to_dict(self):
         return {

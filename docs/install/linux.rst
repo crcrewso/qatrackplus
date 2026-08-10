@@ -417,6 +417,15 @@ Nginx to serve:
 
     python manage.py collectstatic
 
+If you want to enable internationalization, then you need to compile the
+messages catalogs for the languages you need:
+
+.. code-block:: bash
+
+    python manage.py compilemessages -l fr
+    python manage.py compilemessages -l fr_CA
+    python manage.py compilemessages -l es
+
 
 Setting up Django Q
 ------------------- 
