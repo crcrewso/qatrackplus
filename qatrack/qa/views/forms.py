@@ -365,7 +365,7 @@ class BaseTestListInstanceForm(forms.ModelForm):
         for field in ('work_completed', 'work_started'):
             self.fields[field].widget = forms.widgets.DateTimeInput()
 
-            self.fields[field].widget.format = settings.DATETIME_INPUT_FORMATS[0]
+            self.fields[field].widget.format = settings.DATETIME_INPUT_FORMATS[2]
             self.fields[field].input_formats = settings.DATETIME_INPUT_FORMATS
             self.fields[field].widget.attrs["title"] = settings.DATETIME_HELP
             self.fields[field].widget.attrs['class'] = 'form-control'
