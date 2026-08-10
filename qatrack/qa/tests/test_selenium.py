@@ -142,10 +142,17 @@ objects = {
 
 class BaseQATests(SeleniumTests, TransactionTestCase):
 
+    username = 'user'
+
     def setUp(self):
         with transaction.atomic():
             self.password = 'password'
-            self.user = create_user(pwd=self.password)
+            self.user = create_user(pwd=self.password, uname=self.username)
+
+    def set_language(self, lang):
+        self.driver.get(self.live_server_url + '/')
+        self.driver.add_cookie({'name': 'django_language', 'value': lang, 'path': '/'})
+        self.driver.get(self.live_server_url + '/')
 
     def login(self):
         self.open("/accounts/login/")
@@ -180,8 +187,7 @@ class LiveQATestsBase(BaseQATests):
     def test_admin_category(self):
 
         self.load_admin()
-        self.driver.find_element(By.XPATH, '//a[@href="/admin/qa/category/"]').click()
-        self.click_by_link_text("ADD CATEGORY")
+        self.open('/admin/qa/category/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         self.driver.find_element(By.ID, 'id_name').send_keys(objects['Category']['name'])
         self.driver.find_element(By.ID, 'id_slug').send_keys(objects['Category']['slug'])
@@ -200,8 +206,7 @@ class LiveQATestsBase(BaseQATests):
                 description=objects['Category']['description'],
             )
 
-        self.driver.find_element(By.LINK_TEXT, 'Tests').click()
-        self.click_by_link_text("ADD TEST")
+        self.open('/admin/qa/test/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         # for i in range(len(objects['Tests'])):
 
@@ -256,8 +261,7 @@ class LiveQATestsBase(BaseQATests):
                     constant_value=the_test['constant_value'],
                 )
 
-        self.click_by_link_text("Test Lists")
-        self.click_by_link_text("ADD TEST LIST")
+        self.open('/admin/qa/testlist/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         self.driver.find_element(By.ID, 'id_name').send_keys(objects['TestList']['name'])
         self.driver.find_element(By.ID, 'id_slug').send_keys(objects['TestList']['name'].lower())
@@ -272,8 +276,7 @@ class LiveQATestsBase(BaseQATests):
     def test_admin_modality(self):
 
         self.load_admin()
-        self.click_by_link_text("Treatment and Imaging Modalities")
-        self.click_by_link_text("ADD TREATMENT AND IMAGING MODALITY")
+        self.open('/admin/qa/modality/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         self.driver.find_element(By.ID, 'id_name').send_keys(objects['Modality']['name'])
         self.driver.find_element(By.NAME, '_save').click()
@@ -282,8 +285,7 @@ class LiveQATestsBase(BaseQATests):
     def test_admin_unittype(self):
 
         self.load_admin()
-        self.click_by_link_text("Unit Types")
-        self.click_by_link_text("ADD UNIT TYPE")
+        self.open('/admin/units/unittype/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         self.driver.find_element(By.ID, 'id_name').send_keys(objects['UnitType']['name'])
         self.driver.find_element(By.ID, 'id_vendor').send_keys(objects['UnitType']['vendor'])
@@ -303,8 +305,7 @@ class LiveQATestsBase(BaseQATests):
         sl_utils.create_service_area()
 
         self.load_admin()
-        self.click_by_link_text("Units")
-        self.click_by_link_text("ADD UNIT")
+        self.open('/admin/units/unit/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         self.driver.find_element(By.ID, 'id_name').send_keys(objects['Unit']['name'])
         self.driver.find_element(By.ID, 'id_number').send_keys(objects['Unit']['number'])
@@ -325,8 +326,7 @@ class LiveQATestsBase(BaseQATests):
     def test_admin_frequency(self):
 
         self.load_admin()
-        self.click_by_link_text("Frequencies")
-        self.click_by_link_text("ADD FREQUENCY")
+        self.open('/admin/qa/frequency/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         self.driver.find_element(By.ID, 'id_name').send_keys(objects['Frequency']['name'])
         self.driver.find_element(By.CLASS_NAME, "recurrence-label").click()
@@ -353,8 +353,7 @@ class LiveQATestsBase(BaseQATests):
             utils.create_test_list(name=objects['TestList']['name'])
 
         self.load_admin()
-        self.click_by_link_text("Assign Test Lists to Units")
-        self.click_by_link_text('ADD UNIT TEST COLLECTION')
+        self.open('/admin/qa/unittestcollection/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_unit')))
 
         self.select_by_index("id_unit", -1)
@@ -376,8 +375,7 @@ class LiveQATestsBase(BaseQATests):
 
         # Add absolute tolerance
         self.load_admin()
-        self.click_by_link_text('Tolerances')
-        self.click_by_link_text('ADD TOLERANCE')
+        self.open('/admin/qa/tolerance/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_type')))
         self.select_by_index("id_type", 1)
         self.driver.find_element(By.ID, 'id_act_low').send_keys(objects['absoluteTolerance']['act_low'])
@@ -458,9 +456,7 @@ class LiveQATestsBase(BaseQATests):
     def test_admin_statuses(self):
 
         self.load_admin()
-        self.wait.until(e_c.presence_of_element_located((By.XPATH, "//a[contains(@href,'testinstancestatus')]")))
-        self.driver.find_element(By.XPATH, "//a[contains(@href,'testinstancestatus')]").click()
-        self.click_by_link_text('ADD TEST INSTANCE STATUS')
+        self.open('/admin/qa/testinstancestatus/add/')
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         self.driver.find_element(By.ID, 'id_name').send_keys('testStatus')
         self.driver.find_element(By.ID, 'id_is_default').click()
@@ -592,7 +588,11 @@ def _build_locale_test_classes():
         klass = type(
             class_name,
             (LiveQATestsBase,),
-            {'locale': locale, 'pytestmark': [pytest.mark.selenium]},
+            {
+                'locale': locale,
+                'username': 'utilisateur' if locale == 'fr' else 'user',
+                'pytestmark': [pytest.mark.selenium],
+            },
         )
         klass.__module__ = __name__
         globals()[class_name] = klass
