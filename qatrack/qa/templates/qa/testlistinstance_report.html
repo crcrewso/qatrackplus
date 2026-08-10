@@ -56,7 +56,7 @@
             <dd>Test List Instance Report</dd>
 
             <dt>Generated:</dt>
-            <dd>{% now "Y-m-d H:i:s" %}</dd>
+            <dd>{% now "DATETIME_FORMAT" %}</dd>
 
             <dt>View on site:</dt>
             <dd>
@@ -308,7 +308,7 @@
                   {% for c in test_list_instance.comments.all %}
                     <tr>
                       <td>{{ c.user }}</td>
-                      <td>{{ c.submit_date|date:"Y-m-d H:i:s" }}</dt>
+                      <td>{{ c.submit_date|date:"DATETIME_FORMAT" }}</dt>
                       <td style="width: 70%">{{ c.comment }}</td>
                     </tr>
                   {% endfor %}

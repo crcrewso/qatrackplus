@@ -263,7 +263,7 @@
                 {% for c in tli.comments.all %}
                   <tr>
                     <td>{{ c.user }}</td>
-                    <td>{{ c.submit_date|date:"Y-m-d H:i:s" }}</dt>
+                    <td>{{ c.submit_date|date:"DATETIME_FORMAT" }}</dt>
                     <td style="width: 70%">{{ c.comment }}</td>
                   </tr>
                 {% endfor %}

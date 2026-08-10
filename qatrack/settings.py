@@ -85,22 +85,30 @@ USE_TZ = True
 FORMAT_MODULE_PATH = "qatrack.formats"
 
 # formats for strptime/strftime
-DATE_INPUT_FORMATS = ["%d %b %Y", "%Y-%m-%d"]
+DATE_INPUT_FORMATS = ["%Y-%m-%d", "%d %b %Y"]
 DATETIME_INPUT_FORMATS = [
-    "%d %b %Y %H:%M",
-    "%d %b %Y %H:%M:%S",
     "%Y-%m-%d %H:%M",
     "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%d %H:%M:%S.%f",
     "%Y-%m-%dT%H:%M:%S.%fZ",
+    "%d %b %Y %H:%M",
+    "%d %b %Y %H:%M:%S",
 ]
 TIME_INPUT_FORMATS = ["%H:%M", "%H:%M:%S", "%H:%M:%S.%f"]
 
-DATETIME_FORMAT = "j M Y H:i"
-DATE_FORMAT = "j M Y"
+DATETIME_FORMAT = "Y-m-d H:i"
+DATE_FORMAT = "Y-m-d"
 TIME_FORMAT = "H:i"
 
-DATETIME_HELP = "Format DD MMM YYYY hh:mm (hh:mm is 24h time e.g. 31 May 2012 14:30)"
+DATETIME_HELP = "Format YYYY-MM-DD hh:mm (hh:mm is 24h time e.g. 2012-05-31 14:30)"
+
+# JavaScript date/time formats
+MOMENT_DATE_DATA_FMT = "YYYY-MM-DD"
+MOMENT_DATE_FMT = "YYYY-MM-DD"
+MOMENT_DATETIME_FMT = 'YYYY-MM-DD HH:mm'
+FLATPICKR_DATE_FMT = 'Y-m-d'
+FLATPICKR_DATETIME_FMT = 'Y-m-d H:i'
+DATERANGEPICKER_DATE_FMT = 'YYYY-MM-DD'
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
@@ -175,6 +183,7 @@ if not os.path.isfile(SITE_SPECIFIC_CSS_PATH):
 MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
+    'qatrack.middleware.language.EnforceSupportedLanguageMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

@@ -16,6 +16,34 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
         return decodeURIComponent(results[2].replace(/\+/g, ' '));
     }
 
+    function getFlatpickrLocale() {
+        var pageLang = (document.documentElement.lang || "en").toLowerCase();
+        if (pageLang.indexOf("fr") === 0) {
+            return {
+                weekdays: {
+                    shorthand: ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"],
+                    longhand: ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"]
+                },
+                months: {
+                    shorthand: ["jan", "fev", "mar", "avr", "mai", "jun", "jul", "aou", "sep", "oct", "nov", "dec"],
+                    longhand: [
+                        "janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre",
+                        "octobre", "novembre", "decembre"
+                    ]
+                },
+                firstDayOfWeek: 1,
+                rangeSeparator: " au ",
+                weekAbbreviation: "Sem",
+                scrollTitle: "Defiler pour incrementer",
+                toggleTitle: "Cliquer pour basculer",
+                time_24hr: true
+            };
+        }
+        return "default";
+    }
+
+    var flatpickrLocale = getFlatpickrLocale();
+
     var $calcStatus = $(".qa-calc-status");
     var $calcStatusSpinners = $calcStatus.find("i");
     var $calcStatusContent = $calcStatus.find("span");
@@ -409,6 +437,7 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
         if (tt === "date" || tt === "datetime"){
             var has_time = tt === "datetime";
             this.date_picker = this.inputs.flatpickr({
+                locale: flatpickrLocale,
                 enableTime: has_time,
                 time_24hr: true,
                 minuteIncrement: 1,
@@ -1473,6 +1502,7 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
             };
 
             var start_fp = $start_picker.flatpickr({
+                locale: flatpickrLocale,
                 enableTime: true,
                 time_24hr: true,
                 minuteIncrement: 1,
@@ -1502,6 +1532,7 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
             });
 
             var complete_fp = $completed_picker.flatpickr({
+                locale: flatpickrLocale,
                 enableTime: true,
                 time_24hr: true,
                 dateFormat: siteConfig.FLATPICKR_DATETIME_FMT,

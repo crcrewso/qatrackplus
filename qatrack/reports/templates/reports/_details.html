@@ -9,7 +9,7 @@
       <dd>{{ report_name }}</dd>
 
       <dt>{% trans "Generated" %}:</dt>
-      <dd>{% now "d M Y H:i:s" %}</dd>
+      <dd>{% now "DATETIME_FORMAT" %}</dd>
 
       {% if report_url %}
       <dt>{% trans "View on site" %}:</dt>

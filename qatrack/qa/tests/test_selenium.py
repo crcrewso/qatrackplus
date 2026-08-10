@@ -1,6 +1,7 @@
 import time
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.db import transaction
 from django.test import TransactionTestCase
@@ -167,12 +168,14 @@ class BaseQATests(SeleniumTests, TransactionTestCase):
         self.wait.until(e_c.presence_of_element_located((By.CSS_SELECTOR, "head > title")))
 
 
-@pytest.mark.selenium
-class LiveQATests(BaseQATests):
+class LiveQATestsBase(BaseQATests):
+
+    locale = 'en'
 
     def setUp(self):
 
         super().setUp()
+        self.set_language(self.locale)
 
     def test_admin_category(self):
 
@@ -572,6 +575,30 @@ class LiveQATests(BaseQATests):
         self.wait.until(
             e_c.presence_of_element_located((By.XPATH, '//td[contains(text(), "No data available in table")]'))
         )
+
+
+def _build_locale_test_classes():
+    locales = getattr(settings, 'SELENIUM_TEST_LOCALES', ['en'])
+    for locale in locales:
+        if locale == 'en':
+            class_name = 'LiveQATests'
+        elif locale == 'fr':
+            class_name = 'LiveQATestsFrench'
+        else:
+            class_name = 'LiveQATests' + ''.join(
+                part.capitalize() for part in locale.replace('-', '_').split('_')
+            )
+
+        klass = type(
+            class_name,
+            (LiveQATestsBase,),
+            {'locale': locale, 'pytestmark': [pytest.mark.selenium]},
+        )
+        klass.__module__ = __name__
+        globals()[class_name] = klass
+
+
+_build_locale_test_classes()
 
 
 @pytest.mark.selenium
