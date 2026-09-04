@@ -95,6 +95,13 @@ mysql = [
 
 mssql = [
     "mssql-django>=1.5",
+]
+
+# Active Directory / LDAP authentication support. Independent of the database
+# extras above — install at your own risk: the maintainers haven't found an
+# economical way to run a real LDAP/AD test environment, so this is
+# comparatively lightly tested.
+ldap = [
     "python-ldap",
     "django-auth-ldap<4.9",
 ]
