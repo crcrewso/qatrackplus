@@ -24,6 +24,13 @@
       right way to present the schema to developers going forward — it's
       gone unmaintained for many major versions despite the tooling
       existing, which suggests the format itself isn't meeting the need.
+- [ ] Review every command in every `.rst` doc for copy-button correctness.
+      `docs/conf.py` configures `sphinx_copybutton` with
+      `copybutton_prompt_text = ">>  "` so PowerShell-style `>>` prompts get
+      stripped on copy — that depends on every prompted block using that
+      exact prefix consistently. Check for mixed prompt styles, multi-line
+      commands, and stray comment lines that might copy along with the
+      command or get incorrectly stripped.
 
 ## Localization
 
