@@ -94,6 +94,23 @@ Next, activate your new virtual environment:
 
 Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``.
 
+.. dropdown:: Can't install uv? Use pip instead
+
+   A small number of sites can't install ``uv`` — for example, due to a
+   restricted PowerShell execution policy or no outbound internet access to
+   the installer script. If that's you, QATrack+ and its Windows/SQL Server
+   dependencies can be installed with plain ``pip`` instead, using a pinned
+   requirements file generated for this purpose:
+
+   .. code-block:: console
+
+      >>  python -m venv .venv
+      >>  .\.venv\Scripts\Activate.ps1
+      >>  pip install -r requirements\win-mssql.txt
+
+   This is a minimally-supported fallback path; ``uv`` is the recommended
+   and tested method for everyone else.
+
 .. dropdown:: Side note: ```C:\deploy```
 
    This folder is a convenient convention for storing the QATrack+ source code, virtual environment, and any other files related to your QATrack+ installation.  You can use a different folder if you prefer, but you will need to adjust the instructions accordingly.
