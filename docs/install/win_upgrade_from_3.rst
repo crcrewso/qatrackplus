@@ -150,6 +150,14 @@ Next, activate your new virtual environment:
 
 Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``.
 
+.. note::
+
+   Commands throughout the rest of this guide are shown prefixed with
+   ``uv run``, which works whether or not you've activated the virtual
+   environment above — so activating it is optional. If you'd rather
+   activate it once and drop the ``uv run`` prefix for the rest of your
+   session, that works too; both are equivalent.
+
 Updating your local_settings.py
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -168,9 +176,9 @@ We can now upgrade the database schema and static media files to be compatible w
 
 .. code-block:: powershell
 
-   >>  python manage.py migrate
-   >>  python manage.py createcachetable
-   >>  python manage.py collectstatic
+   >>  uv run python manage.py migrate
+   >>  uv run python manage.py createcachetable
+   >>  uv run python manage.py collectstatic
 
 If you have issues with the migration, first check
 
@@ -182,7 +190,7 @@ If you have issues with the migration, first check
 
 .. dropdown:: Side Note: Testing the upgrade
 
-   We now have a database, we have configured QATrack+ to use it, and we've loaded the default configuration data. Next, we could test that everything is working correctly by running the development server with `python manage.py runserver` and navigating to http://localhost:8000/ in a browser on the server. You should see a poor approximation of the QATrack+ login page (it won't look like this once we're finished!). If you see any errors, check the terminal output for details on what went wrong.  If you can log in successfully, then we know our database is configured correctly and we can move on to the next step.
+   We now have a database, we have configured QATrack+ to use it, and we've loaded the default configuration data. Next, we could test that everything is working correctly by running the development server with `uv run python manage.py runserver` and navigating to http://localhost:8000/ in a browser on the server. You should see a poor approximation of the QATrack+ login page (it won't look like this once we're finished!). If you see any errors, check the terminal output for details on what went wrong.  If you can log in successfully, then we know our database is configured correctly and we can move on to the next step.
 
 .. include:: win.rst
    :start-after: .. _cherry_py_service:
