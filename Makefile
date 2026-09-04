@@ -2,6 +2,15 @@ VERSION=3.1.0
 DATETIME=$(shell date '+%Y-%m-%d_%H-%M-%S')
 
 
+dev-quickstart:
+	cp -n deploy/dev/local_settings.dev.py qatrack/local_settings.py
+	cp -n deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
+	mkdir -p db
+	uv run python manage.py migrate
+	uv run python manage.py createcachetable
+	DJANGO_SUPERUSER_USERNAME=superuser DJANGO_SUPERUSER_PASSWORD=superuser DJANGO_SUPERUSER_EMAIL=superuser@example.com \
+		uv run python manage.py createsuperuser --noinput
+
 cover:
 	uv run pytest --reuse-db --cov-report term-missing --cov ./ ${args}
 
@@ -69,6 +78,6 @@ run:
 __cleardb__:
 	uv run python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
 
-.PHONY: cover cover-module cover-mo cover-qatrack test test_simple \
-	dumpdata clearct flushdb format lint docs docs-autobuild \
-	nginx.conf supervisor.conf schema run __cleardb__
+.PHONY: dev-quickstart cover cover-module cover-mo cover-qatrack test \
+	test_simple dumpdata clearct flushdb format lint docs \
+	docs-autobuild nginx.conf supervisor.conf schema run __cleardb__
