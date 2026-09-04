@@ -17,6 +17,13 @@
       entries mislead both human contributors and AI agents.
 - [ ] Re-review `CONTRIBUTING.md` for the same.
 - [ ] Confirm `docs/release_notes.rst` has an entry for this release.
+- [ ] Regenerate the database schema diagram (`make schema`) in
+      `docs/developer/schema.rst` — it's currently showing the **v0.3.0**
+      schema, over a decade stale. **Note:** before just regenerating it
+      again, revisit whether a single static generated image is even the
+      right way to present the schema to developers going forward — it's
+      gone unmaintained for many major versions despite the tooling
+      existing, which suggests the format itself isn't meeting the need.
 
 ## Localization
 
