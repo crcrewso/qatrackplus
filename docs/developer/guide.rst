@@ -168,7 +168,7 @@ Installing pre-commit hooks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 QATrack+ uses `pre-commit <https://pre-commit.com/>`__ to run lint and
-sanity checks automatically before each commit — the same checks CI runs.
+correctness checks automatically before each commit — the same checks CI runs.
 Install the hooks once per clone:
 
 .. code-block:: shell
