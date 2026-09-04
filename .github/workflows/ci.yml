@@ -234,6 +234,13 @@ jobs:
         working-directory: deploy/docker
         run: |
           cp .env.example .env
+          # .env.example ships with a permissive ALLOWED_HOSTS=* for ease of
+          # local/dev setup, but this smoke test is meant to reflect a real
+          # deployment, so tighten it to exactly what CI will curl against.
+          # (DEBUG is not read from the environment in the Docker settings
+          # path — it's hardcoded False — so it's already production-like
+          # and needs no override here.)
+          sed -i 's/^ALLOWED_HOSTS=.*/ALLOWED_HOSTS=localhost,127.0.0.1/' .env
           docker compose -f compose.yaml build
 
       - name: Fix script permissions
@@ -267,14 +274,52 @@ jobs:
             exit 1
           fi
 
-      - name: Run Docker Smoke Tests
+      - name: Run Docker-Tagged Test Subset
         # A small, curated subset of tests (tagged `docker`) that spans
         # several apps superficially, avoiding anything DB-engine-specific
         # or dependent on optional extras not installed in this image
         # (e.g. ldap). Uses manage.py's built-in test runner, not pytest —
-        # pytest isn't installed in the runtime image.
+        # pytest isn't installed in the runtime image. This verifies
+        # application code under the Docker runtime; it does not verify
+        # the deployment is wired together correctly, which is what the
+        # HTTP smoke test below is for.
         working-directory: deploy/docker
         run: docker compose -f compose.yaml exec -T django python manage.py test --tag=docker
+
+      - name: HTTP Smoke Test
+        # Verifies the deployment is actually wired together end-to-end,
+        # hitting it the same way a real client would (through nginx on
+        # its exposed port, not django's own internal healthcheck). The
+        # nginx <-> django proxy and static-file serving are covered
+        # continuously by nginx's own healthcheck (see compose.yaml) and
+        # were already confirmed non-unhealthy above, so this only checks
+        # what that healthcheck doesn't:
+        run: |
+          set -e
+          # Media location is wired up (nginx reaches the mounted volume) -
+          # not checking for a specific file since a fresh install has none;
+          # just confirming nginx doesn't 502/504 on it.
+          MEDIA_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/media/)
+          [ "$MEDIA_CODE" -lt 500 ] || (echo "Media location check failed: got $MEDIA_CODE" && exit 1)
+
+          # ALLOWED_HOSTS is actually enforced, not just configured - a
+          # mismatched Host header should be rejected (400), proving this
+          # deployment behaves like production rather than the permissive
+          # ALLOWED_HOSTS=* that ships in .env.example for local/dev use.
+          SPOOFED_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: evil.example.com" http://localhost/)
+          [ "$SPOOFED_CODE" = "400" ] || (echo "Expected ALLOWED_HOSTS to reject an unknown Host header with 400, got $SPOOFED_CODE" && exit 1)
+
+      - name: Backup Smoke Test
+        # backup.sh only runs on its own via cron (daily at 2am), so it
+        # won't fire naturally in this short-lived CI run - trigger it
+        # directly and confirm it actually produces output, rather than
+        # just trusting the container stayed up.
+        working-directory: deploy/docker
+        run: |
+          set -e
+          docker compose -f compose.yaml exec -T backup bash /backup.sh
+          ls backups/db_*.dump >/dev/null 2>&1 || (echo "No database backup file produced" && exit 1)
+          ls backups/media_*.tar.gz >/dev/null 2>&1 || (echo "No media backup file produced" && exit 1)
 
       - name: Tear Down
         if: always()
