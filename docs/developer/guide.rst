@@ -154,6 +154,14 @@ Install development dependencies:
     # Install all development dependencies
     uv sync --dev
 
+.. note::
+
+    Every command from here on is shown prefixed with ``uv run``, which
+    works whether or not you've activated the virtual environment above —
+    so activating it is optional. If you'd rather activate it once and
+    drop the ``uv run`` prefix for the rest of your session, that works
+    too; both are equivalent.
+
 .. _pre-commit-hooks:
 
 Installing pre-commit hooks
@@ -188,8 +196,8 @@ files from the deploy subdirectory and then create your database:
     cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
     cp deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
     mkdir db
-    python manage.py migrate
-    python manage.py createcachetable
+    uv run python manage.py migrate
+    uv run python manage.py createcachetable
 
 
 this will put a database called `default.db` in the `db` subdirectory.
@@ -222,7 +230,7 @@ Before running the development server, you need to collect all static files to t
 
 .. code-block:: shell
 
-    python manage.py collectstatic --noinput
+    uv run python manage.py collectstatic --noinput
 
 
 Loading Default Data (Fixtures)
@@ -234,7 +242,7 @@ To load the default data into your development database:
 
 .. code-block:: shell
 
-    python manage.py loaddata fixtures/defaults/*/*
+    uv run python manage.py loaddata fixtures/defaults/*/*
 
 This command will populate your database all default data.
 
@@ -243,13 +251,13 @@ You can also load specific fixture categories individually if you only need cert
 .. code-block:: shell
 
     # Load only QA-related fixtures
-    python manage.py loaddata fixtures/defaults/qa/*
-    
+    uv run python manage.py loaddata fixtures/defaults/qa/*
+
     # Load only unit-related fixtures
-    python manage.py loaddata fixtures/defaults/units/*
-    
+    uv run python manage.py loaddata fixtures/defaults/units/*
+
     # Load only service log fixtures
-    python manage.py loaddata fixtures/defaults/service_log/*
+    uv run python manage.py loaddata fixtures/defaults/service_log/*
 
 Running the development server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -258,13 +266,13 @@ After the database is created, create a super user so you can log into QATrack+:
 
 .. code-block:: shell
 
-    python manage.py createsuperuser
+    uv run python manage.py createsuperuser
 
 and then run the development server:
 
 .. code-block:: shell
 
-    python manage.py runserver 
+    uv run python manage.py runserver
 
 Once the development server is running you should be able to visit
 http://127.0.0.1:8000/ in your browser and log into QATrack+.
@@ -624,7 +632,7 @@ QATrack+ reports include an option to display your organization's logo.
    
    .. code-block:: shell
    
-       python manage.py collectstatic --noinput
+       uv run python manage.py collectstatic --noinput
 
 **Logo Display Options**
 
