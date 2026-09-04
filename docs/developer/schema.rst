@@ -19,13 +19,13 @@ Generating the schema diagram
 Ubuntu
 ~~~~~~
 
-On Ubuntu (tested on 18.04) you need to install a few dependencies before
-generating the schema diagram:
+On Ubuntu, you need the Graphviz binary installed (used to lay out the
+diagram); the Python side (``pydotplus``) is already part of the ``dev``
+dependency group and installed by ``uv sync --dev``:
 
 .. code-block:: sh
 
-    sudo apt install python-dev graphviz libgraphviz-dev pkg-config 
-    uv pip install pygraphviz         
+    sudo apt install graphviz
 
 and then you can generate your schema with:
 
