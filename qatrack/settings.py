@@ -752,18 +752,26 @@ else:
     _running_pytest = any([('py.test' in v or 'pytest' in v) for v in sys.argv])
     try:
         from .local_settings import *  # noqa: F403, F401, E402
-    except ImportError:
+    except ModuleNotFoundError as e:
+        # Only treat this as "the file is missing" if it's local_settings
+        # itself that's absent - if local_settings.py exists but fails to
+        # import something else, let that error surface normally rather
+        # than masking it with a misleading "file is missing" message.
+        if e.name != 'qatrack.local_settings':
+            raise
         if not _running_pytest:
-            raise ImportError(
-                "qatrack/local_settings.py is missing. Create it before running "
-                "QATrack+ - for local development:\n\n"
+            from django.core.exceptions import ImproperlyConfigured
+
+            raise ImproperlyConfigured(
+                "qatrack/local_settings.py is missing. QATrack+ will not run "
+                "without it - for local development:\n\n"
                 "    cp deploy/dev/local_settings.dev.py qatrack/local_settings.py\n\n"
                 "For a real deployment, copy the template matching your database "
                 "instead: deploy/sqlite, deploy/postgres, deploy/mysql or "
                 "deploy/win (MS SQL Server). See the 'local_settings.py "
                 "templates' table in docs/developer/guide.rst, and "
                 "docs/install/ for full deployment instructions."
-            ) from None
+            ) from e
         # A bare `pytest` run shouldn't need the same setup ceremony as
         # actually running the app for real - fall back to a disposable
         # in-memory SQLite database instead of requiring
