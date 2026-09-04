@@ -9,8 +9,15 @@
 ## Manditory settings:
 ### You must set at least the DATABASES setting here. 
 
-DEBUG = False # Set to True to enable debug mode (not safe for regular use!)
+DEBUG = True # Local development only - do not use True in a real deployment!
 TEMPLATE_DBG = True
+
+# Permissive for local development only. Every other deploy/*/local_settings.py
+# template sets this explicitly (usually to a specific hostname) - this one
+# was missing it entirely, which crashes `manage.py runserver` outright if
+# DEBUG is ever set back to False here (Django requires ALLOWED_HOSTS to be
+# set whenever DEBUG=False).
+ALLOWED_HOSTS = ['*']
 
 DATABASES = {
     'default': {
