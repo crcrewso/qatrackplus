@@ -15,6 +15,15 @@ services:
       - media-volume:/usr/src/qatrackplus/qatrack/media:ro
       - static-volume:/usr/src/qatrackplus/qatrack/static:ro
       - ./user-data/ssl:/etc/nginx/ssl:ro
+    healthcheck:
+      # Checks both the django proxy (a broken upstream fails this) and that
+      # static files actually got collected and are being served, not just
+      # that nginx itself is running.
+      test: [ "CMD-SHELL", "curl -f http://localhost/ && curl -f http://localhost/static/admin/css/base.css" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   django:
     build:
