@@ -38,7 +38,7 @@ First, you need to extract all translatable strings from your codebase using Dja
 .. code-block:: bash
 
     # Generate Django template and Python file translations messages
-    python manage.py makemessages -l es
+    uv run python manage.py makemessages -l es
 
 Replace ``es`` with your desired language code (e.g., ``fr`` for French, ``de`` for German).
 
@@ -53,7 +53,7 @@ To extract the messages from JavaScript files, we run:
 .. code-block:: bash
 
     # Generate JavaScript file translations messages
-    python manage.py makemessages -l es -d djangojs
+    uv run python manage.py makemessages -l es -d djangojs
 
 As before, replace ``es`` with your desired language code (e.g., ``fr`` for French, ``de`` for German).
 
@@ -92,10 +92,10 @@ Use the included translation script with Google Translate:
 .. code-block:: bash
 
     # Install translation dependencies (if not already installed)
-    uv pip install -e ".[translations]"
+    uv sync --extra translations
 
     # Translate using the script
-    python scripts/translation.py translate es
+    uv run python scripts/translation.py translate es
 
 The script will:
 
@@ -118,10 +118,10 @@ Once you have translated the strings, compile them into Django's binary format:
 .. code-block:: bash
 
     # Compile all languages
-    python manage.py compilemessages
+    uv run python manage.py compilemessages
 
     # Or compile a specific language
-    python manage.py compilemessages --locale=es
+    uv run python manage.py compilemessages --locale=es
 
 This creates ``.mo`` files that Django uses at runtime.
 
