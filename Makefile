@@ -31,15 +31,11 @@ clearct:
 flushdb:
 	uv run python manage.py sqlflush | uv run python manage.py dbshell
 
-yapf:
-	yapf --verbose --in-place --recursive --parallel \
-		-e*fixtures* -e*migration* -e*.git* -e*tmp* -e*deploy* \
-		-e*media* -e deploy  -e env -e*templates* -e*backups* -e*ipynb* -e*static* \
-		-e*logs* -e*cache* -e*init.d* -e*emails* -e*postgres* -e*uploads* \
-		.
+format:
+	uv run ruff format .
 
-flake8:
-	flake8 .
+lint:
+	uv run ruff check .
 
 docs:
 	cd docs && make html
@@ -74,5 +70,5 @@ __cleardb__:
 	uv run python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
 
 .PHONY: cover cover-module cover-mo cover-qatrack test test_simple \
-	dumpdata clearct flushdb yapf flake8 docs docs-autobuild \
+	dumpdata clearct flushdb format lint docs docs-autobuild \
 	nginx.conf supervisor.conf schema run __cleardb__
