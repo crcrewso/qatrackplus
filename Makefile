@@ -63,7 +63,7 @@ supervisor.conf:
 	sudo supervisorctl update
 
 schema:
-	python ./manage.py graph_models -a -g \
+	uv run python ./manage.py graph_models -a -g \
 		-X Issue,IssueStatus,IssueType,IssuePriority,IssueTag \
 		-o docs/developer/images/qatrack_schema_$(VERSION).svg
 
