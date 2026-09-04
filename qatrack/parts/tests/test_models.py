@@ -1,5 +1,5 @@
 
-from django.test import TestCase
+from django.test import TestCase, tag
 
 from qatrack.service_log.tests import utils as sl_utils
 
@@ -22,6 +22,7 @@ class TestPart(TestCase):
 
         self.p_1 = sl_utils.create_part(alt_part_number='112358', name='13')
 
+    @tag('docker')
     def test_str(self):
         self.assertEqual(
             str(self.p_1),

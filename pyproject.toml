@@ -149,6 +149,7 @@ django_find_project = true
 DJANGO_SETTINGS_MODULE = "qatrack.settings"
 markers = [
     "selenium: mark a test as a selenium test",
+    "docker: mark a test as part of the Docker-deployment smoke-test subset",
 ]
 
 [tool.uv.sources]

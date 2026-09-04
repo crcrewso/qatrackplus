@@ -8,7 +8,7 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.sites.models import Site
 from django.core import mail
 from django.http import Http404
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, tag
 from django.test.utils import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -51,6 +51,7 @@ class TestSelectReport(TestCase):
         user = User.objects.create_superuser("user", "a@b.com", "password")
         self.client.force_login(user)
 
+    @tag('docker')
     def test_initial_get(self):
         resp = self.client.get(self.url)
         assert isinstance(resp.context['report_form'], forms.ReportForm)
