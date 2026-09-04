@@ -180,6 +180,9 @@ dev = [
     "sphinxcontrib-websupport==1.2.4",
     "sphinx-copybutton>=0.5.2",
     "sphinx-design>=0.6.0",
+    # Schema diagram generation (`make schema`) — also requires the Graphviz
+    # binary itself on PATH (e.g. `sudo apt install graphviz` on Ubuntu)
+    "pydotplus>=2.0.2",
 ]
 
 [tool.ruff]
