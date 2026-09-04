@@ -244,6 +244,14 @@ you will want to activate your virtual environment.  Do so now like this:
 
 Your command prompt should now be prefixed with `(qatrackplus)`.
 
+.. note::
+
+    Commands throughout the rest of this guide are shown prefixed with
+    ``uv run``, which works whether or not you've activated the virtual
+    environment above — so activating it is optional. If you'd rather
+    activate it once and drop the ``uv run`` prefix for the rest of your
+    session, that works too; both are equivalent.
+
 We will now install all the libraries required for QATrack+ with PostgresSQL
 (be patient, this can take a few minutes!):
 
@@ -353,7 +361,7 @@ Once you have got those settings done, we can now test our database connection:
 
 .. code-block:: bash
 
-    python manage.py showmigrations accounts
+    uv run python manage.py showmigrations accounts
 
 which should show output like:
 
@@ -371,8 +379,8 @@ our database and install the default data:
 
 .. code-block:: bash
 
-    python manage.py migrate
-    python manage.py loaddata fixtures/defaults/*/*
+    uv run python manage.py migrate
+    uv run python manage.py loaddata fixtures/defaults/*/*
 
 
 After that completes, we can grant privileges to our readonly database user as
@@ -403,29 +411,29 @@ your Test Lists:
 
 .. code-block:: bash
 
-    python manage.py createsuperuser
+    uv run python manage.py createsuperuser
 
 and to create a cachetable in the database:
 
 .. code-block:: bash
 
-    python manage.py createcachetable
+    uv run python manage.py createcachetable
 
 and finally we need to collect all our static media files in one location for
 Nginx to serve:
 
 .. code-block:: bash
 
-    python manage.py collectstatic
+    uv run python manage.py collectstatic
 
 If you want to enable internationalization, then you need to compile the
 messages catalogs for the languages you need:
 
 .. code-block:: bash
 
-    python manage.py compilemessages -l fr
-    python manage.py compilemessages -l fr_CA
-    python manage.py compilemessages -l es
+    uv run python manage.py compilemessages -l fr
+    uv run python manage.py compilemessages -l fr_CA
+    uv run python manage.py compilemessages -l es
 
 
 Setting up Django Q
@@ -485,8 +493,7 @@ You can also check on the status of your task cluster at any time like this:
 .. code-block:: bash
 
     cd ~/web/qatrackplus/
-    source .venv/bin/activate
-    python manage.py qmonitor
+    uv run python manage.py qmonitor
 
 
 Installing Nginx web server
