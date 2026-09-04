@@ -11,7 +11,8 @@ New Installation of QATrack+ v4.0.0 on Ubuntu Linux
 
 This guide is going to walk you through installing everything required to run
 QATrack+ on an Ubuntu 24.04 LTS (Noble Numbat) server with Python 3.12, Nginx
-as the web server and PostgreSQL 16 (MySQL 8.0) as the database.  The
+as the web server and PostgreSQL 16 (recommended) or MySQL 8.0 — which remains
+supported for existing installations — as the database.  The
 instructions have also been tested on Ubuntu 22.04 and installation
 instructions should be similar on other Ubuntu systems. Similar steps will also
 likely work on other Linux distributions but those distributions are not
