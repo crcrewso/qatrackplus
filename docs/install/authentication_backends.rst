@@ -26,17 +26,24 @@ an Active Directory backend and it's configuration will be described below.
 Installation of python-ldap
 ...........................
 
+.. note::
+
+    LDAP/Active Directory support is independent of your choice of database
+    (PostgreSQL, MySQL, or SQL Server) and installed via its own ``ldap``
+    extra. It's install-at-your-own-risk: the maintainers haven't found an
+    economical way to run a real LDAP/AD server for automated testing, so
+    this path is comparatively lightly tested.
+
 Windows
 ~~~~~~~
 
-There are binaries available on this page: https://github.com/cgohlke/python-ldap-build.
-Download the relevant wheel for your Python installation (e.g.
-python_ldap-3.4.5-cp312-cp312-win_amd64.whl) and install the file directly into your venv:
+``python-ldap`` doesn't have an official Windows wheel on PyPI, so
+``pyproject.toml`` points ``uv`` at a community-built one for you — no
+manual download needed. Just install the extra like anything else:
 
 .. code-block:: console
 
-    uv pip install C:\path\to\python_ldap-3.4.5-cp312-cp312-win_amd64.whl
-
+    uv sync --extra ldap
 
 To confirm your installation is working, activate your virtual env and verify the import works
 
@@ -51,18 +58,16 @@ If that command prints the ldap version then ldap is installed correctly.
 Linux
 ~~~~~
 
-
-There are some pre-requisistes that need to be installed before python-ldap. 
+There are some pre-requisites that need to be installed before python-ldap.
 
 At the time of writing on Ubuntu this looks like:
 
 .. code-block:: console
 
-    sudo apt-get install build-essential python3-dev python2.7-dev \
+    sudo apt-get install build-essential python3-dev \
         libldap2-dev libsasl2-dev slapd ldap-utils
 
-    source ~/venvs/qatrack3/bin/activate
-    pip install python-ldap
+    uv sync --extra ldap
 
 See https://www.python-ldap.org/en/latest/installing.html for more details.
 

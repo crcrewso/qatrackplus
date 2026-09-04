@@ -115,16 +115,14 @@ Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``
 
    This folder is a convenient convention for storing the QATrack+ source code, virtual environment, and any other files related to your QATrack+ installation.  You can use a different folder if you prefer, but you will need to adjust the instructions accordingly.
 
-.. If you are going to be using :ref:`Active Directory <active_directory>` for
-   authenticating your users, you need to install pyldap.  There are binaries
-   available on this page:
-   https://github.com/cgohlke/python-ldap-build.  Download the
-   relevant wheel for your distribution (e.g.
-   python_ldap-3.4.5-cp312-cp312-win_amd64.whl) and install it directly into your venv:
+If you plan to use :ref:`Active Directory <active_directory>` for
+authenticating your users, install the ``ldap`` extra (see
+:ref:`auth_backends` for details — no manual wheel download needed, ``uv``
+handles it):
 
-   .. code-block:: console
+.. code-block:: console
 
-      uv pip install C:\path\to\python_ldap-3.4.5-cp312-cp312-win_amd64.whl
+   >>  uv sync --exact --extra win --extra mssql --extra ldap
 
 Creating a database with SQL Server
 -----------------------------------
