@@ -1,5 +1,8 @@
 FROM nginx:1.27-alpine
 
+# Needed for the healthcheck below (matches the tool django's healthcheck uses)
+RUN apk add --no-cache curl
+
 # Remove default config
 RUN rm /etc/nginx/nginx.conf
 RUN rm /etc/nginx/conf.d/default.conf
