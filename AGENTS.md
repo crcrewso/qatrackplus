@@ -104,17 +104,17 @@ qatrack/                 # Django project root; most application code lives here
   units/                # Treatment-unit definitions
 docs/           # Sphinx documentation (reStructuredText)
 fixtures/       # Demo / seed data
-requirements/   # Pinned pip requirements (dev.txt) — see TODO below
+requirements/   # Pinned pip requirements: win-mssql.txt (see below)
 runtests.sh     # Convenience test runner (see Running the tests)
 ```
 
-> **TODO:** `requirements/dev.txt` is generated from the `dev` dependency
-> group, but the only documented pip-install path in this project is
-> production Windows/MS SQL Server deployments (see the Package manager
-> row above and *Getting started* below) — that install actually needs
-> the `win` + `mssql` extras, not `dev`. Reconciling the file's contents
-> (and likely its name) with that purpose is tracked for a follow-up PR;
-> until then, treat this file as stale for deployment purposes.
+> **Note:** `requirements/win-mssql.txt` is a pinned pip fallback for the
+> narrow case of production Windows/MS SQL Server installs that can't set
+> up `uv` — regenerate it with
+> `uv export --format requirements-txt --extra win --extra mssql --no-dev -o requirements/win-mssql.txt`
+> after a dependency change. It's not used anywhere else; local development
+> always uses `uv sync --dev` (see Package manager, above, and *Getting
+> started*, below).
 
 > **A note for AI agents:** `.po` files under `locale/` are the editable
 > source for translations — the paired `.mo` files are compiled binaries
