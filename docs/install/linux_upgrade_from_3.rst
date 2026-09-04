@@ -126,6 +126,14 @@ Then, create your new virtual environment and activate it:
 
 Your command prompt should now be prefixed with `(qatrackplus)`.
 
+.. note::
+
+    Commands throughout the rest of this guide are shown prefixed with
+    ``uv run``, which works whether or not you've activated the virtual
+    environment above — so activating it is optional. If you'd rather
+    activate it once and drop the ``uv run`` prefix for the rest of your
+    session, that works too; both are equivalent.
+
 We will now install all the libraries required for QATrack+ with PostgresSQL
 (be patient, this can take a few minutes!):
 
@@ -152,14 +160,14 @@ We can now migrate the tables in our database:
 
 .. code-block:: console
 
-    python manage.py migrate
+    uv run python manage.py migrate
 
 
 and then we need to collect all our static media files:
 
 .. code-block:: bash
 
-    python manage.py collectstatic
+    uv run python manage.py collectstatic
 
 Update Service Configurations and Restart QATrack+
 --------------------------------------------------
@@ -178,7 +186,6 @@ Now we can generate our new Nginx and Supervisor configurations:
 .. code-block:: bash
 
     cd ~/web/qatrackplus
-    source .venv/bin/activate
     make supervisor.conf
     sudo rm -f /etc/nginx/sites-enabled/default
     make nginx.conf
