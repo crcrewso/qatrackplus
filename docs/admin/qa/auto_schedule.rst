@@ -10,8 +10,10 @@ based on their last performed date and assigned frequency. This is usually not
 necessary but might be useful if you have manually overriden many due dates and
 want to "reset" all of them.
 
-All of these commands must be run from the git bash shell from the root
-of your QATrack+ directory (with your virtualenv activated).
+All of these commands must be run from the root of your QATrack+ directory.
+They're shown prefixed with ``uv run``, which works whether or not you've
+activated your virtual environment — if you'd rather activate it once and
+drop the prefix, that works too.
 
 *The following command will disable the ``auto_schedule`` flag for all
 test list assignments:*
@@ -19,7 +21,7 @@ test list assignments:*
 ::
 
     #! bash
-    python manage.py auto_schedule disable-all
+    uv run python manage.py auto_schedule disable-all
 
 *The following command will enable the ``auto_schedule`` flag for all
 test list assignments:*
@@ -27,7 +29,7 @@ test list assignments:*
 ::
 
     #! bash
-    python manage.py auto_schedule enable-all
+    uv run python manage.py auto_schedule enable-all
 
 *The following command will update the scheduled due date for all test
 list assignments based on the date they were last completed and their
@@ -36,7 +38,7 @@ assigned frequency:*
 ::
 
     #! bash
-    python manage.py auto_schedule schedule-all
+    uv run python manage.py auto_schedule schedule-all
 
 *The following command will "unset" the due date for all test list
 assignments (i.e. they will all show as Not Due):*
@@ -44,4 +46,4 @@ assignments (i.e. they will all show as Not Due):*
 ::
 
     #! bash
-    python manage.py auto_schedule unschedule-all
+    uv run python manage.py auto_schedule unschedule-all

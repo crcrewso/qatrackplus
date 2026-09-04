@@ -34,10 +34,10 @@ To compile translations (if you haven't already):
 .. code-block:: bash
 
     # Compile all languages
-    python manage.py compilemessages
+    uv run python manage.py compilemessages
 
     # Or compile a specific language
-    python manage.py compilemessages --locale=es
+    uv run python manage.py compilemessages --locale=es
 
 Step 2: Configure Local Settings
 --------------------------------
@@ -88,7 +88,7 @@ Troubleshooting
 
 **Translations not working:**
 
-- Run ``python manage.py compilemessages`` to ensure .mo files are up to date
+- Run ``uv run python manage.py compilemessages`` to ensure .mo files are up to date
 - Check that ``USE_I18N = True`` is set
 - Verify the language code format (e.g., ``es`` for Spanish, not ``es-ES``)
 
