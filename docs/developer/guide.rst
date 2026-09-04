@@ -154,7 +154,25 @@ Install development dependencies:
     # Install all development dependencies
     uv sync --dev
 
+.. _pre-commit-hooks:
 
+Installing pre-commit hooks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+QATrack+ uses `pre-commit <https://pre-commit.com/>`__ to run lint and
+sanity checks automatically before each commit — the same checks CI runs.
+Install the hooks once per clone:
+
+.. code-block:: shell
+
+    uv run pre-commit install
+
+You can also run all hooks against the whole codebase at any time, not just
+your changed files:
+
+.. code-block:: shell
+
+    uv run pre-commit run --all-files
 
 Creating your development database
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -330,24 +348,17 @@ General formatting
 
 In general, any code you write should be `PEP 8 compatible
 <https://www.python.org/dev/peps/pep-0008/>`__ with a few exceptions.  It is
-*highly* recommended that you use flake8 to check your code for pep8
-violations. A QATrack+ flake8 config file is included with QATrack+, to view
-any flake8 violations run:
+*highly* recommended that you use `ruff <https://docs.astral.sh/ruff/>`__ to
+check your code for style violations and automatically format it. Ruff's
+configuration lives in ``pyproject.toml`` under ``[tool.ruff]``.
 
-.. code-block:: python
+.. code-block:: shell
 
-    make flake8
-    # or
-    flake8 .
+    uv run ruff check .    # lint
+    uv run ruff format .   # auto-format
 
-You may also want to use `yapf <https://github.com/google/yapf>`__ which can
-automatically format your code to conform with QATrack+'s style guide.  A yapf
-configuration sections is included in the setup.cfg file. To run yapf:
-
-
-.. code-block:: python
-
-    make yapf
+These checks also run automatically on commit if you've installed the
+pre-commit hooks — see :ref:`pre-commit-hooks` above.
 
 Using Make Commands
 ~~~~~~~~~~~~~~~~~~
@@ -393,9 +404,9 @@ and each section should be in alphabetical order.  For example:
     from qatrack.qa import utils
     from qatrack.units.models import Unit
 
-`isort <https://isort.readthedocs.io/en/latest/>`__ is a simple tool for
-automatically ordering your imports and an `isort` configuration is included in
-the setup.cfg file.
+`ruff <https://docs.astral.sh/ruff/>`__ (rule set ``I``) automatically checks
+and orders your imports according to this convention — see ``uv run ruff
+check .`` above.
 
 Indentation
 ~~~~~~~~~~~
