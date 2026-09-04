@@ -267,6 +267,15 @@ jobs:
             exit 1
           fi
 
+      - name: Run Docker Smoke Tests
+        # A small, curated subset of tests (tagged `docker`) that spans
+        # several apps superficially, avoiding anything DB-engine-specific
+        # or dependent on optional extras not installed in this image
+        # (e.g. ldap). Uses manage.py's built-in test runner, not pytest —
+        # pytest isn't installed in the runtime image.
+        working-directory: deploy/docker
+        run: docker compose -f compose.yaml exec -T django python manage.py test --tag=docker
+
       - name: Tear Down
         if: always()
         working-directory: deploy/docker

@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.urls import reverse
 
 from qatrack.qa.tests import utils as qa_utils
@@ -26,6 +26,7 @@ class TestServiceEventStatusAdmin(TestCase):
             'order': 0,
         }
 
+    @tag('docker')
     def test_clean_is_default(self):
 
         response = self.client.get(self.url_add)
