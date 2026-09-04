@@ -732,7 +732,23 @@ if use_docker:
     if 'readonly' not in DATABASES and USE_SQL_REPORTS:
         DATABASES['readonly'] = DATABASES['default']
 else:
-    from .local_settings import *  # noqa: F403, F401, E402
+    try:
+        from .local_settings import *  # noqa: F403, F401, E402
+    except ModuleNotFoundError as e:
+        # Only re-raise as the friendlier message if it's local_settings
+        # itself that's missing - if local_settings.py exists but fails to
+        # import something else, let that error surface normally rather
+        # than masking it with a misleading "file is missing" message.
+        if e.name != 'qatrack.local_settings':
+            raise
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured(
+            "qatrack/local_settings.py is missing. QATrack+ will not run "
+            "without it - copy the template that matches your setup from "
+            "deploy/ (e.g. deploy/dev/local_settings.dev.py for local "
+            "development) to qatrack/local_settings.py and customize it. "
+            "See AGENTS.md or docs/developer/guide.rst for details."
+        ) from e
 
 TEMPLATES[0]['OPTIONS']['debug'] = DEBUG
 
