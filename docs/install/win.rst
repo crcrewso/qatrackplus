@@ -205,6 +205,8 @@ Copy the example local_settings file:
 
    >>  cp deploy\win\local_settings.py qatrack\local_settings.py
 
+.. include:: security_considerations.rst
+
 and then edit it so that the `NAME`, `USER`, and `PASSWORD` settings match the
 way you set up your database above. Also, ensure you configure `CSRF_TRUSTED_ORIGINS` which is required. You can find your Device Name by pressing `Windows Key + I -> System -> About`. Alternatively, you can use `hostname` in a command prompt to get your device name, and `ipconfig` to get your IP address.
 

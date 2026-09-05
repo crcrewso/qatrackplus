@@ -1,6 +1,11 @@
 # Set to True to enable debug mode (not safe for regular use!)
 DEBUG = False
 
+# SECURITY: 'qatrackpass' below matches deploy/mysql/create_db_and_role.sql
+# and create_ro_role.sql, so the two work together out of the box - but it's
+# a public, documented example value, not a secret. Change it (in both the
+# SQL scripts and here) to something unique to your organization before
+# deploying to production.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',

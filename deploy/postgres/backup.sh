@@ -16,6 +16,10 @@ DATABASE=
 HOSTNAME=localhost
 
 # username and password to use to access the database
+# SECURITY: update these to match whatever you actually set in
+# local_settings.py / when creating the database user - if you changed the
+# example 'qatrackpass' password there, update it here too or backups will
+# silently start failing (or keep using the stale example password).
 USERNAME=qatrack
 PASSWORD=qatrackpass
 

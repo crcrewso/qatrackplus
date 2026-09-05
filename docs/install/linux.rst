@@ -315,6 +315,7 @@ Create your `local_settings.py` file by copying the example from `deploy/{postgr
         # mysql
         cp deploy/mysql/local_settings.py qatrack/local_settings.py
 
+.. include:: security_considerations.rst
 
 then open the file in a text editor.  There are many available settings and
 they are documented within the example file and more completely on :ref:`the

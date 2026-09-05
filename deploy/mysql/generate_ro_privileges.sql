@@ -1,3 +1,6 @@
+-- SECURITY: 'qatrackpass' below is a public, documented example password.
+-- If you changed it during initial setup, update it here too before
+-- running this script, or you'll silently reset it back to the example.
 SELECT 'DROP USER qatrack_reports@localhost;';
 SELECT 'CREATE USER ''qatrack_reports''@''localhost'' IDENTIFIED BY ''qatrackpass'';';
 SELECT

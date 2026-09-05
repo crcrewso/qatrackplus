@@ -8,6 +8,11 @@ LANGUAGES = [('en', 'English'), ('fr', 'Français'), ('es', 'Español')]
 LANGUAGE_CODE = 'en'
 
 
+# SECURITY: 'qatrackpass' below matches the example password used when
+# creating the SQL Server logins in the install guide - it's a public,
+# documented example value, not a secret. Change it (both here and when
+# creating the logins in SSMS) to something unique to your organization
+# before deploying to production.
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
