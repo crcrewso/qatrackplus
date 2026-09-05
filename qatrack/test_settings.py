@@ -16,6 +16,10 @@ DEBUG = False
 AD_CLEAN_USERNAME = None
 HTTP_OR_HTTPS = "http"
 REVIEW_BULK = True
+# Tests exercise notification/report email code paths and check
+# django.core.mail.outbox, so email must be explicitly enabled here -
+# Django's test runner swaps in the locmem backend regardless of EMAIL_HOST.
+EMAIL_ENABLED = True
 TIME_ZONE = 'America/Toronto'
 LANGUAGE_CODE = "en"
 

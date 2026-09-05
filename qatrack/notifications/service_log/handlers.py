@@ -1,12 +1,11 @@
 import logging
 
-from django.conf import settings
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from qatrack.qatrack_core.email import send_email_to_users
+from qatrack.qatrack_core.email import email_fail_silently, send_email_to_users
 from qatrack.service_log import models
 
 logger = logging.getLogger('qatrack')
@@ -43,7 +42,7 @@ def on_serviceevent_saved(sender, instance, created, **kwargs):
             (service_log.service_event_id, timezone.now())
         )
 
-        fail_silently = getattr(settings, "EMAIL_FAIL_SILENTLY", True)
+        fail_silently = email_fail_silently()
         if not fail_silently:
             raise
 

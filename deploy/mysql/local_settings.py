@@ -114,6 +114,13 @@ EMAIL_NOTIFICATION_SENDER = "qatrack@yourmailhost.com"
 # EMAIL_NOTIFICATION_SUBJECT = "QATrack+ Test Status Notification"
 EMAIL_NOTIFICATION_SUBJECT_TEMPLATE = "notification_email_subject.txt"
 
+# Uncomment once EMAIL_HOST etc. below are configured with a real mail
+# server. Until then, leave this commented out - any attempted send will
+# fail loudly (see qatrack_core.email) rather than silently disappearing,
+# which is your cue to either configure email or set this to False to
+# disable it deliberately.
+# EMAIL_ENABLED = True
+
 EMAIL_FAIL_SILENTLY = True
 EMAIL_HOST = ""  # e.g. 'smtp.gmail.com'
 EMAIL_HOST_USER = ''  # e.g. "randle.taylor@gmail.com"

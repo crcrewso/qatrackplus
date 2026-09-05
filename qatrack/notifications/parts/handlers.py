@@ -1,13 +1,12 @@
 import logging
 
-from django.conf import settings
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
 from qatrack.parts import models
-from qatrack.qatrack_core.email import send_email_to_users
+from qatrack.qatrack_core.email import email_fail_silently, send_email_to_users
 
 logger = logging.getLogger('qatrack')
 
@@ -46,7 +45,7 @@ def on_part_saved(sender, instance, created, **kwargs):
     except:  # noqa: E722  # pragma: nocover
         logger.exception("Error sending Part Notice for part %d at %s." % (part.id, timezone.now()))
 
-        fail_silently = getattr(settings, "EMAIL_FAIL_SILENTLY", True)
+        fail_silently = email_fail_silently()
         if not fail_silently:
             raise
 

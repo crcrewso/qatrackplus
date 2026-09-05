@@ -1,11 +1,10 @@
 import logging
 
-from django.conf import settings
 from django.utils import timezone
 from django_q.models import Schedule
 from django_q.tasks import schedule
 
-from qatrack.qatrack_core.email import send_email_to_users
+from qatrack.qatrack_core.email import email_fail_silently, send_email_to_users
 from qatrack.qatrack_core.tasks import (
     qatrack_task_wrapper,
     run_periodic_scheduler,
@@ -80,7 +79,7 @@ def send_report(schedule_id, task_name=""):
         logger.exception(
             "Error sending email for ReportSchedule %s (report %s) at %s." % (schedule_id, s.report_id, timezone.now())
         )
-        fail_silently = getattr(settings, "EMAIL_FAIL_SILENTLY", True)
+        fail_silently = email_fail_silently()
         if not fail_silently:
             raise
     finally:

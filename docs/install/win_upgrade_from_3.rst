@@ -168,6 +168,8 @@ Major changes include:
 * The Django engine for the database has changed from ``sql_server.pyodbc`` to ``mssql``.
 * ``Allowed Hosts`` is now mandatory  for Django 4.2+ and must be set to a list of host names that your QATrack+ server will respond to. Because we are using IIS as a reverse proxy this only has to include the hostname and any CNAMEs or aliases.
 * ``CSRF_TRUSTED_ORIGINS`` is now mandatory and must be populates similarly to ``ALLOWED_HOSTS``.
+* ``TIME_ZONE`` must now be actively set in ``local_settings.py`` to a real time zone name - QATrack+ will refuse to start otherwise. If your existing ``local_settings.py`` doesn't already set this, add it (e.g. ``TIME_ZONE = 'America/Toronto'``).
+* Email is now off by default unless you say otherwise. If you don't want QATrack+ to send notification/report emails, set ``EMAIL_ENABLED = False`` in ``local_settings.py`` to silence it cleanly; otherwise, once you've configured ``EMAIL_HOST`` and friends, set ``EMAIL_ENABLED = True``. Leaving it unset means any attempted send will raise an error instead of failing silently - a sign that a decision one way or the other hasn't been made yet.
 
 Updating the database
 ~~~~~~~~~~~~~~~~~~~~~

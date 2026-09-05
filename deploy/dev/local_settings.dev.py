@@ -31,6 +31,18 @@ DATABASES = {
 }
 DATABASES['readonly'] = DATABASES['default']
 
+# TIME_ZONE must be actively set - `manage.py check` fails otherwise (see
+# qatrack_core.checks.check_time_zone_configured). Change this to your own
+# time zone if you're not in Toronto.
+TIME_ZONE = 'America/Toronto'
+
+# Notification/report emails are disabled by default in dev so you don't
+# need a real mail server to run the site, and so unconfigured email
+# doesn't spam the console with loud failures during everyday development.
+# Set this to True (and configure EMAIL_HOST etc. in settings.py's Email
+# section) if you want to test real email sending locally.
+EMAIL_ENABLED = False
+
 # You can override anything in settings.py by defining it here
 # I would recommend copying the portion of settings.py to this file and then modifying it
 # as needed. This way it's easy to keep track of what has been changed, and they
@@ -38,7 +50,6 @@ DATABASES['readonly'] = DATABASES['default']
 # Account and Email settings are a good place to start.
 
 # Example:
-#TIME_ZONE = 'America/Toronto'
 #LANGUAGES = [('en', 'English'), ('fr', 'Français'), ('es', 'Español')]
 #LANGUAGE_CODE = 'fr'
 

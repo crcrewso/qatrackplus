@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 
 from django.conf import settings
-from django.core.checks import Error, register
+from django.core.checks import Error, Warning, register
 
 
 @register()
@@ -66,3 +66,23 @@ def check_media_folder_permissions(app_configs, **kwargs):
                     )
                 )
     return errors
+
+
+@register()
+def check_deprecated_email_notification_settings(app_configs, **kwargs):
+    # EMAIL_NOTIFICATION_USER/PWD were replaced by the standard Django
+    # EMAIL_HOST_USER/EMAIL_HOST_PASSWORD settings. settings.py still copies
+    # them over for anyone upgrading from an older local_settings.py, but
+    # that shim is silent - this check gives upgrading deployers a visible
+    # nudge to switch over rather than leaving them on a deprecated path
+    # indefinitely.
+    warnings = []
+    if getattr(settings, 'EMAIL_NOTIFICATION_USER', None) or getattr(settings, 'EMAIL_NOTIFICATION_PWD', None):
+        warnings.append(
+            Warning(
+                "EMAIL_NOTIFICATION_USER/EMAIL_NOTIFICATION_PWD are deprecated.",
+                hint="Rename these to EMAIL_HOST_USER/EMAIL_HOST_PASSWORD in your local_settings.py.",
+                id='qatrack.W001',
+            )
+        )
+    return warnings

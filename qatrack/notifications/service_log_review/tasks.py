@@ -1,12 +1,11 @@
 import logging
 
-from django.conf import settings
 from django.utils import timezone
 from django_q.models import Schedule
 from django_q.tasks import schedule
 
 from qatrack.notifications.models import ServiceEventReviewNotice
-from qatrack.qatrack_core.email import send_email_to_users
+from qatrack.qatrack_core.email import email_fail_silently, send_email_to_users
 from qatrack.qatrack_core.tasks import run_periodic_scheduler
 
 logger = logging.getLogger('django-q2')
@@ -78,7 +77,7 @@ def send_serviceeventreview_notice(notice_id, task_name=""):
     except:  # noqa: E722  # pragma: nocover
         logger.exception("Error sending email for ServiceEventReviewNotice %s at %s." % (notice_id, timezone.now()))
 
-        fail_silently = getattr(settings, "EMAIL_FAIL_SILENTLY", True)
+        fail_silently = email_fail_silently()
         if not fail_silently:
             raise
     finally:

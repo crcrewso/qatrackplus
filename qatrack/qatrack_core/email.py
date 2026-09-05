@@ -24,6 +24,28 @@ def email_context(context):
     return context
 
 
+def email_enabled():
+    """Whether the deployer has made an explicit choice about email.
+
+    True/False if EMAIL_ENABLED was set explicitly in local_settings.py,
+    or None if no choice has been made yet.
+    """
+    return getattr(settings, "EMAIL_ENABLED", None)
+
+
+def email_fail_silently():
+    """Whether email send failures should be swallowed rather than raised.
+
+    Deployments that haven't made an explicit choice about email
+    (EMAIL_ENABLED is still None) always fail loudly, so a forgotten
+    configuration doesn't silently drop notifications forever. Once email
+    has been explicitly enabled, EMAIL_FAIL_SILENTLY controls this as usual.
+    """
+    if email_enabled() is None:
+        return False
+    return getattr(settings, "EMAIL_FAIL_SILENTLY", True)
+
+
 def send_email_to_users(
     recipients, template, context=None, subject_template=None, text_template=None, attachments=None
 ):
@@ -31,12 +53,16 @@ def send_email_to_users(
     if len(recipients) == 0:
         return
 
+    if email_enabled() is False:
+        logger.debug("EMAIL_ENABLED is False; skipping email to %s" % recipients)
+        return
+
     attachments = attachments or []
 
     context = email_context(context)
 
     from_address = getattr(settings, "EMAIL_NOTIFICATION_SENDER", '"QATrack+" <notifications@qatrackplus.com>')
-    fail_silently = getattr(settings, "EMAIL_FAIL_SILENTLY", True)
+    fail_silently = email_fail_silently()
 
     if subject_template:
         subject = render_to_string(subject_template, context).strip()

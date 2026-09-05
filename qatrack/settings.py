@@ -74,7 +74,10 @@ DATABASES = {
 # timezone as the operating system.
 # If running in a Windows environment this must be set to the same as your
 # system time zone.
-TIME_ZONE = 'America/Toronto'
+# This value must be actively set in local_settings.py - the placeholder
+# below is not a real time zone name, so Django itself refuses to start
+# (ValueError: Incorrect timezone setting) if it's left in place.
+TIME_ZONE = 'YOUR_TIME_ZONE_GOES_HERE'
 
 # If you set this to False, Django will not format dates, numbers and
 # calendars according to the current locale
@@ -326,6 +329,19 @@ HTTP_OR_HTTPS = "http"
 
 # -----------------------------------------------------------------------------
 # Email and notification settings
+
+# Whether this deployment sends real email. This is intentionally a
+# three-state flag rather than a plain boolean:
+#   - None (the default below): no explicit choice has been made yet. Any
+#     attempt to send an email will fail loudly (regardless of
+#     EMAIL_FAIL_SILENTLY) so an unconfigured deployment doesn't silently
+#     drop notifications forever.
+#   - False: email has been deliberately disabled in local_settings.py.
+#     Send attempts are skipped with no warnings or errors.
+#   - True: email has been configured (EMAIL_HOST etc. below) - send
+#     failures are governed by EMAIL_FAIL_SILENTLY as normal.
+EMAIL_ENABLED = None
+
 EMAIL_NOTIFICATION_USER = None
 EMAIL_NOTIFICATION_PWD = None
 EMAIL_NOTIFICATION_TEMPLATE = "notification_email.html"
@@ -795,6 +811,7 @@ SELENIUM_HEADLESS = os.environ.get('SELENIUM_HEADLESS', 'True').strip().lower() 
 use_docker = os.environ.get('USE_DOCKER', '').strip().lower() in {'1', 'true', 'yes', 'on'}
 if use_docker:
     ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+    TIME_ZONE = os.environ.get('TIME_ZONE', 'YOUR_TIME_ZONE_GOES_HERE')
 
     _csrf_trusted_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
     if _csrf_trusted_env:
