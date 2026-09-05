@@ -69,14 +69,16 @@ USE_SQL_REPORTS = True
 # Use True for e.g. CherryPy/IIS and False for Apache/mod_wsgi
 USE_X_FORWARDED_HOST = True
 # -----------------------------------------------------------------------------
-# Backup settings
-# Use the python manage.py backup_site command to backup the database and uploads
-# BACKUP_DIR = "C:\\deploy\\backups"
-# BACKUP_WEEKLY_DAY = 2  # 0 = Monday, 6 = Sunday (2 = Wednesday)
-# BACKUP_MONTHLY_DAY = 3
-# BACKUP_DAYS_TO_KEEP = 7
-# BACKUP_WEEKS_TO_KEEP = 5
-# BACKUP_MONTHS_TO_KEEP = 12
+# Backup settings - used by the `manage.py backup_site` command (currently
+# only fully implemented for MSSQL and sqlite - not postgres or mysql).
+# Adjust the path and schedule to suit your server; these particular values
+# are also what backup_site falls back to if you remove this block entirely.
+BACKUP_DIR = "C:\\deploy\\backups"
+BACKUP_WEEKLY_DAY = 2  # 0 = Monday, 6 = Sunday (2 = Wednesday)
+BACKUP_MONTHLY_DAY = 3
+BACKUP_DAYS_TO_KEEP = 7
+BACKUP_WEEKS_TO_KEEP = 5
+BACKUP_MONTHS_TO_KEEP = 12
 
 
 # If you host your QATrack+ instance at a non root url (e.g. 12.345.678.9/qatrack)

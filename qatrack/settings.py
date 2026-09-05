@@ -54,15 +54,15 @@ DATABASES = {
 }
 
 # -----------------------------------------------------------------------------
-# Backup settings
-# Override these in local_settings.py if you are using the backup_site command.
-BACKUP_DIR = "C:\\deploy\\backups"
-BACKUP_WEEKLY_DAY = 2  # 0 = Monday, 6 = Sunday (2 = Wednesday)
-BACKUP_MONTHLY_DAY = 3
-
-BACKUP_DAYS_TO_KEEP = 7
-BACKUP_WEEKS_TO_KEEP = 5
-BACKUP_MONTHS_TO_KEEP = 12
+# Backup settings (BACKUP_DIR, BACKUP_WEEKLY_DAY, BACKUP_MONTHLY_DAY,
+# BACKUP_DAYS_TO_KEEP, BACKUP_WEEKS_TO_KEEP, BACKUP_MONTHS_TO_KEEP) are not
+# declared here - the backup_site management command already has its own
+# sensible built-in fallback for each (see
+# qatrack/qatrack_core/management/commands/backup_site.py), so there's no
+# need to duplicate them as generic defaults in a cross-platform settings
+# file. Set them in local_settings.py only if you want to override the
+# defaults - see deploy/win/local_settings.py for an example (backup_site
+# is currently only fully implemented for MSSQL and sqlite).
 
 # ----------------------------------------------------------------------------
 # Default local settings
