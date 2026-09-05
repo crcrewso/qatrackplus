@@ -192,8 +192,8 @@ usage.
 Time Zone Settings
 ~~~~~~~~~~~~~~~~~~
 
-By default QATrack+ is configured to use North American Eastern Standard Time
-so you will need to adjust this to reflect your local time zone.
+`TIME_ZONE` must be set explicitly in your *local_settings.py* file - QATrack+
+ships without a usable default and will refuse to start until you add one.
 
 In your *local_settings.py* file add a line like the following:
 
@@ -574,6 +574,24 @@ you need access to an SMTP server that can send the emails for you.
 In order to override the default settings, in your local_settings.py file you
 should set the following variables appropriately.
 
+Enabling Email
+~~~~~~~~~~~~~~
+
+`EMAIL_ENABLED` controls whether QATrack+ attempts to send email at all, and
+is deliberately a three-way choice rather than a plain on/off:
+
+* Left unset (the default): no decision has been made yet, so any attempted
+  send raises an error rather than disappearing silently - a sign that email
+  still needs to be configured one way or the other.
+* `EMAIL_ENABLED = False`: email has been deliberately turned off. Send
+  attempts are skipped with no warnings or errors.
+* `EMAIL_ENABLED = True`: email has been configured (see the host settings
+  below) and `EMAIL_FAIL_SILENTLY` governs send failures as normal.
+
+.. code-block:: python
+
+    EMAIL_ENABLED = True
+
 Admin Email
 ~~~~~~~~~~~
 
@@ -616,7 +634,9 @@ Email host settings
   `EMAIL_USE_TLS` is False,  587 if True)
 
 * `EMAIL_FAIL_SILENTLY` set to False to see error tracebacks when sending an
-  email fails. (should only be used for debugging)
+  email fails. (should only be used for debugging). Only takes effect once
+  `EMAIL_ENABLED = True` - until then, send failures are always loud (see
+  `Enabling Email`_ above).
 
 Note that `EMAIL_HOST_USER` and `EMAIL_HOST_PASSWORD` can be set to None or ""
 if no authentication is required.
