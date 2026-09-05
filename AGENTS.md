@@ -238,6 +238,16 @@ createcachetable, collectstatic, createsuperuser) and runs the suite with
 `--reuse-db` directly against it, so the whole deployment sequence is
 exercised for real, not just a disposable test database.
 
+`qatrack/local_settings.py` and `qatrack/local_test_settings.py` are both
+required — QATrack+ raises a clear error rather than starting, or running
+pytest, without them. To test against a specific database engine instead of
+whatever your active `local_test_settings.py` configures, use
+`make test-sqlite`/`test-memory`/`test-postgres`/`test-mysql`/`test-mssql` —
+each requires a matching `qatrack/local_test_settings.<engine>.py` to already
+exist (gitignored, not auto-generated; copy from `deploy/dev/` and fill in
+real credentials for postgres/mysql/mssql) and temporarily swaps it in,
+restoring your original file afterward regardless of the test outcome.
+
 Tests live next to the application code in `tests/` subdirectories inside each
 Django app. Write or update tests for every functional change. Do not remove or
 disable existing tests.
