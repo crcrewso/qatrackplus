@@ -373,6 +373,13 @@ Copy whichever one matches your target to ``qatrack/local_settings.py`` and
 edit it from there. For full deployment instructions see the
 :doc:`installation guides </install/install>`, not this page.
 
+All of the above (plus creating a superuser) is also available as a single
+shortcut:
+
+.. code-block:: shell
+
+    make dev-quickstart
+
 
 .. _local_test_settings_templates:
 
@@ -452,6 +459,16 @@ loaded wins for any given setting. Under a test run the chain is
 4. ``settings.py`` - Base Django application settings
 
    - Contains core Django configuration, installed apps, middleware, etc.
+
+``local_test_settings.py`` only comes into play when running under pytest
+(detected via ``sys.argv``) - ``manage.py runserver`` and similar commands
+only ever load ``local_settings.py``. Both files are required in their
+respective contexts: QATrack+ won't start at all without
+``local_settings.py``, and pytest won't run without
+``local_test_settings.py`` - each raises a clear error explaining what to
+copy from ``deploy/`` if it's missing, rather than crashing confusingly or
+silently falling back to the wrong database. See "Running The Test Suite"
+below for the per-engine variants of ``local_test_settings.py``.
 
 Collect Static Files
 ~~~~~~~~~~~~~~~~~~~~
@@ -758,8 +775,12 @@ QATrack+ directory using the `pytest` command (configuration lives under
 
 .. code-block:: sh
 
-    ./qatrackplus> pytest
-    ...
+    ./qatrackplus> uv run pytest
+    Test session starts (platform: linux, Python 3.12.x, pytest 7.4.x, pytest-sugar 0.9.x)
+    Django settings: qatrack.settings (from ini file)
+    rootdir: /home/dev/projects/qatrackplus, inifile: pyproject.toml
+    plugins: django-4.5.2, cov-3.0.0
+
     qatrack/accounts/tests/test_accounts.py ✓✓✓
 
 **Running Different Types of Tests**
@@ -821,6 +842,43 @@ sequence is exercised for real rather than just a disposable test database.
 
 For more information on using pytest, refer to the `pytest documentation
 <https://pytest.org>`__.
+
+**Running against a specific database engine**
+
+By default the test suite uses whichever ``DATABASES`` your active
+``qatrack/local_test_settings.py`` configures - normally sqlite, per the
+setup above. To run against a different engine without disturbing that
+day-to-day config, use one of the ``make test-<engine>`` targets:
+
+.. code-block:: shell
+
+    make test-sqlite     # file-based sqlite (same as plain `uv run pytest`, if that's your active config)
+    make test-memory     # in-memory sqlite - faster, no disk I/O
+    make test-postgres
+    make test-mysql
+    make test-mssql
+
+Each of these requires a ``qatrack/local_test_settings.<engine>.py`` file to
+already exist - these are gitignored and yours to create, starting from the
+matching template in ``deploy/dev/`` (``local_test_settings.sqlite.py``,
+``local_test_settings.memory.py``, ``local_test_settings.postgres.py``,
+``local_test_settings.mysql.py``, ``local_test_settings.mssql.py``) and
+filling in real credentials for postgres/mysql/mssql. The target fails with
+a clear error if that file doesn't exist yet, rather than silently doing
+nothing useful.
+
+Running one of these targets temporarily swaps the requested engine's file
+in for ``qatrack/local_test_settings.py`` and backs up whatever was there
+before, restoring it once the run finishes - your normal day-to-day
+``local_test_settings.py`` is left exactly as it was, whether the tests
+passed or failed.
+
+.. note::
+
+    Both ``qatrack/local_settings.py`` and ``qatrack/local_test_settings.py``
+    are required - QATrack+ won't start, and pytest won't run, without them.
+    If either is missing you'll get a clear error explaining what to copy
+    from ``deploy/`` and where.
 
 .. important::
 
