@@ -1,13 +1,13 @@
-# Local settings for customization - copy this file to qatrack/local_settings.py and customize as needed
-# For developers, the purpose of this file is to allow for local settings specific to your development environment
-# without having to modify settings.py which will be updated from time to time and would overwrite your changes.
-
-# For production use, this file is intended to allow for local overrides of settings.py without having to modify it.
-# This way you can update QATrack+ without losing your local changes, and keep your internal settings (e.g. database
-# passwords) out of version control.
-
-## Manditory settings:
-### You must set at least the DATABASES setting here. 
+# Local development settings - copy this file to qatrack/local_settings.py
+# and customize as needed. This template is for local development only; if
+# you're setting up a real (production) deployment, use the template for
+# your database engine under deploy/ instead (sqlite, postgres, mysql, win) -
+# those default to DEBUG=False and require you to configure a real
+# ALLOWED_HOSTS, rather than this file's permissive local-dev defaults.
+#
+# The point of this file is to let you override settings.py for your own
+# environment without editing settings.py itself (which gets updated as the
+# project evolves, and would overwrite your changes).
 
 DEBUG = True # Local development only - do not use True in a real deployment!
 TEMPLATE_DBG = True
