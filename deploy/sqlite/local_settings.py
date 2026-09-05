@@ -1,5 +1,18 @@
+# -----------------------------------------------------------------------------
+# Required settings - QATrack+ will not run correctly (or at all) until these
+# are set for your environment.
+
 # Set to True to enable debug mode (not safe for regular use!)
 DEBUG = False
+
+# Local time zone for this installation. Choices can be found here:
+# http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
+# although not all choices may be available on all operating systems.
+# On Unix systems, a value of None will cause Django to use the same
+# timezone as the operating system.
+# If running in a Windows environment this must be set to the same as your
+# system time zone.
+TIME_ZONE = 'America/Toronto'
 
 DATABASES = {
     'default': {
@@ -20,7 +33,6 @@ DATABASES = {
     }
 }
 
-
 # Change XX.XXX.XXX.XX to your servers IP address and/or host name e.g. ALLOWED_HOSTS = ['54.123.45.1', 'yourhostname']
 ALLOWED_HOSTS = ['XX.XXX.XXX.XX']
 # If the database and the QATrack+ application are running on the same
@@ -37,7 +49,19 @@ CSRF_TRUSTED_ORIGINS = ['http://XX.XXX.XXX.XX', 'https://XX.XXX.XXX.XX']
 # ]
 
 # Set to False to disable the SQL Query Tool
-USE_SQL_REPORTS =  True
+USE_SQL_REPORTS = True
+
+
+# -----------------------------------------------------------------------------
+# Optional settings - QATrack+ runs fine with these left as-is. Uncomment and
+# edit any of them to customize your installation.
+
+# All supported languages are enabled by default (see LANGUAGES/LANGUAGE_CODE
+# in settings.py) - only set these here if you want to restrict which
+# languages are available, or change the default. See the "Adding a New
+# Language" tutorial in the docs for details.
+# LANGUAGES = [('en', 'English'), ('fr', 'Français')]
+# LANGUAGE_CODE = 'en'
 
 # If you host your QATrack+ instance at a non root url (e.g. 12.345.678.9/qatrack)
 # then you need to uncomment (and possibly modify) the following settings
@@ -46,80 +70,61 @@ USE_SQL_REPORTS =  True
 # LOGIN_REDIRECT_URL = '/qatrack/qa/unit/'
 # LOGIN_URL = "/qatrack/accounts/login/"
 
-
 # Who to email when server errors occur
-ADMINS = (
-    ('Admin Name', 'YOUR_EMAIL_ADDRESS_GOES_HERE'),
-)
-MANAGERS = ADMINS
-
-# Local time zone for this installation. Choices can be found here:
-# http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
-# although not all choices may be available on all operating systems.
-# On Unix systems, a value of None will cause Django to use the same
-# timezone as the operating system.
-# If running in a Windows environment this must be set to the same as your
-# system time zone.
-TIME_ZONE = 'America/Toronto'
-
+# ADMINS = (
+#     ('Admin Name', 'YOUR_EMAIL_ADDRESS_GOES_HERE'),
+# )
+# MANAGERS = ADMINS
 
 # Precision to use when displaying constant values
-CONSTANT_PRECISION = 8
-
+# CONSTANT_PRECISION = 8
 
 # This is the warning message given to the user when a test result is out of tolerance
-# Override this setting in local_settings.py to a locally relevant warning message
-DEFAULT_WARNING_MESSAGE = "Do not treat"
-
+# DEFAULT_WARNING_MESSAGE = "Do not treat"
 
 # Display ordering on the "Choose Unit" page. (Use "name" or "number")
-ORDER_UNITS_BY = "number"
+# ORDER_UNITS_BY = "number"
 
 # Enable or disable the "Difference" column when reviewing test lists
-REVIEW_DIFF_COL = False
+# REVIEW_DIFF_COL = False
 
 # default display settings for test statuses
-TEST_STATUS_DISPLAY = {
-    'fail': "Fail",
-    'not_done': "Not Done",
-    'done': "Done",
-    'ok': "OK",
-    'tolerance': "Tolerance",
-    'action': "Action",
-    'no_tol': "No Tol Set",
-}
+# TEST_STATUS_DISPLAY = {
+#     'fail': "Fail",
+#     'not_done': "Not Done",
+#     'done': "Done",
+#     'ok': "OK",
+#     'tolerance': "Tolerance",
+#     'action': "Action",
+#     'no_tol': "No Tol Set",
+# }
 
 # default short display settings for test statuses
-TEST_STATUS_DISPLAY_SHORT = {
-    'fail': "Fail",
-    'not_done': "Not Done",
-    'done': "Done",
-    'ok': "OK",
-    'tolerance': "TOL",
-    'action': "ACT",
-    'no_tol': "NO TOL",
-}
+# TEST_STATUS_DISPLAY_SHORT = {
+#     'fail': "Fail",
+#     'not_done': "Not Done",
+#     'done': "Done",
+#     'ok': "OK",
+#     'tolerance': "TOL",
+#     'action': "ACT",
+#     'no_tol': "NO TOL",
+# }
 
-
-# Email and notification settings
-EMAIL_NOTIFICATION_USER = None
-EMAIL_NOTIFICATION_PWD = None
-EMAIL_NOTIFICATION_TEMPLATE = "notification_email.html"
-EMAIL_NOTIFICATION_SENDER = "qatrack@yourmailhost.com"
+# Email and notification settings. EMAIL_ENABLED must be set to True once
+# EMAIL_HOST etc. below are configured, or set explicitly to False if you
+# don't want QATrack+ to send email at all - see qatrack_core.email for why
+# this is a separate, explicit decision rather than implied by EMAIL_HOST.
+# EMAIL_ENABLED = True
+# EMAIL_NOTIFICATION_USER = None
+# EMAIL_NOTIFICATION_PWD = None
+# EMAIL_NOTIFICATION_TEMPLATE = "notification_email.html"
+# EMAIL_NOTIFICATION_SENDER = "qatrack@yourmailhost.com"
 # use either a static subject or a customizable template
 # EMAIL_NOTIFICATION_SUBJECT = "QATrack+ Test Status Notification"
-EMAIL_NOTIFICATION_SUBJECT_TEMPLATE = "notification_email_subject.txt"
-
-# Uncomment once EMAIL_HOST etc. below are configured with a real mail
-# server. Until then, leave this commented out - any attempted send will
-# fail loudly (see qatrack_core.email) rather than silently disappearing,
-# which is your cue to either configure email or set this to False to
-# disable it deliberately.
-# EMAIL_ENABLED = True
-
-EMAIL_FAIL_SILENTLY = True
-EMAIL_HOST = ""  # e.g. 'smtp.gmail.com'
-EMAIL_HOST_USER = ''  # e.g. "randle.taylor@gmail.com"
-EMAIL_HOST_PASSWORD = 'your_password_here'
-EMAIL_USE_TLS = True
-EMAIL_PORT = 587
+# EMAIL_NOTIFICATION_SUBJECT_TEMPLATE = "notification_email_subject.txt"
+# EMAIL_FAIL_SILENTLY = True
+# EMAIL_HOST = ""  # e.g. 'smtp.gmail.com'
+# EMAIL_HOST_USER = ''  # e.g. "randle.taylor@gmail.com"
+# EMAIL_HOST_PASSWORD = 'your_password_here'
+# EMAIL_USE_TLS = True
+# EMAIL_PORT = 587

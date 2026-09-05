@@ -12,12 +12,10 @@
 DEBUG = True # Local development only - do not use True in a real deployment!
 TEMPLATE_DBG = True
 
-# Permissive for local development only. Every other deploy/*/local_settings.py
-# template sets this explicitly (usually to a specific hostname) - this one
-# was missing it entirely, which crashes `manage.py runserver` outright if
-# DEBUG is ever set back to False here (Django requires ALLOWED_HOSTS to be
-# set whenever DEBUG=False).
-ALLOWED_HOSTS = ['*']
+# TIME_ZONE must be actively set - the placeholder in settings.py isn't a
+# real time zone name, so Django refuses to start otherwise. Change this to
+# your own time zone if you're not in Toronto.
+TIME_ZONE = 'America/Toronto'
 
 DATABASES = {
     'default': {
@@ -31,10 +29,12 @@ DATABASES = {
 }
 DATABASES['readonly'] = DATABASES['default']
 
-# TIME_ZONE must be actively set - `manage.py check` fails otherwise (see
-# qatrack_core.checks.check_time_zone_configured). Change this to your own
-# time zone if you're not in Toronto.
-TIME_ZONE = 'America/Toronto'
+# Permissive for local development only. Every other deploy/*/local_settings.py
+# template sets this explicitly (usually to a specific hostname) - this one
+# was missing it entirely, which crashes `manage.py runserver` outright if
+# DEBUG is ever set back to False here (Django requires ALLOWED_HOSTS to be
+# set whenever DEBUG=False).
+ALLOWED_HOSTS = ['*']
 
 # Notification/report emails are disabled by default in dev so you don't
 # need a real mail server to run the site, and so unconfigured email
@@ -66,4 +66,3 @@ EMAIL_ENABLED = False
 #UPLOAD_ROOT = os.path.join(MEDIA_ROOT, "uploads")
 #TMP_UPLOAD_ROOT = os.path.join(UPLOAD_ROOT, "tmp")
 #STATIC_ROOT = os.path.join(CUSTOM_ROOT_PATH, "static")
-
