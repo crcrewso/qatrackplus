@@ -354,6 +354,8 @@ required).
 
     # Change XX.XXX.XXX.XX to your servers IP address and/or host name e.g. ALLOWED_HOSTS = ['54.123.45.1', 'yourhostname']
     ALLOWED_HOSTS = ['XX.XXX.XXX.XX']
+    # Since the database and QATrack+ are on the same server here, you'll
+    # likely also want: ALLOWED_HOSTS = ['XX.XXX.XXX.XX', '127.0.0.1', 'localhost']
 
     # CSRF_TRUSTED_ORIGINS is required for Django 4.0+. It must include the scheme (http/https).
     CSRF_TRUSTED_ORIGINS = ['http://XX.XXX.XXX.XX', 'https://XX.XXX.XXX.XX']

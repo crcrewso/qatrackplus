@@ -219,7 +219,7 @@ Your local_settings.py file should look something like the following (but with t
    DATABASES = {
        'default': {
            'ENGINE': 'mssql',
-           'NAME': 'qatrackplus',
+           'NAME': 'qatrack',
            'USER': 'qatrack',  # USER/PWD can usually be left blank if SQL server is running on the same server as QATrack+
            'PASSWORD': 'qatrackpass',
            'HOST': '', # leave blank unless using remote server or SQLExpress (use 127.0.0.1\\SQLExpress or COMPUTERNAME\\SQLExpress)
@@ -230,7 +230,7 @@ Your local_settings.py file should look something like the following (but with t
        },
        'readonly': {
            'ENGINE': 'mssql',
-           'NAME': 'qatrackplus',
+           'NAME': 'qatrack',
            'USER': 'qatrack_reports',
            'PASSWORD': 'qatrackpass',
            'HOST': '',
@@ -241,19 +241,11 @@ Your local_settings.py file should look something like the following (but with t
        }
    }
 
-   ALLOWED_HOSTS = [
-       '127.0.0.1',
-       'localhost',
-       'YOUR_DEVICE_NAME',
-       'YOUR_IP_ADDRESS']
+   ALLOWED_HOSTS = ['YOUR_DEVICE_NAME']
+   # or, if the database and QATrack+ are on the same server:
+   # ALLOWED_HOSTS = ['YOUR_DEVICE_NAME', '127.0.0.1', 'localhost']
 
-   CSRF_TRUSTED_ORIGINS = [
-       'http://localhost',
-       'https://localhost',
-       'http://127.0.0.1',
-       'https://127.0.0.1',
-       'http://YOUR_DEVICE_NAME',
-       'https://YOUR_DEVICE_NAME']
+   CSRF_TRUSTED_ORIGINS = ['http://YOUR_DEVICE_NAME', 'https://YOUR_DEVICE_NAME']
 
 Confirm you can connect to your database by running the `showmigrations` command:
 

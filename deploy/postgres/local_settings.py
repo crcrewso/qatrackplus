@@ -27,9 +27,18 @@ DATABASES = {
 
 # Change XX.XXX.XXX.XX to your servers IP address and/or host name e.g. ALLOWED_HOSTS = ['54.123.45.1', 'yourhostname']
 ALLOWED_HOSTS = ['XX.XXX.XXX.XX']
+# If the database and the QATrack+ application are running on the same
+# server, you'll likely also want to allow local access:
+# ALLOWED_HOSTS = ['XX.XXX.XXX.XX', '127.0.0.1', 'localhost']
 
 # CSRF_TRUSTED_ORIGINS is required for Django 4.0+. It must include the scheme (http/https).
 CSRF_TRUSTED_ORIGINS = ['http://XX.XXX.XXX.XX', 'https://XX.XXX.XXX.XX']
+# ...and correspondingly, if allowing local access:
+# CSRF_TRUSTED_ORIGINS = [
+#     'http://XX.XXX.XXX.XX', 'https://XX.XXX.XXX.XX',
+#     'http://127.0.0.1', 'https://127.0.0.1',
+#     'http://localhost', 'https://localhost',
+# ]
 
 # Set to False to disable the SQL Query Tool
 USE_SQL_REPORTS =  True

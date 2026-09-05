@@ -1,11 +1,14 @@
-# Localization settings. 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # If running in a Windows environment this must be set to the same as your system time zone.
-
 TIME_ZONE = 'America/Toronto'
-LANGUAGES = [('en', 'English'), ('fr', 'Français'), ('es', 'Español')]
-LANGUAGE_CODE = 'en'
+
+# All supported languages are enabled by default (see LANGUAGES/LANGUAGE_CODE
+# in settings.py) - only set these here if you want to restrict which
+# languages are available, or change the default. See the "Adding a New
+# Language" tutorial in the docs for details.
+# LANGUAGES = [('en', 'English'), ('fr', 'Français')]
+# LANGUAGE_CODE = 'en'
 
 
 # SECURITY: 'qatrackpass' below matches the example password used when
@@ -35,15 +38,21 @@ DATABASES = {
 }
 
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'YOUR_HOST_NAME_HERE']  # Windows key + i -> System -> About -> Device Name
-CSRF_TRUSTED_ORIGINS = [
-    'http://127.0.0.1',
-    'https://127.0.0.1',
-    'http://localhost',
-    'https://localhost',
-    'http://YOUR_HOST_NAME_HERE',
-    'https://YOUR_HOST_NAME_HERE',
-]
+# Set this to your server's hostname, e.g. ALLOWED_HOSTS = ['yourhostname']
+# Find your Device Name via Windows Key + I -> System -> About.
+ALLOWED_HOSTS = ['YOUR_HOST_NAME_HERE']
+# If the database and the QATrack+ application are running on the same
+# server, you'll likely also want to allow local access:
+# ALLOWED_HOSTS = ['YOUR_HOST_NAME_HERE', '127.0.0.1', 'localhost']
+
+# CSRF_TRUSTED_ORIGINS is required for Django 4.0+. It must include the scheme (http/https).
+CSRF_TRUSTED_ORIGINS = ['http://YOUR_HOST_NAME_HERE', 'https://YOUR_HOST_NAME_HERE']
+# ...and correspondingly, if allowing local access:
+# CSRF_TRUSTED_ORIGINS = [
+#     'http://YOUR_HOST_NAME_HERE', 'https://YOUR_HOST_NAME_HERE',
+#     'http://127.0.0.1', 'https://127.0.0.1',
+#     'http://localhost', 'https://localhost',
+# ]
 
 # Who to email when server errors occur
 ADMINS = (('Admin Name', 'YOUR_EMAIL_ADDRESS_GOES_HERE'),)
