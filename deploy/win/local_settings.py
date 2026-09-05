@@ -61,6 +61,9 @@ MANAGERS = ADMINS
 # Set to True to enable debug mode (not safe for regular use!)
 DEBUG = False
 
+# Set to False to disable the SQL Query Tool
+USE_SQL_REPORTS = True
+
 # needs to be set to True when running behind reverse proxy (normal deploy)
 # set to False when not running behind reverse proxy
 # Use True for e.g. CherryPy/IIS and False for Apache/mod_wsgi
