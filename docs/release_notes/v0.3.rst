@@ -319,7 +319,7 @@ Details of the v0.3.0 release
 
 
 Upgrading to v0.3.0
-^^^^^^^^^^^^^^^^^^  
+^^^^^^^^^^^^^^^^^^^
 
 For instructions on upgrading to QATrack+ 0.3.0 please see the installation
 docs for your platform.

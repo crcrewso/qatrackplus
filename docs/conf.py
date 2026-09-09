@@ -75,7 +75,14 @@ language = 'en'
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = [
+    '_build', 'Thumbs.db', '.DS_Store',
+    # These are content fragments spliced into release_notes.rst via
+    # `.. include::`, not standalone pages - building them separately as
+    # well duplicates every label they define (Sphinx registers each
+    # label once per document that contains it).
+    'release_notes/*.rst',
+]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'

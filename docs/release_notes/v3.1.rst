@@ -58,7 +58,7 @@ QA
   completed within the last minute.  
 
 Service Log
-^^^^^^^^^
+^^^^^^^^^^^
 
 * Fixed a bug with Return To Service work forms being populated with incorrect data
 * The first Service Event Status created will now automatically be set to the default
@@ -98,7 +98,7 @@ API
   Session from being created.
 
 Reports
-^^^^^^
+^^^^^^^
 
 * The Active filter for Service Log Scheduling report filters worked for "Both"
   but not "Yes" or "No". This has now been fixed.  In addition, the wrong set
@@ -125,7 +125,7 @@ Reports
 
 
 Miscellaneous
-^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 * A few documentation typo fixes
 * Fixed a permissions check for deleting faults
