@@ -147,6 +147,12 @@ clearct:
 flushdb:
 	uv run python manage.py sqlflush | uv run python manage.py dbshell
 
+format:
+	uv run ruff format .
+
+lint:
+	uv run ruff check .
+
 docs:
 	cd docs && uv run make html
 
@@ -200,6 +206,6 @@ __cleardb__:
 
 .PHONY: __cleardb__ _test-engine clearct cover cover-mo cover-module \
 	cover-qatrack dev-quickstart docs docs-autobuild dumpdata flushdb \
-	help nginx.conf run schema supervisor.conf test test-integration \
-	test-memory test-mssql test-mysql test-postgres \
+	format help lint nginx.conf run schema supervisor.conf test \
+	test-integration test-memory test-mssql test-mysql test-postgres \
 	test-selenium-parallel test-sqlite test_simple

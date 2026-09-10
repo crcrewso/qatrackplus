@@ -101,22 +101,13 @@ qatrack/                 # Django project root; most application code lives here
   units/                # Treatment-unit definitions
 docs/           # Sphinx documentation (reStructuredText)
 fixtures/       # Demo / seed data
-requirements/   # Pinned pip requirements (dev.txt) — see TODO below
 ```
 
-> **TODO:** `requirements/dev.txt` is generated from the `dev` dependency
-> group, but the only documented pip-install path in this project is
-> production Windows/MS SQL Server deployments (see the Package manager
-> row above and *Getting started* below) — that install actually needs
-> the `win` + `mssql` extras, not `dev`. Reconciling the file's contents
-> (and likely its name) with that purpose is tracked for a follow-up PR;
-> until then, treat this file as stale for deployment purposes.
->
-> Concretely, it is stale for tooling too: it still pins `flake8`, `isort`,
-> `yapf` and `pep8`, none of which are in the `dev` dependency group any
-> more — ruff replaced all of them (see *Code style* below, and
-> `docs/developer/guide.rst`). Do not take that file as evidence those
-> tools are still in use; they are not.
+> **Note:** local development always uses `uv sync --dev` (see Package
+> manager, above, and *Getting started*, below). The one non-`uv` path is
+> production Windows/MS SQL Server installs that can't set up `uv`; those
+> use `pip install ".[win,mssql]"`, which resolves from `pyproject.toml`
+> directly — there is no checked-in requirements file to keep in sync.
 
 > **A note for AI agents:** `.po` files under `locale/` are the editable
 > source for translations — the paired `.mo` files are compiled binaries
