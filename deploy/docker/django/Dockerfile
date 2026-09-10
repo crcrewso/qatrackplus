@@ -15,7 +15,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY pyproject.toml README.md ./
 COPY qatrack ./qatrack
 # Install dependencies
-RUN pip install ".[docker,postgres]" django-extensions
+RUN pip install ".[docker,postgres]"
 
 # Runtime stage
 FROM python:3.12-slim-bookworm
