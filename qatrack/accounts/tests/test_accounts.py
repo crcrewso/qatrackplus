@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import PermissionDenied
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.test.utils import override_settings
 from django_auth_adfs.backend import AdfsAuthCodeBackend
 
@@ -44,6 +44,7 @@ class TestCleanUsername:
 
 class TestAdminFilter(TestCase):
 
+    @tag('docker')
     def test_lookups(self):
         assert AdminFilter.lookups(None, None, None) == (('yes', 'Yes'), ('no', 'No'))
 

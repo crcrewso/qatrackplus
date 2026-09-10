@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.forms import HiddenInput, inlineformset_factory, modelform_factory
 from django.http import QueryDict
-from django.test import RequestFactory, TestCase, TransactionTestCase
+from django.test import RequestFactory, TestCase, TransactionTestCase, tag
 from django.test.utils import override_settings
 from django.urls import reverse
 
@@ -200,6 +200,7 @@ class TestToleranceAdmin(TestCase):
             'mc_pass_choices': ''
         }
 
+    @tag('docker')
     def test_add(self):
 
         self.client.post(self.url_add, data=self.data)
