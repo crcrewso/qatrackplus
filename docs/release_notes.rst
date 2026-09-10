@@ -84,3 +84,9 @@ QATrack+ v0.3.0
 ~~~~~~~~~~~~~~~
 
 .. include:: release_notes/v0.3.rst
+
+
+QATrack+ v0.2
+~~~~~~~~~~~~~
+
+.. include:: release_notes/v0.2.rst

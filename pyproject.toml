@@ -95,6 +95,13 @@ mysql = [
 
 mssql = [
     "mssql-django>=1.5",
+]
+
+# Active Directory / LDAP authentication support. Independent of the database
+# extras above — install at your own risk: the maintainers haven't found an
+# economical way to run a real LDAP/AD test environment, so this is
+# comparatively lightly tested.
+ldap = [
     "python-ldap",
     "django-auth-ldap<4.9",
 ]
@@ -142,6 +149,7 @@ django_find_project = true
 DJANGO_SETTINGS_MODULE = "qatrack.settings"
 markers = [
     "selenium: mark a test as a selenium test",
+    "docker: mark a test as part of the Docker-deployment smoke-test subset",
 ]
 
 [tool.uv.sources]
@@ -184,6 +192,16 @@ dev = [
     "sphinx-copybutton>=0.5.2",
     "sphinx-design>=0.6.0",
     "pytest-xdist>=3.0,<4.0",
+    # Schema diagram generation (`make schema` / `poe schema`).
+    #
+    # pygraphviz, not pydotplus: django-extensions prefers pygraphviz and falls
+    # back to pydotplus, but pydotplus fails by writing a zero-byte file and
+    # exiting 0, which silently destroyed the committed diagram. The tasks now
+    # pass --pygraphviz explicitly so that fallback cannot be taken.
+    #
+    # No system Graphviz needed - pygraphviz's wheels bundle their own (14.1.5),
+    # which also avoids the "trouble in init_rank" failure that Ubuntu 24.04's
+    # Graphviz 2.42 hits on -g (--group-models).
     "pygraphviz>=2.0.2",
 ]
 

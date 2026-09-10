@@ -163,15 +163,39 @@ Install development dependencies:
 
 .. note::
 
-    Activating the virtual environment is optional. ``uv sync`` creates and
-    manages ``.venv`` for you, and prefixing a command with ``uv run`` (e.g.
-    ``uv run pytest``) runs it inside that environment without activation.
-    The examples below use the bare ``python``/``pytest`` form, which assumes
-    you have activated it; add ``uv run`` in front of each if you would
-    rather not. ``AGENTS.md`` and ``CONTRIBUTING.md`` in the repository root
-    use the ``uv run`` form throughout.
+    Activating the virtual environment is optional, and the examples below
+    do not assume it - they use the ``uv run`` prefix, which runs a command
+    inside the project environment that ``uv sync`` manages for you. If you
+    would rather activate the environment as shown above, drop the
+    ``uv run`` prefix from each command. ``AGENTS.md`` and
+    ``CONTRIBUTING.md`` in the repository root use the ``uv run`` form too.
 
 
+    Every command from here on is shown prefixed with ``uv run``, which
+    works whether or not you've activated the virtual environment above —
+    so activating it is optional. If you'd rather activate it once and
+    drop the ``uv run`` prefix for the rest of your session, that works
+    too; both are equivalent.
+
+.. _pre-commit-hooks:
+
+Installing pre-commit hooks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+QATrack+ uses `pre-commit <https://pre-commit.com/>`__ to run lint and
+correctness checks automatically before each commit — the same checks CI runs.
+Install the hooks once per clone:
+
+.. code-block:: shell
+
+    uv run pre-commit install
+
+You can also run all hooks against the whole codebase at any time, not just
+your changed files:
+
+.. code-block:: shell
+
+    uv run pre-commit run --all-files
 
 Creating your development database
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -187,8 +211,8 @@ files from the deploy subdirectory and then create your database:
     cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
     cp deploy/dev/local_test_settings.sqlite.py qatrack/local_test_settings.py
     mkdir db
-    python manage.py migrate
-    python manage.py createcachetable
+    uv run python manage.py migrate
+    uv run python manage.py createcachetable
 
 
 this will put a database called `default.db` in the `db` subdirectory.
@@ -277,7 +301,7 @@ Before running the development server, you need to collect all static files to t
 
 .. code-block:: shell
 
-    python manage.py collectstatic --noinput
+    uv run python manage.py collectstatic --noinput
 
 
 Loading Default Data (Fixtures)
@@ -289,7 +313,7 @@ To load the default data into your development database:
 
 .. code-block:: shell
 
-    python manage.py loaddata fixtures/defaults/*/*.json
+    uv run python manage.py loaddata fixtures/defaults/*/*.json
 
 This command will populate your database all default data.
 
@@ -298,13 +322,13 @@ You can also load specific fixture categories individually if you only need cert
 .. code-block:: shell
 
     # Load only QA-related fixtures
-    python manage.py loaddata fixtures/defaults/qa/*.json
+    uv run python manage.py loaddata fixtures/defaults/qa/*.json
 
     # Load only unit-related fixtures
-    python manage.py loaddata fixtures/defaults/units/*.json
+    uv run python manage.py loaddata fixtures/defaults/units/*.json
 
     # Load only service log fixtures
-    python manage.py loaddata fixtures/defaults/service_log/*.json
+    uv run python manage.py loaddata fixtures/defaults/service_log/*.json
 
 Running the development server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -313,13 +337,13 @@ After the database is created, create a super user so you can log into QATrack+:
 
 .. code-block:: shell
 
-    python manage.py createsuperuser
+    uv run python manage.py createsuperuser
 
 and then run the development server:
 
 .. code-block:: shell
 
-    python manage.py runserver 
+    uv run python manage.py runserver
 
 Once the development server is running you should be able to visit
 http://127.0.0.1:8000/ in your browser and log into QATrack+.
@@ -450,11 +474,39 @@ For detailed information about using make and understanding Makefiles, refer to 
 Import Order
 ~~~~~~~~~~~~
 
-Imports should be split into three sections - standard library, third
-party, and QATrack+ specific - each in alphabetical order. ``ruff check .``
-enforces this automatically (rule set ``I``), so there's no separate tool to
-run or configure; ``ruff`` will flag anything out of order and, in most
-cases, ``uv run ruff check . --fix`` will reorder it for you.
+Imports in your Python code should be split in three sections:
+
+1. Standard library imports
+2. Third party imports
+3. QATrack+ specific imports
+
+and each section should be in alphabetical order.  For example:
+
+.. code-block:: python
+
+    import math
+    import re
+    import sys
+
+    from django.apps import apps
+    from django.conf import settings
+    from django.contrib.auth.models import Group, User
+    from django.contrib.contenttypes.fields import (
+        GenericForeignKey,
+        GenericRelation,
+    )
+    from django_comments.models import Comment
+    import matplotlib
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    import numpy
+    import scipy
+
+    from qatrack.qa import utils
+    from qatrack.units.models import Unit
+
+`ruff <https://docs.astral.sh/ruff/>`__ (rule set ``I``) automatically checks
+and orders your imports according to this convention — see ``uv run ruff
+check .`` above.
 
 Indentation
 ~~~~~~~~~~~
@@ -544,19 +596,19 @@ covers everything else, faster and without needing a browser installed:
 
 .. code-block:: shell
 
-    pytest
+    uv run pytest
 
 Run everything, including Selenium tests:
 
 .. code-block:: shell
 
-    pytest --run-selenium
+    uv run pytest --run-selenium
 
 Run *only* the Selenium tests:
 
 .. code-block:: shell
 
-    pytest -m selenium
+    uv run pytest -m selenium
 
 `--run-selenium` and `-m selenium` both work - use whichever reads more
 naturally for what you're doing.
@@ -884,7 +936,7 @@ QATrack+ reports include an option to display your organization's logo.
    
    .. code-block:: shell
    
-       python manage.py collectstatic --noinput
+       uv run python manage.py collectstatic --noinput
 
 **Logo Display Options**
 
@@ -936,7 +988,7 @@ commands:
     # -or-, to use a different port (e.g. because 8008 is already taken):
     make docs-autobuild port=8010
     # -or-, without the Makefile at all:
-    sphinx-autobuild docs docs/_build/html --port 8008
+    uv run sphinx-autobuild docs docs/_build/html --port 8008
 
 
 Version Naming Convention
