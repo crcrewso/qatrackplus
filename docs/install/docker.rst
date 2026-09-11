@@ -359,6 +359,52 @@ Once any files have changed in the qatrackplus directory you need to run the fol
     just compose build
     just compose up  # or just compose up -d
 
+Backup management
+~~~~~~~~~~~~~~~~~
+
+A dedicated `backup` service (see `deploy/docker/compose.yaml`) runs
+continuously alongside the rest of the stack and takes a backup on its own
+schedule - a cron job inside that container fires daily at 2 AM, independent
+of `docker-compose up`/`down`. Each run produces two files in
+`qatrackplus/deploy/docker/backups`:
+
+* `db_<timestamp>.dump` - a PostgreSQL custom-format dump (`pg_dump -F c`).
+* `media_<timestamp>.tar.gz` - a tarball of the media volume.
+
+Backups older than 7 days are deleted automatically.
+
+.. warning::
+
+   There is currently no automated restore tooling - only backup creation is
+   implemented, and restoring by hand is trickier than it should be because
+   of a version mismatch: the `backup` service's image resolves an
+   unpinned, newer `postgresql-client` (16.x, as of writing) than the
+   `postgres` service's pinned `postgres:15-alpine` image ships. A dump's
+   custom-format header records the client version that wrote it, so
+   **`postgres`'s own `pg_restore` cannot read backups produced by this
+   stack** ("unsupported version ... in file header"). Restoring the
+   database has to go through the `backup` container instead, which has a
+   matching `pg_restore`:
+
+   .. code-block:: console
+
+       docker compose exec -T -e PGPASSWORD=<POSTGRES_PASSWORD> backup \
+           pg_restore -h postgres -U <POSTGRES_USER> -d <POSTGRES_DB> --clean --if-exists \
+           < db_<timestamp>.dump
+
+   Media can be restored directly into the `django` container - the
+   archive's internal `media/` prefix lines up with the last path segment
+   of its mount point, so no `--strip-components` is needed:
+
+   .. code-block:: console
+
+       docker compose exec -T django tar -xzf - -C /usr/src/qatrackplus/qatrack < media_<timestamp>.tar.gz
+
+   Both commands above were verified against a real stack. Test them
+   against a copy of your data before relying on them in an emergency, and
+   stop the `django` service first if you're restoring into a live
+   deployment.
+
 Delete docker data
 ^^^^^^^^^^^^^^^^^^
 
