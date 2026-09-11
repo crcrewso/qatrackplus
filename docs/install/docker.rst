@@ -419,45 +419,50 @@ Backup management
 A dedicated `backup` service (see `deploy/docker/compose.yaml`) runs
 continuously alongside the rest of the stack and takes a backup on its own
 schedule - a cron job inside that container fires daily at 2 AM, independent
-of `docker-compose up`/`down`. Each run produces two files in
-`qatrackplus/deploy/docker/backups`:
+of `docker-compose up`/`down`. Each run produces two files per retention tier
+in `qatrackplus/deploy/docker/backups`:
 
-* `db_<timestamp>.dump` - a PostgreSQL custom-format dump (`pg_dump -F c`).
-* `media_<timestamp>.tar.gz` - a tarball of the media volume.
+* `db_<timestamp>_<tier>.dump` - a PostgreSQL custom-format dump (`pg_dump -F c`).
+* `media_<timestamp>_<tier>.tar.gz` - a tarball of the media volume.
 
-Backups older than 7 days are deleted automatically.
+`<tier>` is `daily` (always), plus `weekly`/`monthly` on the configured
+trigger day - see `BACKUP_DAYS_TO_KEEP`, `BACKUP_WEEKS_TO_KEEP`,
+`BACKUP_MONTHS_TO_KEEP`, `BACKUP_WEEKLY_DAY` and `BACKUP_MONTHLY_DAY` in
+`.env.example` for the retention window and schedule each tier uses (same
+daily/weekly/monthly scheme as `manage.py backup_site`, the non-Docker
+deployment's own backup command). Each tier is aged out independently on its
+own window.
 
-.. warning::
+.. important::
 
-   There is currently no automated restore tooling - only backup creation is
-   implemented, and restoring by hand is trickier than it should be because
-   of a version mismatch: the `backup` service's image resolves an
-   unpinned, newer `postgresql-client` (16.x, as of writing) than the
-   `postgres` service's pinned `postgres:15-alpine` image ships. A dump's
-   custom-format header records the client version that wrote it, so
-   **`postgres`'s own `pg_restore` cannot read backups produced by this
-   stack** ("unsupported version ... in file header"). Restoring the
-   database has to go through the `backup` container instead, which has a
-   matching `pg_restore`:
+   `deploy/docker/backup/Dockerfile` pins its PostgreSQL client package
+   (`postgresql15-client`) to match the `postgres` service's
+   `postgres:15-alpine` image. Keep these in sync if you ever change the
+   `postgres` image's version - a mismatched client can produce dumps in a
+   custom-format archive version `pg_restore` on the `postgres` side can't
+   read (verified against a real stack: swapping in an unpinned, newer
+   client produced backups that failed to restore with "unsupported
+   version ... in file header", restorable only via the newer client's own
+   `pg_restore`, not `postgres`'s).
 
-   .. code-block:: console
+There is currently no automated restore tooling - only backup creation is
+implemented. To restore a backup by hand:
 
-       docker compose exec -T -e PGPASSWORD=<POSTGRES_PASSWORD> backup \
-           pg_restore -h postgres -U <POSTGRES_USER> -d <POSTGRES_DB> --clean --if-exists \
-           < db_<timestamp>.dump
+.. code-block:: console
 
-   Media can be restored directly into the `django` container - the
-   archive's internal `media/` prefix lines up with the last path segment
-   of its mount point, so no `--strip-components` is needed:
+    docker compose exec -T postgres pg_restore -U <POSTGRES_USER> -d <POSTGRES_DB> --clean --if-exists < db_<timestamp>_<tier>.dump
 
-   .. code-block:: console
+Media can be restored directly into the `django` container - the archive's
+internal `media/` prefix lines up with the last path segment of its mount
+point, so no `--strip-components` is needed:
 
-       docker compose exec -T django tar -xzf - -C /usr/src/qatrackplus/qatrack < media_<timestamp>.tar.gz
+.. code-block:: console
 
-   Both commands above were verified against a real stack. Test them
-   against a copy of your data before relying on them in an emergency, and
-   stop the `django` service first if you're restoring into a live
-   deployment.
+    docker compose exec -T django tar -xzf - -C /usr/src/qatrackplus/qatrack < media_<timestamp>_<tier>.tar.gz
+
+Both commands above were verified against a real stack. Test them against a
+copy of your data before relying on them in an emergency, and stop the
+`django` service first if you're restoring into a live deployment.
 
 Delete docker data
 ~~~~~~~~~~~~~~~~~~
