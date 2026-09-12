@@ -845,19 +845,17 @@ class TestBaseReport(TestCase):
 
 
 class TestReportInterface(BaseQATests):
+    """NOTE: test_report_preview has moved to
+    qatrack/reports/tests/test_selenium.py's TestReportInterface, the
+    correctly-located home for this class - the rest of these tests are
+    pending the same move.
+    """
 
     def setUp(self):
         super().setUp()
         self.login()
         self.open(reverse("reports"))
         self.wait.until(e_c.presence_of_element_located((By.ID, 'select2-id_root-report_type-container')))
-
-    def test_report_preview(self):
-        """Select report and make sure it previews"""
-        self.select_by_text('id_root-report_type', qc.TestListInstanceSummaryReport.name)
-        self.wait.until(e_c.presence_of_element_located((By.ID, 'id_work_completed')))
-        self.click("preview")
-        self.driver.find_element(By.CSS_SELECTOR, '#report .container-fluid')
 
     def test_save_report(self):
         """Ensure filling and saving a report results in a SavedReport in the db"""

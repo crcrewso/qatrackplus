@@ -2,8 +2,8 @@ version = 1
 revision = 3
 requires-python = ">=3.12, <=3.13"
 resolution-markers = [
-    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version >= '3.13'",
+    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 
@@ -954,15 +954,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ae/ed/aefcc8cd0ba62a0560c3c18c33925362d46c6075480bfa4df87b28e169a9/docutils-0.21.2.tar.gz", hash = "sha256:3a6b18732edf182daa3cd12775bbb338cf5691468f91eeeb109deff6ebfa986f", size = 2204444, upload-time = "2024-04-23T18:57:18.24Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/d7/9322c609343d929e75e7e5e6255e614fcc67572cfd083959cdef3b7aad79/docutils-0.21.2-py3-none-any.whl", hash = "sha256:dafca5b9e384f0e419294eb4d2ff9fa826435bf15f15b7bd45723e8ad76811b2", size = 587408, upload-time = "2024-04-23T18:57:14.835Z" },
-]
-
-[[package]]
-name = "easyprocess"
-version = "1.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/86/e5/1071ad7de469bf3baae5b04d6c8019876c819c2d428cc1b0f15b4b31fc89/EasyProcess-1.1.tar.gz", hash = "sha256:885898302a57aab948973e8b5d32a4229392b9fb2d986ab1d4ffd590e5ba90ec", size = 11829, upload-time = "2022-01-15T10:58:56.146Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9c/cf/27d1f4b3bae5e566f94fc716e048120128cf603d5163638d22bcd0fc92d8/EasyProcess-1.1-py3-none-any.whl", hash = "sha256:82eed523a0a5eb12a81fa4eacd9f342caeb3f900eb4b798740e6696ad07e63f9", size = 8660, upload-time = "2022-01-15T10:58:54.473Z" },
 ]
 
 [[package]]
@@ -2396,18 +2387,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyvirtualdisplay"
-version = "2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "easyprocess" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/79/932927dad03814509bb972a0795bc59174328f9ed3c1418ba9d684019266/PyVirtualDisplay-2.0.tar.gz", hash = "sha256:3cdacd70970a74d163a2417d8581f43a56bb1ac8d31c71a1a6a4348969062d65", size = 17695, upload-time = "2021-01-08T16:15:03.022Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ad/05/6568620fed440941b704664b9cfe5f836ad699ac7694745e7787fbdc8063/PyVirtualDisplay-2.0-py2.py3-none-any.whl", hash = "sha256:8f3a4913c54528090157c194188c29eabbd06dd2389d4f879bc6f2e7dbdb1484", size = 15091, upload-time = "2021-01-08T16:15:01.41Z" },
-]
-
-[[package]]
 name = "pywin32"
 version = "312"
 source = { registry = "https://pypi.org/simple" }
@@ -2543,7 +2522,6 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-django" },
     { name = "pytest-sugar" },
-    { name = "pyvirtualdisplay" },
     { name = "ruff" },
     { name = "selenium" },
     { name = "sphinx" },
@@ -2639,9 +2617,8 @@ dev = [
     { name = "pytest-cov", specifier = ">=4.0,<5.0" },
     { name = "pytest-django", specifier = ">=4.5.0,<5.0" },
     { name = "pytest-sugar", specifier = ">=0.9.6,<1.0" },
-    { name = "pyvirtualdisplay", specifier = "==2.0" },
     { name = "ruff" },
-    { name = "selenium", specifier = ">=4.0.0,<5.0" },
+    { name = "selenium", specifier = ">=4.10,<5.0" },
     { name = "sphinx", specifier = "==7.4.7" },
     { name = "sphinx-autobuild", specifier = ">=1.0.0" },
     { name = "sphinx-copybutton", specifier = ">=0.5.2" },

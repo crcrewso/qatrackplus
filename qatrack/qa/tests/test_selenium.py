@@ -770,6 +770,52 @@ class TestPerformQC(BaseQATests):
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
         assert models.TestListInstance.objects.unreviewed().count() == 0
 
+    def test_perform_qc_viewport_sizes(self):
+        """Ensure the perform-QC page's controls stay reachable at a range of common desktop viewport sizes"""
+
+        # A small, deliberately-varied matrix rather than only the
+        # suite's default 1920x1080: 1366x768 is still one of the most
+        # common single-monitor laptop resolutions, and 960x1080
+        # represents someone working the perform-QC page in one half of
+        # a 1920x1080 display tiled side-by-side with something else -
+        # not hypothetical, and exactly the kind of real-world width
+        # that a viewport override capped to the real window (see
+        # SeleniumTests.set_viewport_size) has to render correctly
+        # rather than silently overflow.
+        profiles = [
+            ('half_screen_side_by_side', 960, 1080),
+            ('small_laptop', 1366, 768),
+            ('full_hd', 1920, 1080),
+        ]
+
+        for label, width, height in profiles:
+            with self.subTest(profile=label, width=width, height=height):
+                self.set_viewport_size(width, height)
+                self.fill_testlist()
+
+                inputs = self.driver.find_elements(By.CLASS_NAME, "qa-input")[:3]
+                assert int(float(inputs[2].get_attribute("value"))) == 5
+
+                submit = self.driver.find_element(By.ID, "submit-qa")
+                assert submit.is_displayed()
+                rect = self.driver.execute_script(
+                    "var r = arguments[0].getBoundingClientRect();"
+                    "return {left: r.left, right: r.right, vw: window.innerWidth};",
+                    submit,
+                )
+                assert 0 <= rect['left'] and rect['right'] <= rect['vw'], (
+                    "submit-qa rendered outside the %sx%s viewport (profile=%s): %s"
+                    % (width, height, label, rect)
+                )
+                # Confirm it's not just present in the DOM within bounds,
+                # but genuinely clickable there too - the earlier
+                # tiling-WM bug left content geometrically "inside" the
+                # viewport per getBoundingClientRect while still being
+                # unclickable, because the *real* window was narrower
+                # than the overridden logical one.
+                submit.click()
+                self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
+
     def test_perform_and_initiate_se(self):
         """Ensure that we can go through a full perform->review cycle"""
 
@@ -849,8 +895,13 @@ class TestPerformQC(BaseQATests):
         title = "Perform %s : day 2" % utc.unit.name
         assert title in [el.text for el in self.driver.find_elements(By.CLASS_NAME, "box-title")]
         assert float(inputs[0].get_attribute("value")) == 1
-        assert self.driver.find_element(By.ID, "id_work_started").get_attribute("value") == "12 May 1980 12:00"
-        assert self.driver.find_element(By.ID, "id_work_completed").get_attribute("value") == "12 May 1980 12:01"
+        # id_work_started/id_work_completed are populated here via flatpickr's
+        # setDate(), which always redisplays using FLATPICKR_DATETIME_FMT
+        # ('Y-m-d H:i', changed from the human-readable 'd M Y H:i' in #832
+        # for French-locale support) - not the "%d %b %Y %H:%M" human format
+        # used for a freshly-rendered (non-autosave) initial value.
+        assert self.driver.find_element(By.ID, "id_work_started").get_attribute("value") == "1980-05-12 12:00"
+        assert self.driver.find_element(By.ID, "id_work_completed").get_attribute("value") == "1980-05-12 12:01"
         assert self.driver.find_element(By.ID, "id_work_duration").get_attribute("value") == "0hr:01min"
         assert self.driver.find_element(By.ID, "id_form-0-comment").get_attribute("value") == "test comment"
         assert self.driver.find_element(By.ID, "id_comment").get_attribute("value") == "test list instance comment"

@@ -73,7 +73,9 @@ To verify your development environment is working correctly, you can run the tes
 py.test
 ```
 
-This will run all tests. For faster feedback during development, you can run specific test modules:
+This runs everything except the GUI (Selenium/browser) tests, which are
+skipped by default since they need a real Chromium or Firefox on the host.
+For faster feedback during development, you can run specific test modules:
 
 Run only admin tests:
 
@@ -81,13 +83,13 @@ Run only admin tests:
 python -m pytest qatrack/qa/tests/test_admin.py
 ```
 
-Run only non-selenium tests (faster):
+Also run the GUI/Selenium tests (requires Chromium or Firefox installed):
 
 ```bash
-python -m pytest -m "not selenium"
+python -m pytest --run-selenium
 ```
 
-You should see output showing the tests running, with most tests passing. Some selenium-based browser tests may fail depending on your environment, but the core functionality tests should all pass.
+You should see output showing the tests running, with most tests passing.
 
 ## Troubleshooting
 

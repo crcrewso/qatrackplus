@@ -138,7 +138,7 @@ jobs:
           docker exec -i ${{ job.services.mysql.id }} sh -c "mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root -proot mysql"
 
       - name: Run Tests
-        run: uv run pytest -x -m "not selenium"
+        run: uv run pytest -x
 
   windows-tests:
     name: Windows Tests
@@ -211,7 +211,7 @@ jobs:
           $code | Out-File -FilePath generate_settings.py -Encoding utf8
           python generate_settings.py
       - name: Run Tests
-        run: uv run pytest -x -m "not selenium"
+        run: uv run pytest -x
 
   docker-check:
     name: Docker Build & Run Check
