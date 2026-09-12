@@ -1759,10 +1759,18 @@ def autosave_load(request):
     autosave_id = request.GET.get("autosave_id")
     auto = get_object_or_404(models.AutoSave, pk=autosave_id)
 
+    # work_started/work_completed are consumed client side by flatpickr's
+    # strict `.setDate()` (qa.js load_autosave()), which parses using
+    # siteConfig.FLATPICKR_DATETIME_FMT (settings.DATETIME_INPUT_FORMATS[2]).
+    # These must be pre-formatted to that exact format here rather than left
+    # as datetime objects for QATrackJSONEncoder to serialize - the encoder's
+    # default datetime format is DATETIME_INPUT_FORMATS[1], which flatpickr's
+    # parser silently mis-parses instead of erroring on.
+    fp_fmt = settings.DATETIME_INPUT_FORMATS[2]
     data = {
         'meta': {
-            'work_started': timezone.localtime(auto.work_started) if auto.work_started else None,
-            'work_completed': timezone.localtime(auto.work_completed) if auto.work_completed else None,
+            'work_started': format_datetime(auto.work_started, fmt=fp_fmt) or None,
+            'work_completed': format_datetime(auto.work_completed, fmt=fp_fmt) or None,
         },
         'data': auto.data,
     }

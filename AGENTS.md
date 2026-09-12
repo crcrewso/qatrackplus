@@ -69,7 +69,7 @@ accountability this whole policy is about.
 | **Database** | PostgreSQL, MS SQL Server, or MySQL (existing support maintained; not a target for new development) |
 | **Package manager** | [uv](https://docs.astral.sh/uv/) — pip is only used for production Windows/MS SQL Server deployments, not local development |
 | **Linter / formatter** | [ruff](https://docs.astral.sh/ruff/) |
-| **Test runner** | pytest (`uv run pytest -m "not selenium"` — see [Running the tests](#running-the-tests)) |
+| **Test runner** | pytest (`uv run pytest` — GUI tests are skipped by default, see [Running the tests](#running-the-tests)) |
 | **Docs** | Sphinx — `uv run make docs` from repo root |
 | **Target branch** | `develop` (not `master`) |
 
@@ -167,23 +167,36 @@ Import ordering is enforced (`ruff` rule set `I`).
 
 ## Running the tests
 
-The primary, agent-safe way to run the suite is `pytest`, excluding the GUI
-(Selenium/browser) tests — these are not yet configured to run headless, so
-they will fail or hang in most agent and CI environments:
-
-```bash
-uv run pytest -m "not selenium"
-```
-
-To run the full suite, including GUI tests (requires a real browser/display):
+The primary, agent-safe way to run the suite is plain `pytest` — GUI
+(Selenium/browser) tests are skipped automatically, since they need a real
+browser (Chromium or Firefox) on the host, which most agent and CI
+environments won't have available:
 
 ```bash
 uv run pytest
 ```
 
+To also run the GUI tests (requires Chromium or Firefox installed -
+headless mode needs no display; see `SELENIUM_BROWSER` and
+`SELENIUM_HEADLESS` in `qatrack/settings.py`):
+
+```bash
+uv run pytest --run-selenium
+```
+
+`-m selenium` also still works to run *only* the GUI tests - it bypasses
+the automatic skip the same way `--run-selenium` does.
+
+`-m "not selenium"` also still works to exclude them explicitly, but is
+**deprecated**: it needs quoting on every shell for no benefit now that
+plain `pytest` does the same thing with nothing to type at all. It emits a
+`PytestDeprecationWarning` and will be removed in QATrack+ 4.2 - use plain
+`pytest` instead.
+
 `runtests.sh` and `python manage.py test` invoke Django's own test runner,
-not pytest — they don't understand the `selenium` marker or `-m` filtering,
-and will attempt to run the GUI tests too. Prefer `pytest` directly.
+not pytest — they don't understand the `selenium` marker, `-m` filtering,
+or `--run-selenium`, and will attempt to run the GUI tests too. Prefer
+`pytest` directly.
 
 Tests live next to the application code in `tests/` subdirectories inside each
 Django app. Write or update tests for every functional change. Do not remove or

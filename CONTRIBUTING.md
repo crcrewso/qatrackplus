@@ -136,13 +136,15 @@ Please attempt your best effort at these guidelines, but don't be afraid if you 
 ### Running the tests
 
 ```bash
-uv run pytest -m "not selenium"
+uv run pytest
 ```
 
-This excludes the GUI (Selenium/browser) tests, which aren't yet set up to
-run headless. `runtests.sh` and `python manage.py test` use Django's own
-test runner, not pytest, and don't support marker filtering — prefer `pytest`
-directly. See [AGENTS.md](AGENTS.md#running-the-tests) for more detail.
+GUI (Selenium/browser) tests are skipped by default, since they need a real
+Chromium or Firefox on the host. Add `--run-selenium` to also run them.
+`runtests.sh` and `python manage.py test` use Django's own test runner, not
+pytest, and don't support marker filtering or `--run-selenium` — prefer
+`pytest` directly. See [AGENTS.md](AGENTS.md#running-the-tests) for more
+detail.
 
 Before opening a PR, it's also worth running the full pre-commit suite
 against the whole codebase, not just your changed files:

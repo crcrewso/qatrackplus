@@ -746,7 +746,32 @@ if use_docker:
     if 'readonly' not in DATABASES and USE_SQL_REPORTS:
         DATABASES['readonly'] = DATABASES['default']
 else:
-    from .local_settings import *  # noqa: F403, F401, E402
+    _running_pytest = any([('py.test' in v or 'pytest' in v) for v in sys.argv])
+    try:
+        from .local_settings import *  # noqa: F403, F401, E402
+    except ImportError:
+        if not _running_pytest:
+            raise ImportError(
+                "qatrack/local_settings.py is missing. Create it before running "
+                "QATrack+ - for local development:\n\n"
+                "    cp deploy/dev/local_settings.dev.py qatrack/local_settings.py\n\n"
+                "See docs/developer/guide.rst for the other available templates "
+                "(deploy/postgres, deploy/mysql, deploy/win)."
+            ) from None
+        # A bare `pytest` run shouldn't need the same setup ceremony as
+        # actually running the app for real - fall back to a disposable
+        # in-memory SQLite database instead of requiring
+        # local_settings.py to exist at all. Anyone who *does* have one
+        # keeps using whatever it configures, exactly as before; this
+        # only ever applies when it's entirely absent.
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': ':memory:',
+            }
+        }
+        DATABASES['readonly'] = DATABASES['default']
+        ALLOWED_HOSTS = ['*']
 
 TEMPLATES[0]['OPTIONS']['debug'] = DEBUG
 
@@ -801,18 +826,62 @@ if EMAIL_NOTIFICATION_PWD and not EMAIL_HOST_PASSWORD:
 # Testing settings
 
 # Selenium Browser Configuration
-# Options: 'firefox', 'chromium'
-# Set to 'firefox' to use Firefox, 'chromium' to use Chromium
-SELENIUM_BROWSER = ''
+# Options: 'firefox' (default) or 'chromium'. Override for a single command
+# line invocation with the SELENIUM_BROWSER environment variable (e.g.
+# `SELENIUM_BROWSER=chromium pytest -m selenium`) rather than editing this
+# file or local_test_settings.py - no quoting needed, it's a single word.
+SELENIUM_BROWSER = os.environ.get('SELENIUM_BROWSER', 'firefox')
 
-# Browser Driver Paths (leave empty to use system default)
+# Browser Driver Paths - leave empty (the default) to let Selenium Manager
+# (built into Selenium 4.6+) auto-detect the installed browser and download
+# a matching driver on its own; no manual driver install needed on any
+# host. Only set one of these if you need to pin a specific driver binary
+# instead (e.g. one already installed system-wide).
 SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver
 SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver
 
+# Chromium Browser Binary Path - leave empty (the default) to let Selenium
+# find whatever Chrome/Chromium is on the system as usual. Set this if
+# Chrome isn't discoverable that way - notably a Flatpak install (e.g.
+# `com.google.Chrome`, `org.chromium.Chromium`), which has no plain
+# `google-chrome`/`chromium` binary on PATH for Selenium Manager to find:
+#
+#     SELENIUM_CHROMIUM_BINARY_PATH = (
+#         '/var/lib/flatpak/exports/bin/com.google.Chrome'  # system-wide install
+#     )
+#     # or, for a per-user install:
+#     # SELENIUM_CHROMIUM_BINARY_PATH = (
+#     #     os.path.expanduser('~/.local/share/flatpak/exports/bin/com.google.Chrome')
+#     # )
+#
+# A Flatpak browser also needs its actual profile directory redirected
+# somewhere its sandbox can write - it can't see chromedriver's default
+# temp directory - by pointing TMPDIR (before starting the test run) at a
+# directory already inside the Flatpak's permitted filesystem list (check
+# with `flatpak info --show-permissions <app-id>`; XDG user directories
+# like ~/Downloads are usually granted, arbitrary /tmp paths are not):
+#
+#     TMPDIR=~/Downloads/selenium-chrome-tmp pytest --run-selenium
+#
+# Otherwise Chrome fails to start with "session not created: DevToolsActivePort
+# file doesn't exist" - it's a sandboxing symptom, not a Selenium bug.
+SELENIUM_CHROMIUM_BINARY_PATH = ''
+
 # Headless Mode
-# Set to True to run browsers in headless mode (no visible browser window)
-# Set to False to see the browser during test execution
-SELENIUM_VIRTUAL_DISPLAY = False  # Set to True to use headless browser for testing (requires xvfb)
+# True (the default) runs the browser using its own native headless mode -
+# no display server (X11/Wayland) needed, so this works the same on a
+# workstation, a bare CI runner, or an agent sandbox. Set to False (and run
+# somewhere with a real display) to watch a Selenium test execute.
+#
+# Override for a single command line invocation with the SELENIUM_HEADLESS
+# environment variable (e.g. `SELENIUM_HEADLESS=False pytest -m selenium`)
+# rather than editing this file or local_test_settings.py. Since env vars
+# are always strings, only the case-insensitive literal 'false' is treated
+# as off - anything else (including a typo) stays headless, the safer
+# default for an unattended run; it deliberately does NOT use bool(), which
+# would treat the *string* 'False' as truthy and silently ignore the
+# override.
+SELENIUM_HEADLESS = os.environ.get('SELENIUM_HEADLESS', 'True').strip().lower() != 'false'
 
 if any([('py.test' in v or 'pytest' in v) for v in sys.argv]):
     DATABASES.pop('readonly', None)

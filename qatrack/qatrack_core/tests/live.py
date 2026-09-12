@@ -92,51 +92,70 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
 
     @classmethod
     def setUpClass(cls):
-        use_virtual_display = getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False)
+        # Headless is independent of which browser is selected, and uses
+        # each browser's own native headless mode rather than a virtual
+        # display (Xvfb/pyvirtualdisplay) - no display server of any kind
+        # is needed, so this works the same on a workstation, a bare CI
+        # runner, or an agent sandbox. Set SELENIUM_HEADLESS = False (and
+        # run somewhere with a real display) to watch a test run.
+        headless = getattr(settings, 'SELENIUM_HEADLESS', True)
         browser_setting = getattr(settings, 'SELENIUM_BROWSER', 'firefox')
 
-        if use_virtual_display:
-            # Make sure xvfb is installed
-            from pyvirtualdisplay import Display
-            cls.display = Display(visible=0, size=(1920, 1080))
-            cls.display.start()
-        else:
-            cls.display = None
+        cls.browser_setting = browser_setting
 
         if browser_setting == 'chromium':
             from selenium.webdriver.chrome.options import Options as ChromeOptions
             from selenium.webdriver.chrome.service import Service as ChromeService
 
-            chromium_driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '')
             chrome_options = ChromeOptions()
-            if use_virtual_display:
-                chrome_options.add_argument('--headless')
+            if headless:
+                # The "new" headless mode (Chrome 109+) - the old
+                # `--headless` renders differently enough from a real
+                # window that it's been superseded for testing purposes.
+                chrome_options.add_argument('--headless=new')
                 chrome_options.add_argument('--no-sandbox')
                 chrome_options.add_argument('--disable-dev-shm-usage')
+                chrome_options.add_argument('--disable-gpu')
 
-            if chromium_driver_path:
-                service = ChromeService(executable_path=chromium_driver_path)
-                cls.driver = webdriver.Chrome(service=service, options=chrome_options)
+            binary_path = getattr(settings, 'SELENIUM_CHROMIUM_BINARY_PATH', '')
+            if binary_path:
+                # Only needed when Chrome isn't discoverable the normal
+                # way - e.g. a Flatpak install, which has no plain
+                # `google-chrome`/`chromium` binary on PATH for Selenium
+                # Manager to find. See the setting's own comment in
+                # settings.py for the TMPDIR caveat that goes with it.
+                chrome_options.binary_location = binary_path
+
+            driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '')
+            if driver_path:
+                cls.driver = webdriver.Chrome(service=ChromeService(executable_path=driver_path), options=chrome_options)
             else:
+                # No explicit path - Selenium Manager (built into Selenium
+                # 4.6+) auto-detects the installed Chrome/Chromium and
+                # downloads a matching chromedriver on its own. Only set
+                # SELENIUM_CHROMIUM_DRIVER_PATH if you need to pin a
+                # specific driver binary instead.
                 cls.driver = webdriver.Chrome(options=chrome_options)
         else:
             from selenium.webdriver.firefox.options import Options as FirefoxOptions
             from selenium.webdriver.firefox.service import Service as FirefoxService
 
             ff_options = FirefoxOptions()
-            if use_virtual_display:
-                ff_options.add_argument('--headless')
-            else:
-                ff_options.add_argument('--disable-headless')
+            if headless:
+                ff_options.add_argument('-headless')
+            # Enables the WebDriver BiDi session needed for
+            # set_viewport_size() below, in both headless and visible
+            # mode - a no-op cost-wise if a given run never calls it.
+            ff_options.web_socket_url = True
 
-            firefox_driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '')
-            if firefox_driver_path:
-                service = FirefoxService(executable_path=firefox_driver_path)
+            driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '') or shutil.which('geckodriver')
+            if driver_path:
+                cls.driver = webdriver.Firefox(service=FirefoxService(executable_path=driver_path), options=ff_options)
             else:
-                # Try to use system geckodriver
-                service = FirefoxService(executable_path=shutil.which('geckodriver'))
-                
-            cls.driver = webdriver.Firefox(service=service, options=ff_options)
+                # No explicit path and no system geckodriver on PATH -
+                # Selenium Manager auto-resolves one for the installed
+                # Firefox, same as the chromium branch above.
+                cls.driver = webdriver.Firefox(options=ff_options)
 
         orig_find_element = cls.driver.find_element
 
@@ -147,33 +166,87 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
 
         cls.driver.find_element = WebElement_find_element
 
-        cls.driver.set_page_load_timeout(2)
-        cls.driver.implicitly_wait(2)
+        # 2s was too tight to be reliable across hosts/browsers: fine for
+        # Firefox, but Chrome's heavier per-instance startup made it
+        # marginal under sustained load (a full run launches and tears
+        # down a fresh browser per test class) - confirmed by isolating a
+        # timing-only failure that passed reliably alone but not as part
+        # of a long run. 5s matches what this suite used before it was
+        # tightened, and gives enough headroom on slower/busier hosts
+        # without making a genuinely broken wait noticeably slower to fail.
+        cls.driver.set_page_load_timeout(5)
+        cls.driver.implicitly_wait(5)
 
         cls.driver.set_window_position(0, 0)
         cls.driver.set_window_size(1920, 1080)
-        cls.wait = WebDriverWait(cls.driver, 2)
+
+        if not headless:
+            # set_window_size above asks the window manager for a real,
+            # on-screen 1920x1080 window - under a tiling WM sharing
+            # screen space with other visible windows, that request can
+            # be silently ignored, leaving the actual rendered viewport
+            # far smaller (confirmed: as small as ~760x900 on a 4K
+            # display with other windows also tiled), which then makes
+            # elements genuinely off-screen and unclickable. Maximizing
+            # first closes most of that gap: some interactions (keyboard
+            # focus in particular) fall back to the real rendered area
+            # rather than the overridden viewport below, and most tiling
+            # WMs honour a maximize request within the window's current
+            # tile even though they ignore arbitrary set_window_size
+            # calls.
+            try:
+                cls.driver.maximize_window()
+            except WebDriverException:
+                pass
+
+        cls.set_viewport_size(1920, 1080)
+
+        cls.wait = WebDriverWait(cls.driver, 5)
 
         super().setUpClass()
 
     @classmethod
-    def maximize(cls):
+    def set_viewport_size(cls, width, height):
+        """Override the browser's logical (CSS-pixel) content viewport -
+        via Chrome DevTools Protocol for Chromium, WebDriver BiDi for
+        Firefox - independent of whatever size the window manager
+        actually gave the real window. Works the same in headless mode
+        (there the "real window" is just whatever set_window_size was
+        given, with no window manager involved) and callable per-test to
+        check layout at a range of sizes, not just at class setup.
 
-        if getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False):
-            for i in range(5):
-                try:
-                    cls.driver.maximize_window()
-                    return
-                except WebDriverException:
-                    time.sleep(1)
-
-        cls.driver.set_window_size(1920, 1080)
+        Never requests a viewport *larger* than the real window's
+        current size: under a tiling WM sharing screen space with other
+        windows, that real area can be well under a requested size
+        (confirmed as small as ~760x900 on a 4K/tiled display), and
+        asking the browser to lay out at a size regardless of that makes
+        it paint content assuming screen space that doesn't exist - the
+        right-hand (and/or bottom) portion of the page ends up genuinely
+        past the real window's edge, not just visually cropped, but
+        truly offscreen and unclickable/unfocusable there. Capping to
+        whatever's really available keeps every pixel the layout thinks
+        it has actually reachable, at the cost of a narrower layout on a
+        cramped tile - a real, visible constraint rather than a hidden
+        one.
+        """
+        real_size = cls.driver.get_window_size()
+        width = min(width, real_size['width'])
+        height = min(height, real_size['height'])
+        if cls.browser_setting == 'chromium':
+            cls.driver.execute_cdp_cmd(
+                'Emulation.setDeviceMetricsOverride',
+                {'width': width, 'height': height, 'deviceScaleFactor': 1, 'mobile': False},
+            )
+        else:
+            from selenium.webdriver.common.bidi.browsing_context import BrowsingContext
+            BrowsingContext(cls.driver).set_viewport(
+                context=cls.driver.current_window_handle,
+                viewport={'width': width, 'height': height},
+            )
 
     @classmethod
     def tearDownClass(cls):
         cls.driver.quit()
-        if cls.display:
-            cls.display.stop()
         super().tearDownClass()
 
     def tearDown(self):
@@ -181,7 +254,7 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         super().tearDown()
 
     @contextmanager
-    def wait_for_page_load(self, timeout=2):
+    def wait_for_page_load(self, timeout=5):
         old_page = self.driver.find_element(By.TAG_NAME, 'html')
         yield
         WebDriverWait(self.driver, timeout).until(staleness_of(old_page))

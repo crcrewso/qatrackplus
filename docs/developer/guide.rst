@@ -410,127 +410,55 @@ Setting Up Selenium Browser Testing
 
 QATrack+ includes Selenium tests that simulate user interactions with the web interface and are marked with the `@pytest.mark.selenium` decorator.
 
-**This setup should be completed before running the test suite if you want to see the Selenium tests in action.**
-
 **Browser Requirements**
 
-You will need to have both a browser and its corresponding driver installed on your system:
-
-* Option 1. **Firefox + geckodriver**
-* Option 2. **Chromium + chromedriver**
-
-If you are unsure whether or not you have both a browser and its corresponding driver installed, you can run the following commands to check:
-
-**Finding Browser and Driver Paths:**
-
-.. code-block:: shell
-
-    # Check for Firefox browser
-    which firefox
-    
-    # Check for geckodriver
-    which geckodriver
-    
-    # Check for Chromium browser
-    which chromium
-    
-    # Check for chromedriver
-    which chromedriver
-
-**Example Output:**
-
-.. code-block::
-
-    /usr/bin/firefox
-    /snap/bin/geckodriver
-    /snap/bin/chromium
-    /usr/bin/chromedriver
-
-**Installing Missing Components**
-
-If you do not have both firefox and geckodriver or both chromium and chromedriver,
-you can install either pair using the following commands:
+You need a browser installed - either Firefox or Chrome/Chromium, whichever
+you prefer. You do **not** need to separately install or configure a
+matching driver (geckodriver/chromedriver): Selenium Manager, built into
+Selenium 4.6+, detects whichever browser you have installed and downloads a
+matching driver automatically the first time a Selenium test runs. This
+works the same on a workstation, a bare CI runner, or an agent sandbox - no
+display server (X11/Wayland/Xvfb) is needed either, since tests run the
+browser in its own native headless mode by default.
 
 .. code-block:: shell
 
-    # Option 1: Install Firefox and geckodriver
-    sudo apt install firefox geckodriver
-    
-    # Option 2: Install Chromium and chromedriver
-    sudo apt install chromium-browser chromium-chromedriver
-
-**Manual Downloads (Alternative Installation)**
-
-If the package manager installation doesn't work or you need a specific version, you can download the drivers manually:
-
-* **geckodriver**: Download from the `official Mozilla website <https://firefox-source-docs.mozilla.org/testing/geckodriver/>`_
-* **chromedriver**: Download from the `official Chrome releases <https://chromedriver.chromium.org/downloads>`_
-
-After downloading, make the driver executable and verify the path.
-
+    # Install whichever browser you don't already have
+    sudo apt install firefox
+    # - or -
+    sudo apt install chromium
 
 **Configuring Selenium Tests**
 
-You'll need to configure your browser settings in two files. First, update the Selenium configuration in `qatrack/settings.py`:
+Set `SELENIUM_BROWSER` in `qatrack/local_test_settings.py` to pick which
+browser drives the tests:
 
-.. code-block::
+.. code-block:: python
 
-    # Selenium Browser Configuration
-    # Options: 'firefox', 'chromium'
-    SELENIUM_BROWSER = ''
-    
-    # Browser Driver Paths
-    SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver as shown above
-    SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver as shown above
-    
-    # Headless Mode
-    # Set to True to run browsers in headless mode (no visible browser window)
-    # Set to False to see the browser during test execution
-    SELENIUM_VIRTUAL_DISPLAY = True
+    SELENIUM_BROWSER = 'firefox'   # the default
+    # SELENIUM_BROWSER = 'chromium'
 
-Then also update `SELENIUM_VIRTUAL_DISPLAY` in `qatrack/test_settings.py`:
+That's the only setting most people need. A couple of others (all defined
+in `qatrack/settings.py`, overridable the same way) are there if you need
+them:
 
-.. code-block::
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False  # Set to True to use headless browser for testing (requires xvfb)
+* `SELENIUM_HEADLESS` - `True` by default (native headless mode, no display
+  needed). Set to `False`, on a machine with a real display, to watch a
+  test execute in a visible browser window - useful when debugging a
+  failing Selenium test.
+* `SELENIUM_FIREFOX_DRIVER_PATH` / `SELENIUM_CHROMIUM_DRIVER_PATH` - only
+  needed if you want to pin a specific driver binary instead of letting
+  Selenium Manager resolve one automatically.
 
-**Configuration Examples**
+Both `SELENIUM_BROWSER` and `SELENIUM_HEADLESS` can also be set from the
+command line for a single run, instead of edited into a settings file -
+useful for a one-off ("just this run, watch it in Chromium instead"):
 
-**Firefox with visible browser:**
+.. code-block:: shell
 
-.. code-block::
+    SELENIUM_BROWSER=chromium SELENIUM_HEADLESS=False pytest --run-selenium
 
-    # In qatrack/settings.py:
-    SELENIUM_BROWSER = 'firefox'
-    SELENIUM_VIRTUAL_DISPLAY = False
-    SELENIUM_FIREFOX_DRIVER_PATH = '/snap/bin/geckodriver' 
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False
-
-**Chromium with visible browser:**
-
-.. code-block::
-
-    # In qatrack/settings.py:
-    SELENIUM_BROWSER = 'chromium'
-    SELENIUM_VIRTUAL_DISPLAY = False
-    SELENIUM_CHROMIUM_DRIVER_PATH = '/usr/bin/chromedriver'
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False
-
-**Headless mode**
-
-.. code-block::
-
-    # In qatrack/settings.py:
-    SELENIUM_BROWSER = ''  # This can either be filled in or left blank
-    SELENIUM_VIRTUAL_DISPLAY = True
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = True
+Both values are single words, so neither needs quoting on any shell.
 
 
 Running The Test Suite
@@ -553,23 +481,35 @@ QATrack+ directory using the `py.test` command:
 
 **Running Different Types of Tests**
 
-Run all tests (including Selenium):
+Selenium (GUI/browser) tests are skipped by default - a plain `pytest` run
+covers everything else, faster and without needing a browser installed:
 
 .. code-block:: shell
 
     py.test
 
-Run only Selenium tests:
+Run everything, including Selenium tests:
+
+.. code-block:: shell
+
+    pytest --run-selenium
+
+Run *only* the Selenium tests:
 
 .. code-block:: shell
 
     pytest -m selenium
 
-Run only non-Selenium tests (faster):
+`--run-selenium` and `-m selenium` both work - use whichever reads more
+naturally for what you're doing.
 
-.. code-block:: shell
+.. deprecated:: 4.1
 
-    pytest -m "not selenium"
+    The older `pytest -m "not selenium"`, to exclude the GUI tests
+    explicitly, still works - it needs quoting on every shell for no
+    benefit now that plain `pytest` does the same thing with nothing to
+    type at all. It emits a ``PytestDeprecationWarning`` and will be
+    removed in QATrack+ 4.2; switch to plain `pytest`.
 
 For more information on using py.test, refer to the `py.test documentation
 <https://pytest.org>`__.
