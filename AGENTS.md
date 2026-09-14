@@ -135,7 +135,7 @@ uv sync --dev
 
 # 2. Provide local settings (database credentials, etc.)
 cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
-cp deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
+cp deploy/dev/local_test_settings.sqlite.py qatrack/local_test_settings.py
 # edit qatrack/local_settings.py as needed
 
 # 3. Apply migrations and load demo data
@@ -148,6 +148,14 @@ uv run python manage.py collectstatic --noinput
 # 4. Run the development server
 uv run python manage.py runserver
 ```
+
+`local_test_settings.sqlite.py` is one of five ready-made templates under
+`deploy/dev/` (`sqlite`, `memory`, `postgres`, `mysql`, `mssql`) - copy a
+different one instead if you want to run the suite against a different
+engine. `make dev-quickstart` runs the whole sequence above (sqlite) in one
+step, and also sets up `qatrack/local_test_settings.memory.py` alongside it
+so `make test-memory` works immediately with no extra setup. See [Running
+the tests](#running-the-tests) for `make test-<engine>`.
 
 > **A note for AI agents:** the commands throughout this file are prefixed
 > with `uv run` rather than assuming an activated virtual environment. Many
@@ -213,6 +221,18 @@ plain `pytest` does the same thing with nothing to type at all. It emits a
 not pytest — they don't understand the `selenium` marker, `-m` filtering,
 or `--run-selenium`, and will attempt to run the GUI tests too. Prefer
 `pytest` directly.
+
+`make test-<engine>` (`sqlite`, `memory`, `postgres`, `mysql`, `mssql`) runs
+the suite against a specific database engine without disturbing whatever
+`qatrack/local_test_settings.py` you normally use day to day - it swaps in
+`qatrack/local_test_settings.<engine>.py` (create it first from the matching
+`deploy/dev/local_test_settings.<engine>.py` template) for the run, then
+restores your previous file afterward regardless of whether the tests
+passed. `make test-integration` goes a step further: provisions a brand-new
+sqlite database exactly the way a fresh deployment would (migrate,
+createcachetable, collectstatic, createsuperuser) and runs the suite with
+`--reuse-db` directly against it, so the whole deployment sequence is
+exercised for real, not just a disposable test database.
 
 Tests live next to the application code in `tests/` subdirectories inside each
 Django app. Write or update tests for every functional change. Do not remove or

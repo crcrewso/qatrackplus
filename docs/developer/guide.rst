@@ -168,13 +168,18 @@ files from the deploy subdirectory and then create your database:
 .. code-block:: shell
 
     cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
-    cp deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
+    cp deploy/dev/local_test_settings.sqlite.py qatrack/local_test_settings.py
     mkdir db
     python manage.py migrate
     python manage.py createcachetable
 
 
 this will put a database called `default.db` in the `db` subdirectory.
+``deploy/dev/`` also has ``local_test_settings.memory.py``/``postgres.py``/
+``mysql.py``/``mssql.py`` templates if you'd rather test against a
+different engine - see `Running The Test Suite`_ below for
+``make test-<engine>``, which runs the suite against one of these without
+touching your usual ``local_test_settings.py``.
 
 
 Understanding the Settings Files
@@ -510,6 +515,29 @@ naturally for what you're doing.
     benefit now that plain `pytest` does the same thing with nothing to
     type at all. It emits a ``PytestDeprecationWarning`` and will be
     removed in QATrack+ 4.2; switch to plain `pytest`.
+
+To test against a specific database engine without disturbing whatever
+``qatrack/local_test_settings.py`` you normally use day to day:
+
+.. code-block:: shell
+
+    make test-sqlite
+    make test-memory
+    make test-postgres
+    make test-mysql
+    make test-mssql
+
+Each requires ``qatrack/local_test_settings.<engine>.py`` to already exist -
+create it from the matching ``deploy/dev/local_test_settings.<engine>.py``
+template first. The target swaps that file in for the run and restores your
+previous ``local_test_settings.py`` afterward regardless of whether the
+tests passed.
+
+``make test-integration`` goes a step further: provisions a brand-new
+sqlite database exactly the way a fresh deployment would (``migrate``,
+``createcachetable``, ``collectstatic``, ``createsuperuser``) and runs the
+suite with ``--reuse-db`` directly against it, so the whole deployment
+sequence is exercised for real rather than just a disposable test database.
 
 For more information on using py.test, refer to the `py.test documentation
 <https://pytest.org>`__.

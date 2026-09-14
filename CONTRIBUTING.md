@@ -103,9 +103,11 @@ uv run make html
 4. Copy the example settings and configure your local database:
    ```bash
    cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
-   cp deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
+   cp deploy/dev/local_test_settings.sqlite.py qatrack/local_test_settings.py
    # edit qatrack/local_settings.py
    ```
+   `deploy/dev/` also has `local_test_settings.memory.py`/`postgres.py`/
+   `mysql.py`/`mssql.py` if you'd rather test against a different engine.
 5. Apply migrations and load fixture data:
    ```bash
    mkdir db
@@ -114,6 +116,8 @@ uv run make html
    uv run python manage.py loaddata fixtures/defaults/*/*.json
    uv run python manage.py collectstatic --noinput
    ```
+   `make dev-quickstart` runs steps 4-5 in one go (sqlite, plus setting up
+   the in-memory variant alongside it).
 6. Start the development server:
    ```bash
    uv run python manage.py runserver
@@ -153,6 +157,14 @@ Chromium or Firefox on the host. Add `--run-selenium` to also run them.
 pytest, and don't support marker filtering or `--run-selenium` — prefer
 `pytest` directly. See [AGENTS.md](AGENTS.md#running-the-tests) for more
 detail.
+
+To test against a specific database engine without touching your usual
+`qatrack/local_test_settings.py`, use `make test-sqlite`/`test-memory`/
+`test-postgres`/`test-mysql`/`test-mssql` (create
+`qatrack/local_test_settings.<engine>.py` first from the matching
+`deploy/dev/` template). `make test-integration` provisions a brand-new
+sqlite database the way a real deployment would and runs the suite against
+it directly.
 
 Before opening a PR, it's also worth running the full pre-commit suite
 against the whole codebase, not just your changed files:
