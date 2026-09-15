@@ -145,8 +145,14 @@ Once you have decided on a text editor or IDE, create a virtual environment with
     # Create virtual environment with Python 3.12
     uv venv --python 3.12
 
-    # Activate the virtual environment:
+    # Activate the virtual environment (Linux/macOS):
     source .venv/bin/activate
+
+On Windows, activate it from PowerShell instead:
+
+.. code-block:: powershell
+
+    .\.venv\Scripts\Activate.ps1
 
 Install development dependencies:
 
@@ -154,6 +160,16 @@ Install development dependencies:
 
     # Install all development dependencies
     uv sync --dev
+
+.. note::
+
+    Activating the virtual environment is optional. ``uv sync`` creates and
+    manages ``.venv`` for you, and prefixing a command with ``uv run`` (e.g.
+    ``uv run pytest``) runs it inside that environment without activation.
+    The examples below use the bare ``python``/``pytest`` form, which assumes
+    you have activated it; add ``uv run`` in front of each if you would
+    rather not. ``AGENTS.md`` and ``CONTRIBUTING.md`` in the repository root
+    use the ``uv run`` form throughout.
 
 
 
@@ -182,25 +198,76 @@ different engine - see `Running The Test Suite`_ below for
 ``make test-<engine>``, which runs the suite against one of these without
 touching your usual ``local_test_settings.py``.
 
+.. _local_settings_templates:
+
+``local_settings.py`` templates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``deploy/dev/local_settings.dev.py`` above is the right starting point for
+development work. The remaining ``local_settings.py`` templates under
+``deploy/`` target real deployments rather than development, and are the
+ones referred to by the error QATrack+ raises when ``qatrack/local_settings.py``
+is missing:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Template
+     - Use it for
+   * - ``deploy/dev/local_settings.dev.py``
+     - Local development (sqlite, ``DEBUG`` on). Start here.
+   * - ``deploy/sqlite/local_settings.py``
+     - A file-backed sqlite deployment.
+   * - ``deploy/postgres/local_settings.py``
+     - A PostgreSQL deployment (see also the ``.sql`` role/database setup
+       scripts alongside it).
+   * - ``deploy/mysql/local_settings.py``
+     - A MySQL/MariaDB deployment (likewise with ``.sql`` setup scripts).
+   * - ``deploy/win/local_settings.py``
+     - A Windows/MS SQL Server deployment.
+
+Copy whichever one matches your target to ``qatrack/local_settings.py`` and
+edit it from there. For full deployment instructions see the
+:doc:`installation guides </install/install>`, not this page.
+
 
 Understanding the Settings Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 QATrack+ uses a layered approach to Django settings, with each file serving a specific purpose. Understanding this hierarchy will help you configure your development and testing environment.
 
+Every file below is imported with ``from ... import *``, so the *last* one
+loaded wins for any given setting. Under a test run the chain is
+``settings.py`` -> ``local_settings.py`` -> ``test_settings.py`` ->
+``local_test_settings.py``, giving this order:
+
 **Settings File Hierarchy (Highest to Lowest Precedence):**
 
-1. **`local_test_settings.py`** - Your custom test environment overrides
+1. ``local_test_settings.py`` - Your custom test environment overrides
+
    - Contains all essential development and test settings in one place
    - This is the main file you'll customize for your testing needs
 
-2. **`local_settings.py`** - Your custom development environment overrides
+2. ``test_settings.py`` - Default test environment settings
+
+   - Contains test-specific defaults like password hashers and notification
+     settings
+   - Note that ``test_settings.py`` re-imports ``local_settings.py`` and
+     *then* applies its own values, so under a test run it overrides
+     anything you set in ``local_settings.py``. If you set, say,
+     ``LANGUAGE_CODE`` or ``NOTIFICATIONS_ON`` in ``local_settings.py`` and
+     wonder why the tests don't see it, this is why - put test-only values
+     in ``local_test_settings.py`` instead.
+
+3. ``local_settings.py`` - Your custom development environment overrides
+
    - Contains development-specific settings like database configuration
+   - This is the file the development server and management commands use;
+     outside of a test run it is the highest-precedence file.
 
-3. **`test_settings.py`** - Default test environment settings
-   - Contains test-specific defaults like password hashers and notification settings
+4. ``settings.py`` - Base Django application settings
 
-4. **`settings.py`** - Base Django application settings
    - Contains core Django configuration, installed apps, middleware, etc.
 
 Collect Static Files
@@ -338,9 +405,15 @@ QATrack+ uses `ruff <https://docs.astral.sh/ruff/>`__ for linting,
 formatting, and import ordering - it replaces the older flake8/yapf/isort
 combination entirely, and their config sections have been removed from
 ``setup.cfg`` (the file itself has been removed - ruff's configuration lives
-under ``[tool.ruff]`` in ``pyproject.toml``). Line length is **120
-characters**, quote style is **single quotes**, and import ordering is
-enforced via ruff's ``I`` rule set - no separate isort pass needed.
+under ``[tool.ruff]`` in ``pyproject.toml``). Quote style is **single
+quotes**, and import ordering is enforced via ruff's ``I`` rule set - no
+separate isort pass needed.
+
+``line-length`` is set to **120 characters**, but note that ``E501``
+(line-too-long) is in the ``ignore`` list, so ``ruff check`` will *not*
+flag an over-long line. 120 is the target ``ruff format`` wraps to, and
+until repo-wide formatting has been applied (see below) it is a convention
+to aim for rather than something the linter enforces.
 
 To check for violations:
 
@@ -486,7 +559,7 @@ Run *only* the Selenium tests:
 `--run-selenium` and `-m selenium` both work - use whichever reads more
 naturally for what you're doing.
 
-.. deprecated:: 4.1
+.. deprecated:: 4.0
 
     The older `pytest -m "not selenium"`, to exclude the GUI tests
     explicitly, still works - it needs quoting on every shell for no
