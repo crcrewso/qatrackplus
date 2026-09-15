@@ -174,8 +174,18 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         # of a long run. 5s matches what this suite used before it was
         # tightened, and gives enough headroom on slower/busier hosts
         # without making a genuinely broken wait noticeably slower to fail.
-        cls.driver.set_page_load_timeout(5)
-        cls.driver.implicitly_wait(5)
+        #
+        # Chromium specifically needs more than that under CI: confirmed on
+        # GitHub Actions (Linux Chromium job) with genuine timeouts/
+        # IndexErrors from elements (qa-input, the select2 report-type
+        # container) not yet rendered at 5s, while the same run's Firefox
+        # job and this same suite's other Chromium-rendered elements passed
+        # comfortably - a JS/render-timing gap between the two engines, not
+        # a broken wait. 10s gives Chromium the same headroom Firefox
+        # already had in practice.
+        page_load_timeout = 10 if browser_setting == 'chromium' else 5
+        cls.driver.set_page_load_timeout(page_load_timeout)
+        cls.driver.implicitly_wait(page_load_timeout)
 
         cls.driver.set_window_position(0, 0)
         cls.driver.set_window_size(1920, 1080)
