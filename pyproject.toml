@@ -216,3 +216,218 @@ ignore = [
 
 [tool.ruff.format]
 quote-style = "single"
+
+# poethepoet task definitions - see https://poethepoet.natn.io/
+#
+# This mirrors the Makefile's dev/test commands and is meant to run
+# *alongside* it, not replace it, while the project figures out whether to
+# move off Make (every Makefile target here is .PHONY - there's no real
+# file-dependency graph, so Make's core feature isn't actually in use, and
+# it has no native Windows story despite this project supporting Windows
+# deployments). `poe` itself isn't a project dependency - install it once,
+# globally, via `uv tool install poethepoet`, then run any task below with
+# `poe <task>` from inside the repo. `poe` auto-detects this project's
+# `.venv` the same way `uv run` does, so tasks below call `pytest`/`python`
+# directly rather than re-prefixing with `uv run`.
+[tool.poe.env]
+VERSION = "4.0.0"
+
+[tool.poe.tasks.dev-quickstart]
+help = "One-shot sqlite dev setup: local_settings, migrate, cache table, superuser"
+shell = '''
+cp -n deploy/dev/local_settings.dev.py qatrack/local_settings.py
+cp -n deploy/dev/local_test_settings.sqlite.py qatrack/local_test_settings.py
+cp -n deploy/dev/local_test_settings.memory.py qatrack/local_test_settings.memory.py
+mkdir -p db
+python manage.py migrate
+python manage.py createcachetable
+DJANGO_SUPERUSER_USERNAME=superuser DJANGO_SUPERUSER_PASSWORD=superuser DJANGO_SUPERUSER_EMAIL=superuser@example.com python manage.py createsuperuser --noinput
+'''
+
+[tool.poe.tasks.cover]
+help = "Run the full suite with coverage (--reuse-db)"
+cmd = "pytest --reuse-db --cov-report term-missing --cov ./"
+
+[[tool.poe.tasks.cover-module.args]]
+name = "module"
+positional = true
+required = true
+help = "Dotted path to measure coverage for, e.g. qatrack.qa"
+
+[tool.poe.tasks.cover-module]
+help = "Run coverage for a single module, e.g. `poe cover-module qatrack.qa`"
+cmd = "pytest --cov-report term-missing --cov ./${module} ${module}"
+
+[tool.poe.tasks.cover-mo]
+help = "Like cover, but hide fully-covered files from the report"
+cmd = "pytest --reuse-db --cov-report term-missing:skip-covered --cov ./"
+
+[tool.poe.tasks.cover-qatrack]
+help = "Like cover, but scoped to the qatrack package only"
+cmd = "pytest --reuse-db --cov-report term-missing --cov qatrack"
+
+[tool.poe.tasks.test]
+help = "Run the suite (GUI/Selenium tests skipped by default - pass --run-selenium to include them)"
+cmd = "pytest"
+
+[tool.poe.tasks.test_simple]
+help = "Alias of `test`, kept for muscle memory - identical since GUI tests are already skipped by default"
+cmd = "pytest"
+
+# Shared engine-swap implementation for test-sqlite/memory/postgres/mysql/
+# mssql below. Requires qatrack/local_test_settings.<engine>.py to already
+# exist (gitignored, yours to create from the matching
+# deploy/dev/local_test_settings.<engine>.py template). Backs up your
+# current qatrack/local_test_settings.py (if any), swaps the requested
+# engine's file in for the run, then restores it afterward regardless of
+# whether the tests passed. Underscore-prefixed tasks can't be run directly
+# (poe enforces this) - always go through one of the five wrapper tasks
+# below.
+#
+# Note: unlike `make test-<engine> args="-k foo"`, these tasks don't accept
+# extra pytest flags - confirmed by testing that poe silently drops
+# `--`-separated dash-prefixed tokens once a task declares any named arg
+# (here, --engine), rather than forwarding them. For a filtered run against
+# a specific engine, swap qatrack/local_test_settings.py by hand and run
+# `poe test` (or `pytest`) directly instead.
+[[tool.poe.tasks._test-engine.args]]
+name = "engine"
+options = ["--engine"]
+required = true
+
+[tool.poe.tasks._test-engine]
+shell = '''
+if [ ! -f "qatrack/local_test_settings.${engine}.py" ]; then
+  echo "error: qatrack/local_test_settings.${engine}.py not found."
+  echo "Create it first - see deploy/dev/local_test_settings.${engine}.py for a starting template."
+  exit 1
+fi
+if [ -f qatrack/local_test_settings.py ]; then
+  cp qatrack/local_test_settings.py qatrack/local_test_settings.py.bak
+fi
+cp "qatrack/local_test_settings.${engine}.py" qatrack/local_test_settings.py
+pytest
+STATUS=$?
+if [ -f qatrack/local_test_settings.py.bak ]; then
+  mv -f qatrack/local_test_settings.py.bak qatrack/local_test_settings.py
+else
+  rm -f qatrack/local_test_settings.py
+fi
+exit $STATUS
+'''
+
+[tool.poe.tasks.test-sqlite]
+help = "Run the suite against sqlite without disturbing your usual local_test_settings.py"
+ref = "_test-engine --engine sqlite"
+
+[tool.poe.tasks.test-memory]
+help = "Run the suite against in-memory sqlite without disturbing your usual local_test_settings.py"
+ref = "_test-engine --engine memory"
+
+[tool.poe.tasks.test-postgres]
+help = "Run the suite against postgres without disturbing your usual local_test_settings.py"
+ref = "_test-engine --engine postgres"
+
+[tool.poe.tasks.test-mysql]
+help = "Run the suite against mysql without disturbing your usual local_test_settings.py"
+ref = "_test-engine --engine mysql"
+
+[tool.poe.tasks.test-mssql]
+help = "Run the suite against mssql without disturbing your usual local_test_settings.py"
+ref = "_test-engine --engine mssql"
+
+[tool.poe.tasks.test-integration]
+help = "Provision a fresh sqlite db like a real deployment, then run the suite --reuse-db against it"
+shell = '''
+mkdir -p db
+if [ -f db/default.db ]; then
+  mv -f db/default.db db/default.db.bak
+fi
+if [ -f qatrack/local_test_settings.py ]; then
+  cp qatrack/local_test_settings.py qatrack/local_test_settings.py.bak
+fi
+cp deploy/dev/local_test_settings.sqlite.py qatrack/local_test_settings.py
+python manage.py migrate
+python manage.py createcachetable
+python manage.py collectstatic --noinput
+DJANGO_SUPERUSER_USERNAME=superuser DJANGO_SUPERUSER_PASSWORD=superuser DJANGO_SUPERUSER_EMAIL=superuser@example.com python manage.py createsuperuser --noinput
+pytest --reuse-db
+STATUS=$?
+mv -f db/default.db db/pytest_default.db
+if [ -f qatrack/local_test_settings.py.bak ]; then
+  mv -f qatrack/local_test_settings.py.bak qatrack/local_test_settings.py
+else
+  rm -f qatrack/local_test_settings.py
+fi
+if [ -f db/default.db.bak ]; then
+  mv -f db/default.db.bak db/default.db
+fi
+exit $STATUS
+'''
+
+[tool.poe.tasks.dumpdata]
+help = "Dump the full DB to a timestamped JSON fixture"
+shell = '''
+python manage.py dumpdata -v1 --indent=2 --natural-foreign --natural-primary --output qatrack-dump-$(date '+%Y-%m-%d_%H-%M-%S').json
+'''
+
+[tool.poe.tasks.clearct]
+shell = '''
+python manage.py shell -c "from qatrack.qa.models import *; [m.objects.all().delete() for m in [ContentType, Tolerance, User]]"
+'''
+
+[tool.poe.tasks.flushdb]
+shell = '''
+python manage.py sqlflush | python manage.py dbshell
+'''
+
+[tool.poe.tasks.docs]
+help = "Build the Sphinx docs (output under docs/_build/html)"
+shell = '''
+cd docs && make html
+'''
+
+[[tool.poe.tasks.docs-autobuild.args]]
+name = "port"
+options = ["--port"]
+default = "8008"
+
+[tool.poe.tasks.docs-autobuild]
+help = "Serve the docs locally with live-reload, default port 8008 (poe docs-autobuild --port 8010 to override)"
+cmd = "sphinx-autobuild docs docs/_build/html --port ${port}"
+
+[tool.poe.tasks."nginx-conf"]
+help = "Ubuntu only: install this project's nginx site config"
+shell = '''
+sudo sed "s/YOURUSERNAMEHERE/$USER/g" deploy/nginx/qatrack.conf > qatrack.conf
+sudo mv qatrack.conf /etc/nginx/sites-available/qatrack.conf
+sudo ln -sf /etc/nginx/sites-available/qatrack.conf /etc/nginx/sites-enabled/qatrack.conf
+sudo usermod -a -G $USER www-data
+sudo service nginx restart
+'''
+
+[tool.poe.tasks."supervisor-conf"]
+help = "Ubuntu only: install this project's supervisor configs for django-q2/gunicorn"
+shell = '''
+sudo sed "s/YOURUSERNAMEHERE/$USER/g" deploy/supervisor/django-q2.conf > django-q2.conf
+sudo sed "s/YOURUSERNAMEHERE/$USER/g" deploy/supervisor/gunicorn.conf > gunicorn.conf
+sudo mv django-q2.conf /etc/supervisor/conf.d/
+sudo mv gunicorn.conf /etc/supervisor/conf.d/
+sudo supervisorctl reread
+sudo supervisorctl update
+'''
+
+[tool.poe.tasks.schema]
+help = "Regenerate the database schema diagram (needs graphviz - see docs/developer/schema.rst)"
+shell = '''
+python ./manage.py graph_models -a -g -X Issue,IssueStatus,IssueType,IssuePriority,IssueTag -o docs/developer/images/qatrack_schema_${VERSION}.svg
+'''
+
+[tool.poe.tasks.run]
+help = "Run the dev server"
+cmd = "python ./manage.py runserver"
+
+[tool.poe.tasks."__cleardb__"]
+shell = '''
+python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
+'''
