@@ -61,7 +61,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
-        db: [sqlite, postgres, mysql]
+        db: [memory, postgres, mysql]
     
     services:
       postgres:
@@ -101,8 +101,8 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies (SQLite)
-        if: matrix.db == 'sqlite'
+      - name: Install dependencies (Memory SQLite)
+        if: matrix.db == 'memory'
         run: uv sync
 
       - name: Install dependencies (Postgres)
@@ -117,9 +117,19 @@ jobs:
           sudo apt-get update && sudo apt-get install -y libmysqlclient-dev
           uv sync --extra mysql
 
-      - name: Setup Database configuration (SQLite)
-        if: matrix.db == 'sqlite'
-        run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+      - name: Activate virtual environment
+        # Puts .venv/bin on PATH for every later step in this job, so they
+        # can call `pytest`/`python` directly instead of prefixing each
+        # with `uv run` (which re-checks the venv against the lockfile
+        # every time - redundant right after `uv sync` just ran above).
+        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      # No "Setup Database configuration (Memory SQLite)" step here on
+      # purpose: settings.py falls back to a disposable in-memory SQLite
+      # database when qatrack/local_settings.py is absent under pytest
+      # (see qatrack/settings.py) - faster than a real file-based sqlite
+      # db, and doubles as real-world coverage of that fallback itself,
+      # on a genuinely different environment than any local dev machine.
 
       - name: Setup Database configuration (Postgres)
         if: matrix.db == 'postgres'
@@ -138,7 +148,7 @@ jobs:
           docker exec -i ${{ job.services.mysql.id }} sh -c "mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root -proot mysql"
 
       - name: Run Tests
-        run: uv run pytest -x
+        run: pytest -x
 
   windows-tests:
     name: Windows Tests
