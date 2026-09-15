@@ -105,9 +105,12 @@ DATETIME_HELP = "Format DD MMM YYYY hh:mm (hh:mm is 24h time e.g. 31 May 2012 14
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
 LANGUAGE_CODE = 'en'
-# Duration of the language cookie 
-# TODO: add nice documentation to the local_settings defaults so deployment is clear. 
-LANGUAGE_COOKIE_AGE = 360 * 24 * 60 * 60 # 1 year
+# How long a user's own language choice is remembered in their browser.
+# Documented for deployers under "Language Settings" in
+# docs/install/config.rst. TODO: still needs a commented, discoverable
+# example in the deploy/*/local_settings.py templates themselves, so it is
+# visible when setting a site up rather than only in the docs.
+LANGUAGE_COOKIE_AGE = 360 * 24 * 60 * 60  # 1 year
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
@@ -719,7 +722,7 @@ if use_docker:
             for scheme in ('http://', 'https://')
             if host != '*'
         ]
-    
+
     SECRET_FILEPATH = os.path.join(PROJECT_ROOT, '..', 'deploy', 'docker', 'user-data', 'secret_key.txt')
     try:
         with open(SECRET_FILEPATH) as f:
@@ -755,8 +758,11 @@ else:
                 "qatrack/local_settings.py is missing. Create it before running "
                 "QATrack+ - for local development:\n\n"
                 "    cp deploy/dev/local_settings.dev.py qatrack/local_settings.py\n\n"
-                "See docs/developer/guide.rst for the other available templates "
-                "(deploy/postgres, deploy/mysql, deploy/win)."
+                "For a real deployment, copy the template matching your database "
+                "instead: deploy/sqlite, deploy/postgres, deploy/mysql or "
+                "deploy/win (MS SQL Server). See the 'local_settings.py "
+                "templates' table in docs/developer/guide.rst, and "
+                "docs/install/ for full deployment instructions."
             ) from None
         # A bare `pytest` run shouldn't need the same setup ceremony as
         # actually running the app for real - fall back to a disposable
