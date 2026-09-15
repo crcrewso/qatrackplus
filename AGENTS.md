@@ -108,7 +108,7 @@ qatrack/                 # Django project root; most application code lives here
 docs/           # Sphinx documentation (reStructuredText)
 fixtures/       # Demo / seed data
 requirements/   # Pinned pip requirements (dev.txt) — see TODO below
-runtests.sh     # Convenience test runner (see Running the tests)
+runtests.sh     # Alias for `make cover` (execs pytest — see Running the tests)
 ```
 
 > **TODO:** `requirements/dev.txt` is generated from the `dev` dependency
@@ -118,6 +118,12 @@ runtests.sh     # Convenience test runner (see Running the tests)
 > the `win` + `mssql` extras, not `dev`. Reconciling the file's contents
 > (and likely its name) with that purpose is tracked for a follow-up PR;
 > until then, treat this file as stale for deployment purposes.
+>
+> Concretely, it is stale for tooling too: it still pins `flake8`, `isort`,
+> `yapf` and `pep8`, none of which are in the `dev` dependency group any
+> more — ruff replaced all of them (see *Code style* below, and
+> `docs/developer/guide.rst`). Do not take that file as evidence those
+> tools are still in use; they are not.
 
 > **A note for AI agents:** `.po` files under `locale/` are the editable
 > source for translations — the paired `.mo` files are compiled binaries
@@ -236,10 +242,12 @@ plain `pytest` does the same thing with nothing to type at all. It emits a
 `PytestDeprecationWarning` and will be removed in QATrack+ 4.2 - use plain
 `pytest` instead.
 
-`runtests.sh` and `python manage.py test` invoke Django's own test runner,
-not pytest — they don't understand the `selenium` marker, `-m` filtering,
-or `--run-selenium`, and will attempt to run the GUI tests too. Prefer
-`pytest` directly.
+`python manage.py test` invokes Django's own test runner, not pytest — it
+doesn't understand the `selenium` marker, `-m` filtering, or
+`--run-selenium`, and will attempt to run the GUI tests too. Prefer
+`pytest` directly. `runtests.sh` used to have the same problem; it is now a
+thin wrapper that execs `uv run pytest --cov`, so it honours all of the
+above and passes its arguments straight through.
 
 `make test-<engine>` (`sqlite`, `memory`, `postgres`, `mysql`, `mssql`) runs
 the suite against a specific database engine without disturbing whatever
@@ -339,10 +347,14 @@ PR:
   at once.
 
 The table also covers **cross-references between documentation files**: the
-developer workflow (`docs/developer/`, `AGENTS.md`) and the installation guides
-(`docs/install/`) overlap on topics such as Python version, Node.js version, and
-the package manager. Whenever any one of these is updated, the others should be
-reviewed for consistency.
+developer workflow (`docs/developer/`, `AGENTS.md`, `CONTRIBUTING.md`,
+`uv-setup.md`) and the installation guides (`docs/install/`) overlap on topics
+such as Python version, Node.js version, the package manager, how to activate
+(or skip activating) the virtual environment, how to run the tests, and how to
+build the docs. Whenever any one of these is updated, the others should be
+reviewed for consistency. The four developer-facing files in particular say
+much the same thing in four places, so a change to any one of them is very
+likely to need a matching change in the others.
 
 | Changed path | Documentation to check |
 |---|---|
@@ -359,9 +371,13 @@ reviewed for consistency.
 | `qatrack/settings.py` | `docs/install/config.rst` |
 | `qatrack/local_settings*`, `deploy/` | `docs/install/` |
 | `qatrack/qatrack_core/` | `docs/developer/` |
-| `AGENTS.md` | `docs/developer/`, `docs/install/` |
-| `docs/developer/` | `docs/install/`, `AGENTS.md` |
+| `AGENTS.md` | `docs/developer/`, `docs/install/`, `CONTRIBUTING.md`, `uv-setup.md` |
+| `docs/developer/` | `docs/install/`, `AGENTS.md`, `CONTRIBUTING.md`, `uv-setup.md` |
 | `docs/install/` | `docs/developer/`, `AGENTS.md` |
+| `CONTRIBUTING.md` | `AGENTS.md`, `docs/developer/`, `uv-setup.md` |
+| `uv-setup.md` | `AGENTS.md`, `CONTRIBUTING.md`, `docs/developer/` |
+| `Makefile` | `AGENTS.md`, `CONTRIBUTING.md`, `docs/developer/guide.rst` |
+| `conftest.py`, `runtests.sh` | `AGENTS.md`, `CONTRIBUTING.md`, `docs/developer/guide.rst` |
 
 When reviewing or authoring a PR as an AI agent, look specifically for:
 

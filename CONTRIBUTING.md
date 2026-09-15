@@ -78,15 +78,24 @@ The documentation lives in `docs/` and is built with
 To build the docs locally:
 
 ```bash
-uv sync --dev   # Sphinx and its extensions are part of the dev group
-cd docs
-uv run make html
-# open _build/html/index.html in your browser
+uv sync --dev          # Sphinx and its extensions are part of the dev group
+uv run make docs       # from the repository root
+# open docs/_build/html/index.html in your browser
 ```
+
+While writing, `uv run make docs-autobuild` serves the docs at
+<http://127.0.0.1:8008> and rebuilds them as you save (add
+`port=8010` to use a different port).
 
 ## Contributing code
 
 ### Setting up a development environment
+
+The steps below are the short version. [`uv-setup.md`](uv-setup.md) is a
+copy-paste quickstart of the same sequence, and the *Developers Guide*
+([`docs/developer/guide.rst`](docs/developer/guide.rst)) is the canonical,
+fuller treatment — including Windows, the per-engine test settings, and the
+Selenium setup.
 
 1. **Fork & clone** the repository.
 2. Install dependencies with [uv](https://docs.astral.sh/uv/) (uv creates and
@@ -164,10 +173,11 @@ uv run pytest
 
 GUI (Selenium/browser) tests are skipped by default, since they need a real
 Chromium or Firefox on the host. Add `--run-selenium` to also run them.
-`runtests.sh` and `python manage.py test` use Django's own test runner, not
-pytest, and don't support marker filtering or `--run-selenium` — prefer
-`pytest` directly. See [AGENTS.md](AGENTS.md#running-the-tests) for more
-detail.
+`python manage.py test` uses Django's own test runner, not pytest, and
+doesn't support marker filtering or `--run-selenium` — prefer `pytest`
+directly. (`runtests.sh` is now just a wrapper around `uv run pytest --cov`,
+so it behaves the same as the commands above.) See
+[AGENTS.md](AGENTS.md#running-the-tests) for more detail.
 
 To test against a specific database engine without touching your usual
 `qatrack/local_test_settings.py`, use `make test-sqlite`/`test-memory`/
