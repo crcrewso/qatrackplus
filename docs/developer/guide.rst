@@ -221,7 +221,7 @@ To load the default data into your development database:
 
 .. code-block:: shell
 
-    python manage.py loaddata fixtures/defaults/*/*
+    python manage.py loaddata fixtures/defaults/*/*.json
 
 This command will populate your database all default data.
 
@@ -230,13 +230,13 @@ You can also load specific fixture categories individually if you only need cert
 .. code-block:: shell
 
     # Load only QA-related fixtures
-    python manage.py loaddata fixtures/defaults/qa/*
-    
+    python manage.py loaddata fixtures/defaults/qa/*.json
+
     # Load only unit-related fixtures
-    python manage.py loaddata fixtures/defaults/units/*
-    
+    python manage.py loaddata fixtures/defaults/units/*.json
+
     # Load only service log fixtures
-    python manage.py loaddata fixtures/defaults/service_log/*
+    python manage.py loaddata fixtures/defaults/service_log/*.json
 
 Running the development server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -333,26 +333,34 @@ Formatting & Style Guide
 General formatting
 ~~~~~~~~~~~~~~~~~~
 
-In general, any code you write should be `PEP 8 compatible
-<https://www.python.org/dev/peps/pep-0008/>`__ with a few exceptions.  It is
-*highly* recommended that you use flake8 to check your code for pep8
-violations. A QATrack+ flake8 config file is included with QATrack+, to view
-any flake8 violations run:
+QATrack+ uses `ruff <https://docs.astral.sh/ruff/>`__ for linting,
+formatting, and import ordering - it replaces the older flake8/yapf/isort
+combination entirely, and their config sections have been removed from
+``setup.cfg`` (the file itself has been removed - ruff's configuration lives
+under ``[tool.ruff]`` in ``pyproject.toml``). Line length is **120
+characters**, quote style is **single quotes**, and import ordering is
+enforced via ruff's ``I`` rule set - no separate isort pass needed.
 
-.. code-block:: python
+To check for violations:
 
-    make flake8
-    # or
-    flake8 .
+.. code-block:: shell
 
-You may also want to use `yapf <https://github.com/google/yapf>`__ which can
-automatically format your code to conform with QATrack+'s style guide.  A yapf
-configuration sections is included in the setup.cfg file. To run yapf:
+    uv run ruff check .
 
+Repo-wide ``ruff format`` hasn't been applied to this codebase yet, so avoid
+running it across everything - that would surface a large, unrelated
+reformatting diff. Scope it to the files you actually changed:
 
-.. code-block:: python
+.. code-block:: shell
 
-    make yapf
+    uv run ruff format <files you changed>
+
+Before opening a PR, also run the full pre-commit suite (ruff lint plus
+``django-upgrade``):
+
+.. code-block:: shell
+
+    uv run pre-commit run --all-files
 
 Using Make Commands
 ~~~~~~~~~~~~~~~~~~
@@ -368,39 +376,11 @@ For detailed information about using make and understanding Makefiles, refer to 
 Import Order
 ~~~~~~~~~~~~
 
-Imports in your Python code should be split in three sections:
-
-1. Standard library imports
-2. Third party imports
-3. QATrack+ specific imports
-
-and each section should be in alphabetical order.  For example:
-
-.. code-block:: python
-
-    import math
-    import re
-    import sys
-
-    from django.apps import apps
-    from django.conf import settings
-    from django.contrib.auth.models import Group, User
-    from django.contrib.contenttypes.fields import (
-        GenericForeignKey,
-        GenericRelation,
-    )
-    from django_comments.models import Comment
-    import matplotlib
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    import numpy
-    import scipy
-
-    from qatrack.qa import utils
-    from qatrack.units.models import Unit
-
-`isort <https://isort.readthedocs.io/en/latest/>`__ is a simple tool for
-automatically ordering your imports and an `isort` configuration is included in
-the setup.cfg file.
+Imports should be split into three sections - standard library, third
+party, and QATrack+ specific - each in alphabetical order. ``ruff check .``
+enforces this automatically (rule set ``I``), so there's no separate tool to
+run or configure; ``ruff`` will flag anything out of order and, in most
+cases, ``uv run ruff check . --fix`` will reorder it for you.
 
 Indentation
 ~~~~~~~~~~~
@@ -471,18 +451,15 @@ Running The Test Suite
 
 Once you have QATrack+ and its dependencies installed (and optionally configured
 Selenium browser testing above), you can run the test suite from the root
-QATrack+ directory using the `py.test` command:
+QATrack+ directory using the `pytest` command (configuration lives under
+``[tool.pytest.ini_options]`` in ``pyproject.toml``):
 
 
 .. code-block:: sh
 
-    ./qatrackplus> py.test
-    Test session starts (platform: linux, Python 3.6.5, pytest 3.5.0, pytest-sugar 0.9.1)
-    Django settings: qatrack.settings (from ini file)
-    rootdir: /home/dev/projects/qatrackplus, inifile: pytest.ini
-    plugins: django-4.5.2, cov-3.0.0
-
-    qatrack/accounts/tests.py ✓✓✓
+    ./qatrackplus> pytest
+    ...
+    qatrack/accounts/tests/test_accounts.py ✓✓✓
 
 **Running Different Types of Tests**
 
@@ -491,7 +468,7 @@ covers everything else, faster and without needing a browser installed:
 
 .. code-block:: shell
 
-    py.test
+    pytest
 
 Run everything, including Selenium tests:
 
@@ -539,7 +516,7 @@ sqlite database exactly the way a fresh deployment would (``migrate``,
 suite with ``--reuse-db`` directly against it, so the whole deployment
 sequence is exercised for real rather than just a disposable test database.
 
-For more information on using py.test, refer to the `py.test documentation
+For more information on using pytest, refer to the `pytest documentation
 <https://pytest.org>`__.
 
 .. important::
@@ -624,12 +601,15 @@ Please browse through the docs and decide where is the most appropriate place
 to document your new feature.
 
 While writing documentation, you can view the documentation locally in your web
-browser (at http://127.0.0.1:8008) by running one of the following commands:
+browser (at http://127.0.0.1:8008 by default) by running one of the following
+commands:
 
 .. code-block:: shell
 
     make docs-autobuild
-    # -or-
+    # -or-, to use a different port (e.g. because 8008 is already taken):
+    make docs-autobuild port=8010
+    # -or-, without the Makefile at all:
     sphinx-autobuild docs docs/_build/html --port 8008
 
 
@@ -668,10 +648,10 @@ Copyright & Licensing
 
 The author of the code (or potentially their employer) retains the copyright of
 their work even when contributing code to QATrack+.  However, unless specified
-otherwies, by submitting code to the QATrack+ project you agree to have it
-distributed using the same `MIT license
-<https://github.com/qatrackplus/qatrackplus/blob/master/LICENSE>`__ as
-QATrack+ uses.
+otherwise, by submitting code to the QATrack+ project you agree to have it
+distributed using the same `Apache License, Version 2.0
+<https://github.com/qatrackplus/qatrackplus/blob/develop/LICENSE>`__ as
+QATrack+ uses (as of version 4.0 - earlier releases were MIT-licensed).
 
 
 I'm not a developer, how can I help out?

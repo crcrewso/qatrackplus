@@ -122,6 +122,14 @@ uv run make html
    ```bash
    uv run python manage.py runserver
    ```
+7. Build the frontend (needs Node.js 22+). The compiled Vue bundle
+   (`qatrack/qatrack_core/static/dist/faults.js`) ships pre-built in release
+   archives but isn't committed to the repo, so a `git clone` needs it built
+   once, and again whenever `qatrack/faults/static/faults/src/` changes:
+   ```bash
+   npm ci
+   npm run build
+   ```
 
 ### Coding guidelines
 

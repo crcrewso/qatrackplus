@@ -1,6 +1,9 @@
-VERSION=3.1.0
+VERSION=4.0.0
 DATETIME=$(shell date '+%Y-%m-%d_%H-%M-%S')
 
+
+help:
+	@grep -E '^[a-zA-Z0-9_-]+:' Makefile | grep -v '^\.PHONY:' | sed 's/:.*//' | sort -u
 
 dev-quickstart:
 	cp -n deploy/dev/local_settings.dev.py qatrack/local_settings.py
@@ -13,16 +16,16 @@ dev-quickstart:
 		uv run python manage.py createsuperuser --noinput
 
 cover:
-	py.test --reuse-db --cov-report term-missing --cov ./ ${args}
+	uv run pytest --reuse-db --cov-report term-missing --cov ./ ${args}
 
 cover-module:
-	py.test --cov-report term-missing --cov ./${module} ${module}
+	uv run pytest --cov-report term-missing --cov ./${module} ${module}
 
 cover-mo:
-	py.test --reuse-db --cov-report term-missing:skip-covered --cov ./ ${args}
+	uv run pytest --reuse-db --cov-report term-missing:skip-covered --cov ./ ${args}
 
 cover-qatrack:
-	py.test --reuse-db --cov-report term-missing --cov qatrack ${args}
+	uv run pytest --reuse-db --cov-report term-missing --cov qatrack ${args}
 
 test:
 	uv run pytest ${args}
@@ -126,21 +129,12 @@ clearct:
 flushdb:
 	python manage.py sqlflush | python manage.py dbshell
 
-yapf:
-	yapf --verbose --in-place --recursive --parallel \
-		-e*fixtures* -e*migration* -e*.git* -e*tmp* -e*deploy* \
-		-e*media* -e deploy  -e env -e*templates* -e*backups* -e*ipynb* -e*static* \
-		-e*logs* -e*cache* -e*init.d* -e*emails* -e*postgres* -e*uploads* \
-		.
-
-flake8:
-	flake8 .
-
 docs:
 	cd docs && make html
 
+port ?= 8008
 docs-autobuild:
-	sphinx-autobuild docs docs/_build/html --port 8009
+	sphinx-autobuild docs docs/_build/html --port $(port)
 
 nginx.conf:
 	sudo sed 's/YOURUSERNAMEHERE/$(USER)/g' deploy/nginx/qatrack.conf > qatrack.conf
@@ -171,5 +165,5 @@ __cleardb__:
 .PHONY: dev-quickstart cover cover-module cover-mo cover-qatrack test \
 	test_simple test-sqlite test-memory test-postgres test-mysql \
 	test-mssql _test-engine test-integration dumpdata clearct flushdb \
-	yapf flake8 help docs-autobuild docs qatrack_daemon.conf \
+	help docs-autobuild docs qatrack_daemon.conf \
 	supervisor.conf schema run __cleardb__ mysql-ro-rights
