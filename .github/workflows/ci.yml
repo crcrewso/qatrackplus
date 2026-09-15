@@ -61,7 +61,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
-        db: [memory, postgres, mysql]
+        db: [memory, sqlite, postgres, mysql]
     
     services:
       postgres:
@@ -105,6 +105,10 @@ jobs:
         if: matrix.db == 'memory'
         run: uv sync
 
+      - name: Install dependencies (SQLite)
+        if: matrix.db == 'sqlite'
+        run: uv sync
+
       - name: Install dependencies (Postgres)
         if: matrix.db == 'postgres'
         run: |
@@ -130,6 +134,14 @@ jobs:
       # (see qatrack/settings.py) - faster than a real file-based sqlite
       # db, and doubles as real-world coverage of that fallback itself,
       # on a genuinely different environment than any local dev machine.
+      # The separate "sqlite" matrix entry below covers the real,
+      # file-based sqlite3 backend instead - the two aren't redundant,
+      # since a real file-backed db exercises file I/O and on-disk
+      # locking behaviour the in-memory fallback never touches.
+
+      - name: Setup Database configuration (SQLite)
+        if: matrix.db == 'sqlite'
+        run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
 
       - name: Setup Database configuration (Postgres)
         if: matrix.db == 'postgres'
