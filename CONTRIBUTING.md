@@ -135,9 +135,12 @@ Please attempt your best effort at these guidelines, but don't be afraid if you 
 - Follow existing code style. The project uses [ruff](https://docs.astral.sh/ruff/)
   for linting, formatting, and import ordering:
   ```bash
-  uv run ruff check .    # lint
-  uv run ruff format .   # auto-format
+  uv run ruff check .                 # lint
+  uv run ruff format <files you changed>   # auto-format
   ```
+  Repo-wide `ruff format` hasn't been applied yet, so don't run it across the
+  whole codebase — that would surface a large, unrelated reformatting diff.
+  Scope it to the files you actually touched.
 - Write or update tests for every functional change. Tests live alongside the
   application code in `tests/` subdirectories. If you feel that your changes require testing you are unsure of how to implement, reach out. We are here to help
 - Keep commits focused. One logical change per commit makes review easier and history cleaner. PRs aggressively squash commits so lean towards being too clear. 
