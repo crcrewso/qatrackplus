@@ -193,8 +193,10 @@ uv run pre-commit run --all-files
 
 The primary, agent-safe way to run the suite is plain `pytest` — GUI
 (Selenium/browser) tests are skipped automatically, since they need a real
-browser (Chromium or Firefox) on the host, which most agent and CI
-environments won't have available:
+browser (Chromium or Firefox) on the host, which most agent sandboxes won't
+have available (this project's own CI does - see `.github/workflows/ci.yml`'s
+dedicated `selenium-tests`/`selenium-tests-windows` jobs, which run on
+GitHub-hosted runners that come with Chrome/Chromium/Firefox pre-installed):
 
 ```bash
 uv run pytest
