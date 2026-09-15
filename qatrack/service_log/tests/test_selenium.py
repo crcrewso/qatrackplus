@@ -103,3 +103,33 @@ class TestServiceEventForm(BaseQATests):
 
         se.refresh_from_db()
         assert se.problem_description == "Updated problem"
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_create_service_event_with_hours(self):
+        """Create a service event and fill in the Hours formset (user or
+        third-party time spent) - neither test in this class touches it
+        at all, despite the form permission gate
+        (user.has_perm('can_have_hours')) being real, tested logic
+        elsewhere in the non-Selenium suite."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_create_service_event_with_parts(self):
+        """Create a service event and record a part used, via the Parts
+        formset - untouched by any existing test in this class."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_create_service_event_with_rtsqa(self):
+        """Create a service event and link a Return to Service QA test
+        list/cycle via the RTS QA formset - untouched by any existing
+        test in this class (test_perform_and_initiate_se in
+        qa/tests/test_selenium.py exercises the *other* direction,
+        initiating a service event from a QC session, not this one)."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_delete_service_event(self):
+        """Delete a service event via the UI (se_delete) - no test in
+        this class exercises deletion at all."""
+        raise NotImplementedError

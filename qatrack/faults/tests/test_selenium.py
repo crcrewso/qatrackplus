@@ -129,3 +129,22 @@ class TestFaultForm(BaseQATests):
 
         fault.refresh_from_db()
         assert new_fault_type in fault.fault_types.all()
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_review_fault(self):
+        """Review a single fault via /faults/review/<pk>/ (review_fault)
+        - no test in this class touches the review workflow at all,
+        only create/edit."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_bulk_review_faults(self):
+        """Bulk-review multiple faults via /faults/review/ (bulk_review) -
+        untouched by any existing test in this class."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_delete_fault(self):
+        """Delete a fault via the UI (fault_delete) - no test in this
+        class exercises deletion at all."""
+        raise NotImplementedError

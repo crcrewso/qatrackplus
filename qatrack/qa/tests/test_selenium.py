@@ -949,6 +949,37 @@ class TestPerformQC(BaseQATests):
 
         assert models.AutoSave.objects.filter(pk=auto.pk).count() == 0
 
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_perform_boolean(self):
+        """Fill and submit a BOOLEAN-type test - models.BOOLEAN is never
+        exercised through the browser anywhere in this suite (setUp's
+        all_tests list wires up SIMPLE/COMPOSITE/DATE/DATETIME/
+        MULTIPLE_CHOICE/STRING/STRING_COMPOSITE, but not BOOLEAN)."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_perform_upload(self):
+        """Fill and submit an UPLOAD-type test via a real file input -
+        models.UPLOAD is never exercised through the browser anywhere in
+        this suite, despite qa.js's load_autosave() having dedicated
+        upload-handling logic (ti.set_value({'attachment_id': ...})) that
+        nothing currently tests."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_autosave_datetime_roundtrip(self):
+        """Type a date into id_work_started via the UI, let it autosave,
+        then assert the AutoSave.work_started value saved to the DB is
+        what was actually intended. test_load_autosave (fixed on this
+        branch) checks the *read* side of this same datetime-format bug
+        class - autosave_load()'s response correctly reaching the
+        rendered field - but nothing checks the *write* side: does typing
+        a date into the flatpickr-driven field and letting autosave() run
+        actually save the intended datetime, given the same
+        DATETIME_INPUT_FORMATS-index confusion that caused the read-side
+        bug could just as easily exist on this side too."""
+        raise NotImplementedError
+
 
 @pytest.mark.selenium
 class TestReviewQC(BaseQATests):
@@ -978,3 +1009,25 @@ class TestReviewQC(BaseQATests):
             self.click("confirm-update")
             self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
             assert models.TestListInstance.objects.unreviewed().count() == 0
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_review_reject(self):
+        """Reject/fail a test list instance during review, rather than
+        approving it - test_review_ok only exercises the approve path."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    @override_settings(REVIEW_BULK=False)
+    def test_review_non_bulk(self):
+        """Review a test list instance with REVIEW_BULK=False - the only
+        existing test in this class is decorated
+        @override_settings(REVIEW_BULK=True), so the non-bulk review UI
+        path has no coverage at all."""
+        raise NotImplementedError
+
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_unreview(self):
+        """Move an already-approved test list instance back to
+        unreviewed. Every existing test in this class only exercises
+        unreviewed -> reviewed; the reverse direction is untested."""
+        raise NotImplementedError
