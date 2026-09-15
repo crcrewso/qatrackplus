@@ -119,22 +119,22 @@ test-integration:
 	exit $$STATUS
 
 dumpdata:
-	python manage.py dumpdata \
+	uv run python manage.py dumpdata \
 		-v1 --indent=2 --natural-foreign --natural-primary \
 		--output qatrack-dump-$(DATETIME).json
 
 clearct:
-	python manage.py shell -c "from qatrack.qa.models import *; [m.objects.all().delete() for m in [ContentType, Tolerance, User]]"
+	uv run python manage.py shell -c "from qatrack.qa.models import *; [m.objects.all().delete() for m in [ContentType, Tolerance, User]]"
 
 flushdb:
-	python manage.py sqlflush | python manage.py dbshell
+	uv run python manage.py sqlflush | uv run python manage.py dbshell
 
 docs:
-	cd docs && make html
+	cd docs && uv run make html
 
 port ?= 8008
 docs-autobuild:
-	sphinx-autobuild docs docs/_build/html --port $(port)
+	uv run sphinx-autobuild docs docs/_build/html --port $(port)
 
 nginx.conf:
 	sudo sed 's/YOURUSERNAMEHERE/$(USER)/g' deploy/nginx/qatrack.conf > qatrack.conf
@@ -152,15 +152,15 @@ supervisor.conf:
 	sudo supervisorctl update
 
 schema:
-	python ./manage.py graph_models -a -g \
+	uv run python ./manage.py graph_models -a -g \
 		-X Issue,IssueStatus,IssueType,IssuePriority,IssueTag \
 		-o docs/developer/images/qatrack_schema_$(VERSION).svg
 
 run:
-	python ./manage.py runserver
+	uv run python ./manage.py runserver
 
 __cleardb__:
-	python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
+	uv run python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
 
 .PHONY: dev-quickstart cover cover-module cover-mo cover-qatrack test \
 	test_simple test-sqlite test-memory test-postgres test-mysql \

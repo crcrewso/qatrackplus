@@ -2,7 +2,7 @@ import pytest
 
 # The original idiom for excluding GUI tests, predating --run-selenium.
 # Kept fully working (see pytest_collection_modifyitems below) but
-# deprecated as of 4.1, for removal in 4.2: it needs quoting on every
+# deprecated as of 4.0, for removal in 4.2: it needs quoting on every
 # shell because of the space, when plain `pytest` now does the same
 # thing with nothing to type at all.
 _DEPRECATED_EXCLUDE_MARKEXPR = 'not selenium'
