@@ -71,6 +71,8 @@ issues.
     may affect site performance and security.
 
 
+.. _allowed_hosts:
+
 Allowed Host Setting
 ....................
 
@@ -86,6 +88,38 @@ On Windows using CherryPy/IIS (or if you are running QATrack+ behind a reverse p
 .. code-block:: python
 
     ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
+.. _csrf_trusted_origins:
+
+CSRF Trusted Origins Setting
+............................
+
+Django 4.0+ requires the origins your users submit forms from to be listed in
+``CSRF_TRUSTED_ORIGINS``, **including the scheme**. If this is not set
+correctly, logging in or submitting any form fails with *"CSRF verification
+failed. Request aborted."*
+
+.. code-block:: python
+
+    CSRF_TRUSTED_ORIGINS = ['https://qatrack.yourhospital.ca']
+
+    # more than one name/address, or both schemes, is fine:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://52.123.4.9',
+        'https://52.123.4.9',
+    ]
+
+Unlike ``ALLOWED_HOSTS`` a bare hostname or IP is *not* accepted here - an
+entry without ``http://`` or ``https://`` in front of it will be rejected at
+startup.
+
+.. note::
+
+    In a Docker deployment this is set from the ``CSRF_TRUSTED_ORIGINS``
+    environment variable instead of ``local_settings.py`` - a comma-separated
+    list. See :ref:`the Docker environment variables <docker_env>` and
+    ``deploy/docker/.env.example``.
+
 
 HTTP or HTTPS Setting
 .....................

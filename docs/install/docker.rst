@@ -113,6 +113,54 @@ the following:
     cd qatrackplus
     git checkout v4.0.0  # to check out a stable, released version
 
+
+.. _docker_env:
+
+Environment variables
+~~~~~~~~~~~~~~~~~~~~~
+
+Unlike the Linux and Windows install methods, a Docker deployment is not
+configured through ``qatrack/local_settings.py``. It reads its settings from
+environment variables instead, which ``docker-compose`` picks up from a
+``.env`` file in ``deploy/docker``. Copy the supplied example and edit it
+before your first build:
+
+.. code-block:: console
+
+    cd deploy/docker
+    cp .env.example .env
+
+The settings it contains:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Variable
+     - Purpose
+   * - ``POSTGRES_USER``, ``POSTGRES_PASSWORD``, ``POSTGRES_DB``
+     - Credentials for the bundled PostgreSQL container. Change the password
+       before deploying anywhere other than your own workstation.
+   * - ``USE_DOCKER``
+     - Leave set to ``true``. This is what tells ``qatrack/settings.py`` to
+       configure itself from the environment rather than importing
+       ``local_settings.py``.
+   * - ``ALLOWED_HOSTS``
+     - Comma-separated hostnames/IPs you will browse to. Defaults to
+       ``localhost,127.0.0.1``. A wildcard (``*``) accepts any ``Host``
+       header and is not safe for a real deployment. See
+       :ref:`the ALLOWED_HOSTS setting <allowed_hosts>`.
+   * - ``CSRF_TRUSTED_ORIGINS``
+     - Comma-separated origins **including the scheme**, e.g.
+       ``https://my-server,http://my-server``. Required by Django 4.0+ or
+       logins and other form submissions fail with *"CSRF verification
+       failed"*. If you leave it unset it is derived from ``ALLOWED_HOSTS``
+       by prefixing each entry with both ``http://`` and ``https://``
+       (``*`` is skipped). See :ref:`csrf_trusted_origins`.
+
+Installation
+~~~~~~~~~~~~
+
 To run any `docker compose` commands you need to be within the
 `qatrackplus\\deploy\\docker` directory. So lets change to there now:
 
