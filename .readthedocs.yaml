@@ -12,12 +12,16 @@ build:
   jobs: 
     pre_create_environment:
       - asdf plugin add uv
-      - asdf install uv latest
-      - asdf global uv latest
+      # Pinned rather than `latest`: uv's resolver behaviour changes between
+      # releases, and an unpinned docs toolchain can start failing (or start
+      # resolving differently) with no change on our side. Keep in step with
+      # the `version:` pinned for setup-uv in .github/workflows/ci.yml.
+      - asdf install uv 0.12.5
+      - asdf global uv 0.12.5
     create_environment:
       - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
     install:
-      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --frozen --group dev
+      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --locked --group dev
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:

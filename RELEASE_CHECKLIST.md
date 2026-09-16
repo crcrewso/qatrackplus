@@ -48,7 +48,32 @@
 - [ ] Bump `VERSION` in `Makefile` — this currently drifts out of sync with
       `pyproject.toml` (e.g. `3.1.0` vs `4.0.0` as of this writing).
 
+## Dependencies
+
+- [ ] Regenerate the lockfile and commit it: `uv lock`.
+      Bumping `version` in `pyproject.toml` changes the project's own entry
+      in `uv.lock`, so the lock is stale the moment the version bump above
+      is made. It must be regenerated and committed as part of the release,
+      not left to whoever opens the next PR.
+- [ ] Confirm the lockfile is in sync: `uv lock --check` exits 0.
+      CI, the Docker image build and the Read the Docs build all pass
+      `--locked`, so a stale `uv.lock` fails all three rather than silently
+      resolving something different. Checking here means finding that out
+      before tagging instead of after.
+- [ ] Review the dependency diff in `uv.lock` for anything unexpected —
+      `git diff uv.lock` — particularly major-version jumps in the
+      scientific stack (numpy, pandas, scipy, matplotlib, pylinac), which
+      have historically needed code changes rather than just a bump.
+- [ ] Consider whether the pinned tool versions need moving on: the `uv`
+      version is pinned in three places that are meant to agree —
+      `version:` on `setup-uv` in `.github/workflows/ci.yml`, the `asdf
+      install uv` lines in `.readthedocs.yaml`, and the
+      `ghcr.io/astral-sh/uv` tag in `deploy/docker/django/Dockerfile`.
+
 ## Testing
 
 - [ ] Full test suite passes: `uv run pytest`.
-- [ ] Migrations check clean: `uv run python manage.py makemigrations --check`.
+- [ ] Migrations check clean: `uv run python manage.py makemigrations --dry-run`.
+      Use the plain `--dry-run`. With `--check` the command exits 1 and
+      prints *nothing*, which reads exactly like "no migrations needed" —
+      that misreading is what upstream issue #855 reports.
