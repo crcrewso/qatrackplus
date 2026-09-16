@@ -425,14 +425,32 @@ python manage.py dumpdata -v1 --indent=2 --natural-foreign --natural-primary --o
 '''
 
 [tool.poe.tasks.clearct]
-shell = '''
-python manage.py shell -c "from qatrack.qa.models import *; [m.objects.all().delete() for m in [ContentType, Tolerance, User]]"
-'''
+help = "DESTRUCTIVE: delete all ContentType, Tolerance and User records"
+# A `cmd` task, so poe runs it directly with no shell involved at all -
+# nothing here needs one, and avoiding it sidesteps the whole question of
+# which shell exists on the host. Verified that the quoted -c payload
+# survives poe's argument splitting intact.
+cmd = 'python manage.py shell -c "from qatrack.qa.models import *; [m.objects.all().delete() for m in [ContentType, Tolerance, User]]"'
 
 [tool.poe.tasks.flushdb]
-shell = '''
-python manage.py sqlflush | python manage.py dbshell
-'''
+help = "DESTRUCTIVE: delete all data from every table"
+# This is the one place the poe tasks deliberately DIVERGE from the
+# Makefile, rather than mirroring it. `make flushdb` runs
+#
+#     python manage.py sqlflush | python manage.py dbshell
+#
+# which is broken in practice: `dbshell` execs the database's own client
+# binary, so on sqlite it needs the `sqlite3` CLI on PATH. Without it the
+# pipeline dies, and - because the failure happens in the *consumer* - what
+# the developer sees is a BrokenPipeError traceback out of the producer,
+# not Django's actual "You appear not to have the 'sqlite3' program
+# installed" message. Confirmed on this machine, where sqlite3 is absent.
+#
+# `manage.py flush` is Django's own built-in for this and needs no external
+# binary, so it works on every backend and every platform, with no pipe and
+# therefore no shell. Behaviour differs slightly and for the better: flush
+# also resets sequences and re-runs post-migrate handlers.
+cmd = "python manage.py flush --noinput"
 
 [tool.poe.tasks.docs]
 help = "Build the Sphinx docs (output under docs/_build/html)"
@@ -510,6 +528,11 @@ cmd = "python ./manage.py runserver"
 # conditional or a loop, so a PowerShell body would have to be written as
 # single-line-with-semicolons to work, which is not reviewable. Python is
 # also one body instead of two, with no platform switch to keep in sync.
+#
+# Shell support: bash on Linux/macOS, pwsh on Windows. cmd.exe is
+# deliberately NOT supported - a project decision, not an oversight. Tasks
+# that genuinely need a shell (a pipe, say) therefore declare
+# `interpreter = ["bash", "pwsh"]` and may assume ordinary shell syntax.
 #
 # NOTE: verified on Linux only. The Python bodies use nothing
 # platform-specific (pathlib, shutil, subprocess, sys.executable), but
