@@ -12,10 +12,25 @@ WORKDIR /usr/src/qatrackplus
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY pyproject.toml README.md ./
+# Pinned to match the uv version CI and Read the Docs use - see the
+# `version:` input on setup-uv in .github/workflows/ci.yml.
+COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /usr/local/bin/uv
+
+COPY pyproject.toml uv.lock README.md ./
 COPY qatrack ./qatrack
-# Install dependencies
-RUN pip install ".[docker,postgres]"
+
+# Install dependencies from the committed lockfile rather than resolving
+# them fresh at build time. Previously this ran `pip install ".[docker,
+# postgres]"` against pyproject.toml alone - uv.lock was not even copied
+# into the image - so the deployed artifact was the one thing in this
+# project built from an unpinned resolve. Two builds of the same commit
+# could ship different dependency versions, and nothing tested by CI
+# (which does use the lockfile) necessarily matched what shipped.
+#
+# `uv export --locked` fails if uv.lock has drifted from pyproject.toml,
+# matching the CI behaviour. The exported file carries hashes for every
+# package, so pip verifies each download against the lockfile too.
+RUN uv export --locked --no-dev --extra docker --extra postgres         --no-emit-project --format requirements-txt -o /tmp/requirements.txt     && pip install --no-cache-dir -r /tmp/requirements.txt     && pip install --no-cache-dir --no-deps .     && rm /tmp/requirements.txt
 
 # Runtime stage
 FROM python:3.12-slim-bookworm
