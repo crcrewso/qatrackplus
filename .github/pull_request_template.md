@@ -33,11 +33,17 @@ _Confirm which branch this targets (e.g. master)._
 ### Coder Tasks
 
 - [ ] Rebased / merged `develop` branch; no merge conflicts.
-- [ ] `uv run pre-commit run --all-files` passes (ruff lint, ruff-format, django-upgrade).
-  - `uv run ruff check . --fix` to help resolve linting errors
+- [ ] `uv run pre-commit run --all-files` passes 
+- This contains ruff lint check, django-upgrade (4.2), django system check, plus the yaml/toml/large-file/merge-conflict/debug-statement checks).
+- `uv run ruff check . --fix` to help resolve linting errors
 - [ ] `uv run python -Wd manage.py check` reviewed for new deprecation warnings.
 - [ ] `uv run pytest` full test suite passes.
-- [ ] `uv run python manage.py makemigrations --check --dry-run` if migrations are found, change should be marked Breaking
+- [ ] `uv run python manage.py makemigrations --dry-run`
+- This requires a working local_settings.py and connected db, including:
+  - uv run python manage.py migrate, createcachetable, collectstatic, and createsuperuser so that makemigrations doesnt recreate existing migrations (updated fix to be published before 4.1)
+- if it reports any migrations, they belong in this PR and the change should be marked Breaking.
+  (Use the plain `--dry-run`, not `--check --dry-run`: with `--check` the command
+  exits 1 and prints *nothing*, which reads exactly like "no migrations needed".)
 - [ ] Docker builds succeed if touched.
 - [ ] Docs updated under `docs/` if behaviour, settings, or APIs changed.
 - [ ] `release_notes.md` updated if user-facing.
