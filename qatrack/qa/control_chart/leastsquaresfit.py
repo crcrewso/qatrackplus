@@ -45,7 +45,7 @@ def gauss_pdf(x, norm, mu, sigma):
     """
 
     if any(np.isnan([norm, mu, sigma])) or any(np.isnan(x)):
-        return np.NaN
+        return np.nan
 
     GaussPdf = norm * scipy.stats.norm.pdf(x, mu, sigma)
     return GaussPdf

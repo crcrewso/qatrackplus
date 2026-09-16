@@ -18,8 +18,10 @@ NP_INT_TYPES = (
     np.uint64,
 )
 
+# np.float_ was removed in numpy 2.0. It was only ever an alias of
+# np.float64, which is already listed below, so nothing is lost by
+# dropping it - this tuple is identical under numpy 1 and 2.
 NP_FLOAT_TYPES = (
-    np.float_,
     np.float16,
     np.float32,
     np.float64,
