@@ -605,6 +605,74 @@ For more information on using pytest, refer to the `pytest documentation
         make cover
 
 
+Areas with no test coverage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some parts of QATrack+ are not covered by the suite, and cannot currently be
+covered without work that has not been done yet. They are listed here so
+that a gap is not mistaken for "this is tested and passing".
+
+**LDAP / Active Directory authentication.** QATrack+ supports authenticating
+against LDAP and Active Directory through the ``AD_LDAP_*`` settings in
+``qatrack/settings.py`` (see :doc:`/install/authentication_backends` for how
+to configure it), and this is how a large share of clinical deployments log
+their users in. There is **no test coverage for any of it**, anywhere in the
+suite, and no supported way to exercise it:
+
+* no fixtures or mock directory,
+* no containerised directory server for local development,
+* nothing in CI - the ``ldap`` extra is not installed in any CI job, so the
+  three tests in ``qatrack/accounts/tests/test_accounts.py`` that need the
+  ``ldap`` module are skipped rather than run,
+* no documented manual test procedure.
+
+In practice this means a change to the authentication backends can only be
+verified by hand, against a real directory server that a contributor must
+supply themselves. Treat changes in that area with corresponding caution,
+and say so explicitly in the pull request.
+
+The likely shape of a fix, if someone takes it on, is a docker-compose
+service running a directory server (``osixia/openldap`` or similar) plus a
+matching ``local_test_settings`` template, mirroring how the per-engine
+database templates under ``deploy/dev/`` already work. That would also let
+CI install the ``ldap`` extra and actually run those three skipped tests.
+
+
+Notes on running the Selenium tests in parallel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Not implemented - recorded here so the groundwork is not re-derived.
+
+The suite runs serially and takes roughly nine minutes locally. ``pytest-xdist``
+would parallelise it, and the architecture is more amenable than it looks,
+largely because the tests now run headless:
+
+* **Database** - each xdist worker is a separate process, and pytest-django
+  gives each its own test database. The in-memory SQLite used in CI is
+  naturally per-process.
+* **Live server port** - ``LiveServerTestCase`` already binds a free port per
+  instance.
+* **The single-threaded server** - ``LiveServerSingleThread`` constrains
+  concurrency *within* one server, not across processes, so it is not a
+  blocker.
+* **Display contention** - this is the one headless genuinely solves.
+  Visible browsers compete for focus and window placement, which makes them
+  effectively unparallelisable; headless browsers have neither.
+
+The real blocker is shared filesystem state: media and upload directories,
+and any file-backed database path, would collide between workers and need
+per-worker temporary directories.
+
+``--dist loadscope`` is the distribution mode to use, so all tests in a class
+stay on one worker and match the existing per-class browser lifecycle.
+
+**Sequencing matters.** The remaining ``time.sleep()`` calls should be
+replaced with proper waits *before* any of this is attempted. Parallelism
+multiplies flakiness rather than curing it, and the Chromium timing flakes
+documented in ``setUpClass`` would become considerably harder to diagnose
+spread across several workers.
+
+
 Customizing Organization Logos
 ------------------------------
 
