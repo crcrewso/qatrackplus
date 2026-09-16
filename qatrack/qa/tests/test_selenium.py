@@ -327,9 +327,10 @@ class LiveQATests(BaseQATests):
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_name')))
         self.driver.find_element(By.ID, 'id_name').send_keys(objects['Frequency']['name'])
         self.driver.find_element(By.CLASS_NAME, "recurrence-label").click()
-        self.driver.find_elements(By.CSS_SELECTOR, ".weekly td")[0].click()
-        self.driver.find_elements(By.CSS_SELECTOR, ".weekly td")[2].click()
-        self.driver.find_elements(By.CSS_SELECTOR, ".weekly td")[4].click()
+        cells = self.wait_for_elements(By.CSS_SELECTOR, ".weekly td", minimum=5)
+        cells[0].click()
+        cells[2].click()
+        cells[4].click()
         self.driver.find_element(By.ID, 'id_window_end').send_keys(objects['Frequency']['window_end'])
         self.driver.find_element(By.NAME, '_save').click()
         self.wait_for_success()
@@ -642,7 +643,7 @@ class TestPerformQC(BaseQATests):
 
         self.login()
         self.open(self.url)
-        inputs = self.driver.find_elements(By.CLASS_NAME, "qa-input")[:3]
+        inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
         inputs[0].send_keys(1)
         inputs[1].send_keys(2)
         inputs[1].send_keys(Keys.TAB)
@@ -657,7 +658,7 @@ class TestPerformQC(BaseQATests):
 
         self.click_by_css_selector("body")
 
-        option = self.driver.find_elements(By.CSS_SELECTOR, "select.qa-input option")[-1]
+        option = self.wait_for_elements(By.CSS_SELECTOR, "select.qa-input option")[-1]
         option.click()
 
         self.driver.find_element(By.CSS_SELECTOR, ".qa-string .qa-input").send_keys("test")
@@ -667,7 +668,7 @@ class TestPerformQC(BaseQATests):
         """Ensure that no failed tests on load and 3 "NO TOL" tests present"""
 
         self.fill_testlist()
-        inputs = self.driver.find_elements(By.CLASS_NAME, "qa-input")[:3]
+        inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
 
         assert int(float(inputs[2].get_attribute("value"))) == 5
         assert models.TestListInstance.objects.count() == 0
@@ -703,7 +704,7 @@ class TestPerformQC(BaseQATests):
         )
         self.group.permissions.add(perm)
         self.fill_testlist()
-        inputs = self.driver.find_elements(By.CLASS_NAME, "qa-input")[:3]
+        inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
 
         assert int(float(inputs[2].get_attribute("value"))) == 5
         assert models.TestListInstance.objects.count() == 0
@@ -729,9 +730,9 @@ class TestPerformQC(BaseQATests):
     def test_comment(self):
         """ tests present"""
         self.fill_testlist()
-        self.driver.find_elements(By.CSS_SELECTOR, ".revealcomment")[0].click()
+        self.wait_for_elements(By.CSS_SELECTOR, ".revealcomment")[0].click()
         self.send_keys("id_form-0-comment", "testticomment")
-        self.driver.find_elements(By.CSS_SELECTOR, ".revealcomment")[0].click()
+        self.wait_for_elements(By.CSS_SELECTOR, ".revealcomment")[0].click()
 
         self.click("submit-qa")
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
@@ -793,7 +794,7 @@ class TestPerformQC(BaseQATests):
                 self.set_viewport_size(width, height)
                 self.fill_testlist()
 
-                inputs = self.driver.find_elements(By.CLASS_NAME, "qa-input")[:3]
+                inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
                 assert int(float(inputs[2].get_attribute("value"))) == 5
 
                 submit = self.driver.find_element(By.ID, "submit-qa")
@@ -844,7 +845,7 @@ class TestPerformQC(BaseQATests):
         self.login()
         self.open(self.url)
         time.sleep(0.2)
-        inputs = self.driver.find_elements(By.CLASS_NAME, "qa-input")[:3]
+        inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
         inputs[0].send_keys(1)
         assert models.AutoSave.objects.count() == 0
         time.sleep(1)
@@ -891,7 +892,7 @@ class TestPerformQC(BaseQATests):
         self.open(url + "?autosave_id=%d&day=%d" % (auto.pk, auto.day + 1))
         time.sleep(0.2)
 
-        inputs = self.driver.find_elements(By.CLASS_NAME, "qa-input")[:3]
+        inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
         title = "Perform %s : day 2" % utc.unit.name
         assert title in [el.text for el in self.driver.find_elements(By.CLASS_NAME, "box-title")]
         assert float(inputs[0].get_attribute("value")) == 1
@@ -1001,7 +1002,7 @@ class TestReviewQC(BaseQATests):
             self.login()
             self.open(self.url)
             time.sleep(0.1)
-            self.driver.find_elements(By.CLASS_NAME, "test-selected-toggle")[0].click()
+            self.wait_for_elements(By.CLASS_NAME, "test-selected-toggle")[0].click()
             self.select_by_text("bulk-status", "Approved")
             self.click("submit-review")
             assert models.TestListInstance.objects.unreviewed().count() == 1

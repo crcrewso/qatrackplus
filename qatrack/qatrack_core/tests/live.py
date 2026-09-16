@@ -179,13 +179,23 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         # GitHub Actions (Linux Chromium job) with genuine timeouts/
         # IndexErrors from elements (qa-input, the select2 report-type
         # container) not yet rendered at 5s, while the same run's Firefox
-        # job and this same suite's other Chromium-rendered elements passed
-        # comfortably - a JS/render-timing gap between the two engines, not
-        # a broken wait. 10s gives Chromium the same headroom Firefox
-        # already had in practice.
-        page_load_timeout = 10 if browser_setting == 'chromium' else 5
-        cls.driver.set_page_load_timeout(page_load_timeout)
-        cls.driver.implicitly_wait(page_load_timeout)
+        # job passed comfortably - a JS/render-timing gap between the two
+        # engines, not a broken wait. Note this is NOT simply "Chromium is
+        # slower": the Chromium job finishes the suite faster than Firefox
+        # (536s vs 672s on the same run). It renders these particular
+        # JS-heavy pages less predictably, so a handful of waits out of ~37
+        # tests land just over the line, and a different handful fails on
+        # each run.
+        #
+        # cls.timeout is deliberately the single source for all three
+        # waits below. It previously was not: page load and the implicit
+        # wait were raised while cls.wait - which is what nearly every
+        # self.wait.until() in the suite actually uses - stayed at a
+        # hard-coded 5s, so the raise had no effect on the majority of the
+        # CI failures it was meant to fix.
+        cls.timeout = 10 if browser_setting == 'chromium' else 5
+        cls.driver.set_page_load_timeout(cls.timeout)
+        cls.driver.implicitly_wait(cls.timeout)
 
         cls.driver.set_window_position(0, 0)
         cls.driver.set_window_size(1920, 1080)
@@ -211,7 +221,7 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
 
         cls.set_viewport_size(1920, 1080)
 
-        cls.wait = WebDriverWait(cls.driver, 5)
+        cls.wait = WebDriverWait(cls.driver, cls.timeout)
 
         super().setUpClass()
 
@@ -278,6 +288,27 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         self.wait.until(
             e_c.presence_of_element_located((By.XPATH, '//ul[@class = "messagelist"]/li[@class = "success"]'))
         )
+
+    def wait_for_elements(self, by, value, minimum=1):
+        """Wait until at least `minimum` matching elements exist, then return them.
+
+        driver.find_elements() is not a safe thing to index into. The
+        implicit wait makes it return as soon as *one* element matches, so
+        a page still rendering can hand back a shorter list than the test
+        expects - or, if nothing has rendered yet, an empty one. Indexing
+        that then raises IndexError from a line that looks nothing like a
+        timeout, which is exactly how the Chromium CI failures presented
+        (`inputs[0]` on an empty qa-input list).
+
+        Waiting on the count instead fails as a TimeoutException naming the
+        selector, which is both honest about what went wrong and bounded by
+        the same browser-aware timeout as every other wait in this suite.
+        """
+        self.wait.until(
+            lambda d: len(d.find_elements(by, value)) >= minimum,
+            "expected at least %d element(s) matching %s=%r" % (minimum, by, value),
+        )
+        return self.driver.find_elements(by, value)
 
     def scroll_into_view(self, el_id):
         self.wait.until(e_c.presence_of_element_located((By.ID, el_id)))
