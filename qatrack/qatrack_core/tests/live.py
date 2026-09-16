@@ -10,7 +10,11 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.servers.basehttp import WSGIServer
 from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    StaleElementReferenceException,
+    WebDriverException,
+)
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.command import Command
@@ -52,7 +56,13 @@ def WebElement_click(self):
     later versions of webdrivers that won't click on an element if it
     is not in view
     """
-    self.parent.execute_script("arguments[0].scrollIntoView();", self)
+    # block: 'center' rather than a bare scrollIntoView(). The default
+    # aligns the element flush with the top of the viewport, which on these
+    # pages puts it directly underneath the fixed navbar - the click then
+    # fails with "element click intercepted ... <a class='dropdown-toggle'>
+    # obscures it" at a y-coordinate of ~13px. Centring it keeps the element
+    # clear of both the header and any sticky footer.
+    self.parent.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});", self)
     return self._execute(Command.CLICK_ELEMENT)
 
 
@@ -64,7 +74,13 @@ orig_send_keys = WebElement.send_keys
 @retry_if_exception(WebDriverException, 5, sleep_time=1)  # noqa: E302
 def WebElement_send_keys(self, keys):
     """Monky patch send_keys to ensure element is in view"""
-    self.parent.execute_script("arguments[0].scrollIntoView();", self)
+    # block: 'center' rather than a bare scrollIntoView(). The default
+    # aligns the element flush with the top of the viewport, which on these
+    # pages puts it directly underneath the fixed navbar - the click then
+    # fails with "element click intercepted ... <a class='dropdown-toggle'>
+    # obscures it" at a y-coordinate of ~13px. Centring it keeps the element
+    # clear of both the header and any sticky footer.
+    self.parent.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});", self)
     return orig_send_keys(self, keys)
 
 
@@ -159,10 +175,27 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
 
         orig_find_element = cls.driver.find_element
 
-        @retry_if_exception(WebDriverException, 2, sleep_time=1)
         def WebElement_find_element(*args, **kwargs):
-            """Monky patch find element to allow retries"""
-            return orig_find_element(*args, **kwargs)
+            """Resolve find_element through an explicit wait.
+
+            The implicit wait is switched off below, so this is what
+            replaces it. Every existing `driver.find_element(...)` call
+            site keeps the same behaviour - block until the element turns
+            up, up to cls.timeout - but now via a single explicit wait
+            rather than a driver-level implicit one layered underneath
+            every other wait in the suite.
+
+            WebDriverWait ignores NoSuchElementException while polling, so
+            this retries until the element appears; StaleElementReference
+            is added because a page still settling can hand back an element
+            that goes stale between locating and returning it, which is
+            what the retry decorator here used to paper over.
+            """
+            return WebDriverWait(
+                cls.driver,
+                cls.timeout,
+                ignored_exceptions=(NoSuchElementException, StaleElementReferenceException),
+            ).until(lambda d: orig_find_element(*args, **kwargs))
 
         cls.driver.find_element = WebElement_find_element
 
@@ -195,7 +228,21 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         # CI failures it was meant to fix.
         cls.timeout = 10 if browser_setting == 'chromium' else 5
         cls.driver.set_page_load_timeout(cls.timeout)
-        cls.driver.implicitly_wait(cls.timeout)
+
+        # Implicit wait deliberately OFF. Selenium's own documentation warns
+        # against combining it with explicit waits, because the two compound:
+        # the implicit wait applies inside *each poll* of a WebDriverWait, so
+        # a nominal cls.timeout wait could take far longer than cls.timeout to
+        # fail, unpredictably. That combination was this suite's main source
+        # of both slowness and flakiness.
+        #
+        # Nothing is lost by switching it off: find_element is patched above
+        # to resolve through an explicit wait with the same timeout, so the
+        # ~100 find_element call sites behave as before. What changes is that
+        # find_elements() - which is used to assert *absence* - now returns
+        # immediately instead of blocking for the full timeout before
+        # confirming a list is empty.
+        cls.driver.implicitly_wait(0)
 
         cls.driver.set_window_position(0, 0)
         cls.driver.set_window_size(1920, 1080)
@@ -335,18 +382,65 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         except:  # noqa: E722
             pass
 
+    def _dismiss_open_datepicker(self):
+        """Close an open flatpickr calendar if one is covering the page.
+
+        flatpickr renders its calendar as an overlay, and it stays open
+        until something dismisses it. Any click that lands underneath it
+        fails with "element click intercepted", naming a .flatpickr-day as
+        the overlaying element.
+
+        This used to go unnoticed: the select2 option lookup fetched a
+        possibly-empty list and looped over it, so a dropdown that never
+        opened silently selected nothing and the test carried on. Waiting
+        on the options properly turned that into a visible failure, which
+        is how this surfaced.
+
+        Retrying does not help - WebElement.click already retries for 5s
+        and the calendar outlives that - so dismiss it explicitly.
+        """
+        if self.driver.find_elements(By.CSS_SELECTOR, ".flatpickr-calendar.open"):
+            # Click the page body rather than sending ESCAPE. flatpickr
+            # treats an outside click as "done, keep what is selected",
+            # whereas ESCAPE discards the selection - which broke
+            # test_perform_and_initiate_se, where the test deliberately
+            # opens the picker and clicks .today: the date was cleared, the
+            # form failed validation, and no service event was created.
+            self.driver.execute_script("document.body.click();")
+            WebDriverWait(self.driver, self.timeout).until(
+                lambda d: not d.find_elements(By.CSS_SELECTOR, ".flatpickr-calendar.open")
+            )
+
+    def _select2_container(self, el_id):
+        """Return the select2 container for el_id, or None if it isn't one.
+
+        Uses find_elements rather than find_element-inside-a-try: with the
+        implicit wait off, find_elements returns immediately, so probing a
+        plain <select> costs nothing. The old form paid a full cls.timeout
+        on every non-select2 element before the exception let it fall
+        through to the plain-select path.
+        """
+        found = self.driver.find_elements(By.ID, "select2-%s-container" % el_id)
+        return found[0] if found else None
+
+    def _select2_options(self):
+        """Wait for the select2 dropdown options to render, then return them."""
+        return self.wait_for_elements(By.CLASS_NAME, "select2-results__option")
+
     def select_by_index(self, el_id, index):
         """Set force_select2= True when selecting a 0 index for a select2 element"""
 
         self.scroll_into_view(el_id)
-        try:
-            # select2?
-            sel2 = self.driver.find_element(By.ID, "select2-%s-container" % el_id)
+        sel2 = self._select2_container(el_id)
+        if sel2 is not None:
+            self._dismiss_open_datepicker()
             sel2.click()
-            time.sleep(0.1)
-            els = self.driver.find_elements(By.CLASS_NAME, "select2-results__option")
-            els[index].click()
-        except:  # noqa: E722
+            # Waiting on the options rendering, rather than sleeping a fixed
+            # 0.1s and hoping. The old form also swallowed the IndexError
+            # from an empty list via a bare `except:`, silently falling
+            # through to the plain-select path on a select2 element.
+            self._select2_options()[index].click()
+        else:
             select_el = self.driver.find_element(By.ID, el_id)
             select = Select(select_el)
             try:
@@ -374,10 +468,11 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                     raise Exception("Option with text '%s' not found" % text)
         except WebDriverException:
 
+            self._dismiss_open_datepicker()
             sel2 = self.driver.find_element(By.ID, "select2-%s-container" % el_id)
             sel2.click()
 
-            els = self.driver.find_elements(By.CLASS_NAME, "select2-results__option")
+            els = self._select2_options()
             for el in els:
                 if el.text == text:
                     el.click()
@@ -402,10 +497,11 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                     raise Exception("Option with value '%s' not found" % val)
         except WebDriverException:
 
+            self._dismiss_open_datepicker()
             sel2 = self.driver.find_element(By.ID, "select2-%s-container" % el_id)
             sel2.click()
 
-            els = self.driver.find_elements(By.CLASS_NAME, "select2-results__option")
+            els = self._select2_options()
             for el in els:
                 if el.get_attribute('id').endswith(val):
                     el.click()

@@ -894,7 +894,10 @@ class TestPerformQC(BaseQATests):
 
         inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
         title = "Perform %s : day 2" % utc.unit.name
-        assert title in [el.text for el in self.driver.find_elements(By.CLASS_NAME, "box-title")]
+        # wait_for_elements, not find_elements: with the implicit wait off,
+        # find_elements returns whatever has rendered so far, which on a
+        # still-settling page can be an empty list.
+        assert title in [el.text for el in self.wait_for_elements(By.CLASS_NAME, "box-title")]
         assert float(inputs[0].get_attribute("value")) == 1
         # id_work_started/id_work_completed are populated here via flatpickr's
         # setDate(), which always redisplays using FLATPICKR_DATETIME_FMT
