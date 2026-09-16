@@ -29,11 +29,12 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
       - name: Setup Database configuration
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
       - name: Run pre-commit
-        run: uvx pre-commit run --all-files
+        run: uvx pre-commit@4.6.0 run --all-files
 
   requirements:
     name: Requirements Test
@@ -47,9 +48,10 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
       - name: Sync dependencies
-        run: uv sync --all-extras
+        run: uv sync --all-extras --locked
       - name: Check dependencies
         run: uv pip check
 
@@ -98,28 +100,29 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies (Memory SQLite)
         if: matrix.db == 'memory'
-        run: uv sync
+        run: uv sync --locked
 
       - name: Install dependencies (SQLite)
         if: matrix.db == 'sqlite'
-        run: uv sync
+        run: uv sync --locked
 
       - name: Install dependencies (Postgres)
         if: matrix.db == 'postgres'
         run: |
           sudo apt-get update && sudo apt-get install -y libpq-dev
-          uv sync --extra postgres
+          uv sync --extra postgres --locked
 
       - name: Install dependencies (MySQL)
         if: matrix.db == 'mysql'
         run: |
           sudo apt-get update && sudo apt-get install -y libmysqlclient-dev
-          uv sync --extra mysql
+          uv sync --extra mysql --locked
 
       - name: Activate virtual environment
         # Puts .venv/bin on PATH for every later step in this job, so they
@@ -179,16 +182,17 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
           python-version: "3.12"
           
       - name: Install dependencies (SQLite)
         if: matrix.db == 'sqlite'
-        run: uv sync --extra win
+        run: uv sync --extra win --locked
         
       - name: Install dependencies (MSSQL)
         if: matrix.db == 'mssql'
-        run: uv sync --extra win --extra mssql
+        run: uv sync --extra win --extra mssql --locked
         
       - name: Setup Database configuration (SQLite)
         if: matrix.db == 'sqlite'
@@ -337,11 +341,12 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Activate virtual environment
         run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
@@ -374,11 +379,12 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync --extra win
+        run: uv sync --extra win --locked
 
       # No local_settings.py here either: same in-memory SQLite fallback as
       # the Linux jobs. Chrome/Chromium (and Firefox and Edge) come
