@@ -229,6 +229,59 @@ quote-style = "single"
 # `poe <task>` from inside the repo. `poe` auto-detects this project's
 # `.venv` the same way `uv run` does, so tasks below call `pytest`/`python`
 # directly rather than re-prefixing with `uv run`.
+#
+# ---------------------------------------------------------------------------
+# If Make is retired and poe becomes the only task runner, these need doing
+# first. None of them matter while the Makefile is still the primary runner
+# and poe only mirrors it.
+#
+# 1. Windows. This is the sharp one, because Windows support is the main
+#    argument for replacing Make - and these tasks do not currently deliver
+#    it. Seven of them (dev-quickstart, _test-engine, test-integration,
+#    dumpdata, docs, nginx-conf, supervisor-conf) use POSIX-only shell:
+#    `cp -n`, `mkdir -p`, `[ -f ... ]`, `mv -f`, `rm -f`, `$?`, `$(date ...)`,
+#    `sudo`. poe defaults `shell` tasks to bash/posix and, on Windows with no
+#    other interpreter configured, fails with "Installing Git Bash or using
+#    WSL should fix this" - which is the same "no native Windows story" the
+#    Makefile is criticised for above. Fix before relying on it: set
+#    `interpreter = "python"` on those tasks and port the logic to stdlib
+#    (shutil.copy/os.makedirs/pathlib), which is genuinely cross-platform;
+#    `interpreter = ["pwsh", "bash"]` is also supported if a PowerShell
+#    rewrite is preferred. nginx-conf/supervisor-conf are Ubuntu-and-sudo
+#    only by nature and should just be marked as such rather than ported.
+#
+# 2. Extra pytest args. `make test args="-k foo"` has no equivalent here for
+#    any task declaring a named arg - poe silently drops `--`-separated
+#    dash-prefixed tokens (see the note on _test-engine below). Retiring Make
+#    would make that a real regression rather than a documented gap. The way
+#    out is to drop the named `--engine` arg and define the five engine tasks
+#    independently, so nothing on the path declares a named arg.
+#
+# 3. VERSION is currently written in three places: `VERSION` in the Makefile,
+#    `version` under [project] above, and VERSION in [tool.poe.env] below.
+#    The release checklist already flags the first two drifting apart. If
+#    Make goes, do not keep a third copy - read it at task time from the
+#    installed package metadata
+#    (`python -c "import importlib.metadata as m; print(m.version(\'qatrackplus\'))"`)
+#    or from [project] directly, and drop [tool.poe.env] VERSION.
+#
+# 4. Make poe a real dependency. It is deliberately not one today (install
+#    once with `uv tool install poethepoet`), which is fine for an optional
+#    mirror of the Makefile. As the only runner it becomes required to build
+#    and test the project, so it belongs in the dev dependency group, where
+#    `uv sync --dev` provides it and uv.lock pins it - matching how every
+#    other tool in CI is now pinned.
+#
+# 5. Consider `[tool.poe.executor] locked = true`. poe runs tasks through
+#    `uv run` already, and its uv executor accepts locked/frozen/no-sync/
+#    exact. It is deliberately left unset here so poe behaves exactly like
+#    the Makefile; that reason disappears with the Makefile. If CI ever
+#    invokes poe directly, `locked = true` gives it the same lockfile
+#    guarantee the workflow's `uv sync --locked` steps have.
+#
+# 6. `test_simple` exists only for Make muscle memory and is identical to
+#    `test`. Drop it.
+# ---------------------------------------------------------------------------
 [tool.poe.env]
 VERSION = "4.0.0"
 
