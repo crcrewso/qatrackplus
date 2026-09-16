@@ -480,6 +480,148 @@ python ./manage.py graph_models -a -g -X Issue,IssueStatus,IssueType,IssuePriori
 help = "Run the dev server"
 cmd = "python ./manage.py runserver"
 
+# ===========================================================================
+# `next-*` tasks - the cross-platform successors
+# ===========================================================================
+#
+# Everything above this point mirrors a Makefile target one-for-one, and is
+# meant to keep doing so while Make is still the primary runner. Do not
+# change those to gain portability; changing them breaks the mirror, which
+# is the only thing making the two runners comparable.
+#
+# These `next-*` tasks are the replacements, written the way the tasks would
+# have to be written if Make were retired. The prefix is deliberate: it
+# marks them as the intended future, not an alternative flavour. When Make
+# goes, these lose the prefix and replace their mirrored counterparts; until
+# then both exist side by side and the `next-` name says which one is going
+# to win.
+#
+# They have no Makefile counterpart on purpose. The point of them is to work
+# where Make does not - a Windows host with no `make` at all - so mirroring
+# them back into the Makefile would defeat the exercise.
+#
+# Why Python rather than PowerShell, having tried both: poe runs `pwsh`
+# tasks as `pwsh -NoLogo -Command -`, piping the body in on stdin (see
+# poethepoet/task/shell.py). Verified against pwsh 7.6.6: that invocation
+# runs flat multi-line scripts and single-line brace blocks, but a
+# *multi-line* brace block - any real `if`, `foreach` or `try` - silently
+# executes nothing at all and exits 0. The same script via `pwsh -File`
+# runs fine, but poe does not use -File. Every task below needs a
+# conditional or a loop, so a PowerShell body would have to be written as
+# single-line-with-semicolons to work, which is not reviewable. Python is
+# also one body instead of two, with no platform switch to keep in sync.
+#
+# NOTE: verified on Linux only. The Python bodies use nothing
+# platform-specific (pathlib, shutil, subprocess, sys.executable), but
+# nobody has run these on Windows yet - that is the remaining task before
+# anyone relies on them.
+
+[tool.poe.tasks.next-docs]
+help = "[future] Build the Sphinx docs - no shell, no make, works on Windows"
+# `docs` above runs `cd docs && make html`, which needs Make on the host -
+# precisely what a Windows contributor does not have. Calling sphinx-build
+# directly needs neither Make nor docs/make.bat.
+cmd = "sphinx-build -b html docs docs/_build/html"
+
+[tool.poe.tasks.next-dumpdata]
+help = "[future] Dump the full DB to a timestamped JSON fixture"
+interpreter = "python"
+shell = """
+import datetime, subprocess, sys
+
+stamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+out = f'qatrack-dump-{stamp}.json'
+print(f'writing {out}')
+sys.exit(subprocess.call([
+    sys.executable, 'manage.py', 'dumpdata', '-v1', '--indent=2',
+    '--natural-foreign', '--natural-primary', '--output', out,
+]))
+"""
+
+[tool.poe.tasks.next-dev-quickstart]
+help = "[future] One-shot sqlite dev setup: local_settings, migrate, cache table, superuser"
+interpreter = "python"
+shell = """
+import os, pathlib, shutil, subprocess, sys
+
+# `cp -n` equivalent: never clobber a file the developer already has. The
+# Makefile version relies on cp's -n flag, which Windows has no equivalent
+# for; an explicit exists() check is both portable and clearer about intent.
+TEMPLATES = [
+    ('deploy/dev/local_settings.dev.py', 'qatrack/local_settings.py'),
+    ('deploy/dev/local_test_settings.sqlite.py', 'qatrack/local_test_settings.py'),
+    ('deploy/dev/local_test_settings.memory.py', 'qatrack/local_test_settings.memory.py'),
+]
+for src, dst in TEMPLATES:
+    dest = pathlib.Path(dst)
+    if dest.exists():
+        print(f'keeping your existing {dst}')
+    else:
+        shutil.copyfile(src, dest)
+        print(f'created {dst} from {src}')
+
+pathlib.Path('db').mkdir(exist_ok=True)   # `mkdir -p`
+
+def run(*args, env=None):
+    result = subprocess.call([sys.executable, 'manage.py', *args],
+                             env={**os.environ, **(env or {})})
+    if result != 0:
+        sys.exit(result)
+
+run('migrate')
+run('createcachetable')
+run('createsuperuser', '--noinput', env={
+    'DJANGO_SUPERUSER_USERNAME': 'superuser',
+    'DJANGO_SUPERUSER_PASSWORD': 'superuser',
+    'DJANGO_SUPERUSER_EMAIL': 'superuser@example.com',
+})
+print('dev environment ready')
+"""
+
+[[tool.poe.tasks.next-test-engine.args]]
+name = "engine"
+positional = true
+required = true
+help = "sqlite, memory, postgres, mysql or mssql"
+
+[tool.poe.tasks.next-test-engine]
+help = "[future] Run the suite against one engine, restoring your settings afterwards"
+interpreter = "python"
+shell = """
+import os, pathlib, shutil, subprocess, sys
+
+# poe passes declared task args to a `shell` task as environment
+# variables. `${engine}` is NOT substituted inside a python-interpreter
+# body - it arrives literally - so read it from the environment.
+engine = os.environ['engine']
+src = pathlib.Path(f'qatrack/local_test_settings.{engine}.py')
+live = pathlib.Path('qatrack/local_test_settings.py')
+backup = pathlib.Path('qatrack/local_test_settings.py.bak')
+
+if not src.exists():
+    print(f'error: {src} not found.')
+    print(f'Create it first - see deploy/dev/local_test_settings.{engine}.py '
+          'for a starting template.')
+    sys.exit(1)
+
+# try/finally rather than the shell version's fall-through restore. The
+# Makefile/`_test-engine` form only restores if the pytest line completes;
+# interrupt it (Ctrl-C) and your real local_test_settings.py is left
+# swapped out. This restores on any exit, including KeyboardInterrupt.
+had_existing = live.exists()
+if had_existing:
+    shutil.copyfile(live, backup)
+shutil.copyfile(src, live)
+try:
+    status = subprocess.call([sys.executable, '-m', 'pytest'])
+finally:
+    if had_existing:
+        shutil.move(str(backup), str(live))
+    else:
+        live.unlink(missing_ok=True)
+sys.exit(status)
+"""
+
 [tool.poe.tasks."__cleardb__"]
 shell = '''
 python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
