@@ -622,6 +622,74 @@ finally:
 sys.exit(status)
 """
 
+[tool.poe.tasks.next-test-integration]
+help = "[future] Provision a fresh sqlite db like a real deployment, then run the suite against it"
+interpreter = "python"
+shell = """
+import os, pathlib, shutil, subprocess, sys
+
+DB = pathlib.Path('db/default.db')
+DB_BAK = pathlib.Path('db/default.db.bak')
+KEPT = pathlib.Path('db/pytest_default.db')
+LIVE = pathlib.Path('qatrack/local_test_settings.py')
+LIVE_BAK = pathlib.Path('qatrack/local_test_settings.py.bak')
+
+pathlib.Path('db').mkdir(exist_ok=True)
+
+
+def manage(*args, env=None):
+    code = subprocess.call([sys.executable, 'manage.py', *args],
+                           env={**os.environ, **(env or {})})
+    if code != 0:
+        raise SystemExit(code)
+
+
+# Move the developer's real database and settings aside. The shell version
+# of this task does the same, but restores by falling through to its last
+# few lines - so if provisioning fails, or the run is interrupted, the
+# developer is left with their dev database sitting at db/default.db.bak
+# and no db/default.db at all. Everything below is wrapped so the restore
+# happens on any exit.
+had_db = DB.exists()
+had_live = LIVE.exists()
+if had_db:
+    shutil.move(str(DB), str(DB_BAK))
+if had_live:
+    shutil.copyfile(LIVE, LIVE_BAK)
+shutil.copyfile('deploy/dev/local_test_settings.sqlite.py', LIVE)
+
+status = 1
+try:
+    # Provision exactly the way a fresh deployment would, so the whole
+    # sequence is exercised for real and not just a disposable test db.
+    manage('migrate')
+    manage('createcachetable')
+    manage('collectstatic', '--noinput')
+    manage('createsuperuser', '--noinput', env={
+        'DJANGO_SUPERUSER_USERNAME': 'superuser',
+        'DJANGO_SUPERUSER_PASSWORD': 'superuser',
+        'DJANGO_SUPERUSER_EMAIL': 'superuser@example.com',
+    })
+    status = subprocess.call([sys.executable, '-m', 'pytest', '--reuse-db'])
+finally:
+    # Keep the provisioned db for inspection, but only if it exists - the
+    # shell version runs its `mv` unconditionally and errors when
+    # provisioning failed before the database was created.
+    if DB.exists():
+        KEPT.unlink(missing_ok=True)
+        shutil.move(str(DB), str(KEPT))
+        print(f'provisioned database kept at {KEPT}')
+    if had_live:
+        shutil.move(str(LIVE_BAK), str(LIVE))
+    else:
+        LIVE.unlink(missing_ok=True)
+    if had_db:
+        shutil.move(str(DB_BAK), str(DB))
+        print(f'restored your {DB}')
+
+sys.exit(status)
+"""
+
 [tool.poe.tasks."__cleardb__"]
 shell = '''
 python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
