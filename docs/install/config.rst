@@ -218,10 +218,11 @@ which applies to you so you are not hunting for a setting in the wrong file.
      - The documented mechanism. Everything on this page refers to it.
    * - Docker environment
      - Docker deployments only
-     - Setting ``USE_DOCKER`` makes ``settings.py`` configure itself from the
-       environment and **skip importing local_settings.py entirely**:
-       ``ALLOWED_HOSTS``, ``CSRF_TRUSTED_ORIGINS``, ``TIME_ZONE`` and the
-       ``POSTGRES_*`` credentials. Set them in ``deploy/docker/.env``.
+     - Setting ``USE_DOCKER`` makes ``settings.py`` read ``ALLOWED_HOSTS``,
+       ``CSRF_TRUSTED_ORIGINS``, ``TIME_ZONE`` and the ``POSTGRES_*``
+       credentials from the environment, normally via ``deploy/docker/.env``.
+       These **layer on top of** ``local_settings.py`` rather than replacing
+       it - see the note below.
    * - ``QATRACK_DB_*``
      - Test settings only
      - The per-engine templates under ``deploy/dev/`` read ``QATRACK_DB_NAME``,
@@ -234,10 +235,25 @@ also read from the environment - see the developer guide rather than this page.
 
 .. note::
 
-    These do not layer. Under Docker, ``local_settings.py`` is not read at all,
-    so a setting you add there will appear to be ignored. If you are editing
-    ``local_settings.py`` on a Docker deployment and nothing changes, this is
-    why.
+    Under Docker the order is: ``settings.py`` defaults, then
+    ``local_settings.py`` if you have one, then anything set in the
+    environment. The environment wins, because it is what an operator can
+    change without rebuilding an image.
+
+    A Docker deployment does not *need* a ``local_settings.py`` - configuring
+    everything through ``.env`` is the normal path, and is unaffected by this.
+    But if you do have one, it is now read, which means settings with no
+    environment equivalent can be set there instead of going unsupported.
+
+    ``DATABASES`` is only taken over by the environment when at least one of
+    ``POSTGRES_DB``/``POSTGRES_USER``/``POSTGRES_PASSWORD`` is set.
+    ``docker-compose`` always supplies these, so the standard deployment is
+    unchanged.
+
+.. versionchanged:: 4.1
+
+    ``local_settings.py`` used not to be read at all under ``USE_DOCKER``, so
+    editing it on a Docker deployment silently had no effect.
 
 
 Cache Settings
