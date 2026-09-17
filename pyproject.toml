@@ -490,9 +490,19 @@ sudo supervisorctl update
 
 [tool.poe.tasks.schema]
 help = "Regenerate the database schema diagram (needs graphviz - see docs/developer/schema.rst)"
-shell = '''
-python ./manage.py graph_models -a -g -X Issue,IssueStatus,IssueType,IssuePriority,IssueTag -o docs/developer/images/qatrack_schema_${VERSION}.svg
-'''
+# A `cmd` task, so no shell is involved. `${VERSION}` is still interpolated
+# from [tool.poe.env] above - verified - and the forward slashes in the
+# output path are fine on Windows, which accepts them throughout.
+#
+# Note the VERSION value is one of three places this project records its
+# version (the others being `version` in [project] above, and VERSION in the
+# Makefile). Reconciling those is listed in the notes at the top of this
+# block.
+cmd = """
+  python ./manage.py graph_models -a -g
+    -X Issue,IssueStatus,IssueType,IssuePriority,IssueTag
+    -o docs/developer/images/qatrack_schema_${VERSION}.svg
+"""
 
 [tool.poe.tasks.run]
 help = "Run the dev server"
@@ -531,8 +541,23 @@ cmd = "python ./manage.py runserver"
 #
 # Shell support: bash on Linux/macOS, pwsh on Windows. cmd.exe is
 # deliberately NOT supported - a project decision, not an oversight. Tasks
-# that genuinely need a shell (a pipe, say) therefore declare
-# `interpreter = ["bash", "pwsh"]` and may assume ordinary shell syntax.
+# that genuinely need a shell therefore declare an explicit `interpreter`
+# and may assume ordinary shell syntax.
+#
+# Current shell situation, so it stays honest as tasks are added:
+#
+#   * `cmd` tasks (no shell at all): test, test_simple, cover*, run,
+#     clearct, flushdb, schema, cleardb, next-docs.
+#   * `interpreter = "python"`: every other next-* task.
+#   * POSIX-shell-only, each of which HAS a next-* successor:
+#     dev-quickstart, _test-engine, test-integration, dumpdata, docs.
+#   * POSIX-shell-only and deliberately so: nginx-conf, supervisor-conf.
+#     They shell out to sudo to install nginx/supervisor configs, so there
+#     is no meaningful Windows equivalent to write.
+#
+# In other words, every task that cannot run on Windows today either has a
+# next-* replacement or is Ubuntu-only by nature. If you add a task that
+# needs a shell, give it an explicit interpreter or a next-* counterpart.
 #
 # NOTE: verified on Linux only. The Python bodies use nothing
 # platform-specific (pathlib, shutil, subprocess, sys.executable), but
@@ -713,7 +738,16 @@ finally:
 sys.exit(status)
 """
 
-[tool.poe.tasks."__cleardb__"]
-shell = '''
-python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
-'''
+[tool.poe.tasks.cleardb]
+help = "DESTRUCTIVE: delete all test list instances, unit test collections and content types"
+# Same treatment as clearct/flushdb: a `cmd` task, so no shell is needed and
+# the quoted -c payload survives poe's argument splitting intact.
+#
+# RENAMED from the Makefile's `__cleardb__`, and this is the one place the
+# task names deliberately do not mirror. poe refuses to run any task whose
+# name starts with an underscore ("Tasks prefixed with `_` cannot be
+# executed directly") and omits it from `poe --help` entirely, so the
+# mirrored `__cleardb__` entry was unreachable dead config from the day it
+# was written - `poe __cleardb__` has never worked. `make __cleardb__` is
+# unaffected and still works.
+cmd = 'python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"'
