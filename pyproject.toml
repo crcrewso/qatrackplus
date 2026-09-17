@@ -184,6 +184,7 @@ dev = [
     "sphinx-copybutton>=0.5.2",
     "sphinx-design>=0.6.0",
     "pytest-xdist>=3.0,<4.0",
+    "pygraphviz>=2.0.2",
 ]
 
 [tool.ruff]
@@ -489,20 +490,45 @@ sudo supervisorctl update
 '''
 
 [tool.poe.tasks.schema]
-help = "Regenerate the database schema diagram (needs graphviz - see docs/developer/schema.rst)"
-# A `cmd` task, so no shell is involved. `${VERSION}` is still interpolated
-# from [tool.poe.env] above - verified - and the forward slashes in the
-# output path are fine on Windows, which accepts them throughout.
+help = "Regenerate the database schema diagram (see docs/developer/schema.rst)"
+interpreter = "python"
+shell = '''
+import os, pathlib, subprocess, sys, tempfile
+
+OUT = pathlib.Path('docs/developer/images/qatrack_schema_%s.svg' % os.environ['VERSION'])
+
+# Render to a temporary file and only move it into place if it worked.
 #
-# Note the VERSION value is one of three places this project records its
-# version (the others being `version` in [project] above, and VERSION in the
-# Makefile). Reconciling those is listed in the notes at the top of this
-# block.
-cmd = """
-  python ./manage.py graph_models -a -g
-    -X Issue,IssueStatus,IssueType,IssuePriority,IssueTag
-    -o docs/developer/images/qatrack_schema_${VERSION}.svg
-"""
+# This is not defensive padding - the previous form wrote straight to OUT and
+# could empty it. django-extensions falls back to pydotplus when pygraphviz is
+# not importable, and pydotplus fails by writing a zero-byte file and exiting
+# 0. Running `make schema` on a machine without pygraphviz therefore destroyed
+# the committed 838 KB diagram and reported success. RELEASE_CHECKLIST.md tells
+# the releaser to regenerate this, so that was a live trap.
+#
+# --pygraphviz is passed explicitly rather than letting django-extensions pick
+# whichever binding happens to be importable, so a missing dependency fails
+# loudly instead of silently selecting the broken path. pygraphviz wheels bundle
+# their own Graphviz (14.1.5 at the time of writing), which also sidesteps the
+# system Graphviz: Ubuntu 24.04 ships 2.42, and -g (--group-models, which draws
+# each Django app as a cluster) hits a "trouble in init_rank" bug there.
+with tempfile.TemporaryDirectory() as tmp:
+    staged = pathlib.Path(tmp) / OUT.name
+    code = subprocess.call([
+        sys.executable, './manage.py', 'graph_models', '-a', '-g', '--pygraphviz',
+        '-X', 'Issue,IssueStatus,IssueType,IssuePriority,IssueTag',
+        '-o', str(staged),
+    ])
+    if code != 0:
+        sys.exit('error: graph_models failed (exit %d); %s left untouched' % (code, OUT))
+    if not staged.exists() or staged.stat().st_size == 0:
+        print('error: graph_models produced an empty diagram; %s left untouched.' % OUT, file=sys.stderr)
+        sys.exit('Is pygraphviz installed? `uv sync --dev` should provide it.')
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    staged.replace(OUT)
+
+print('wrote %s (%d bytes)' % (OUT, OUT.stat().st_size))
+'''
 
 [tool.poe.tasks.run]
 help = "Run the dev server"
