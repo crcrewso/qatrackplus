@@ -1,3 +1,24 @@
+# TODO(5.0): revisit the settings architecture as a whole.
+#
+# The checks in this module are deliberately the cheap version of a bigger
+# question - whether QATrack+ should move to a validated settings layer
+# (pydantic-settings) instead of `from .local_settings import *`. They are
+# also the experiment that answers it:
+#
+#   - If silent-configuration bugs stop turning up, the larger move was never
+#     needed and this TODO can be closed.
+#   - If they keep turning up in forms a check cannot express - cross-field
+#     constraints, conditionally-required settings, type coercion - that is
+#     concrete evidence for the move rather than a guess.
+#
+# 5.0 is the place to act on it: that release already carries the Django 5.2
+# LTS upgrade, so it is the natural boundary for a breaking configuration
+# change. Note the README commits to X.Y -> (X+3).0 upgrade paths, so any
+# change of format has to keep existing hand-edited local_settings.py files
+# working, or ship a shim that does.
+#
+# Rationale and the options considered are in AGENTS.md, "Adding a setting".
+
 import os
 import tempfile
 from pathlib import Path

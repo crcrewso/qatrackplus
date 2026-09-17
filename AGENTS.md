@@ -356,6 +356,27 @@ exists.
 When an inline comment and `config.rst` disagree, the inline comment wins: it is
 the one people actually read while editing.
 
+#### Longer term
+
+This scheme assumes `local_settings.py` and `from ... import *`, which is not
+how a Django project started today would do it. That is a deliberate choice —
+QATrack+ is deployed on-premise, often on Windows, by people who are not
+developers, and a commented Python file suits that audience better than
+environment variables. 27 settings are dicts or lists that express badly as
+environment variables in any case.
+
+Whether to move to a validated settings layer (`pydantic-settings`) is an open
+question marked `TODO(5.0)` in `qatrack/qatrack_core/checks.py`. The short
+version: `settings.py` has ~167 settings and a deployment sets 6–13, so
+modelling all of them to protect a handful is poor value; and the README's
+`X.Y -> (X+3).0` upgrade commitment means any format change has to keep
+existing hand-edited files working. The system checks in that module are the
+cheap 90%, and double as the evidence-gathering exercise — if they stop
+catching things, the bigger move was never needed.
+
+`django-environ` was considered and rejected: it changes where values come
+from without adding much validation, which is the wrong end of the problem.
+
 ### Language
 
 **English (Canada)** is the lightly preferred written language for code
