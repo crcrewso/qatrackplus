@@ -46,7 +46,7 @@ Open a PowerShell Window and enter the following commands:
 Mandatory Settings
 ~~~~~~~~~~~~~~~~~~
 
-The ``local_settings.py`` templates under ``deploy/`` sort settings into three
+The ``local_settings.py`` examples under ``deploy/`` sort settings into three
 groups, and it is worth knowing which is which before editing one:
 
 .. list-table::
@@ -59,19 +59,19 @@ groups, and it is worth knowing which is which before editing one:
      - No usable default. QATrack+ will not start, or will behave wrongly,
        until you replace the placeholder. These are ``TIME_ZONE``,
        ``DATABASES``, ``ALLOWED_HOSTS`` and ``CSRF_TRUSTED_ORIGINS``.
-   * - **Template default**
-     - ``settings.py`` already has a working value, but the template states one
-       deliberately. Marked ``[template default]`` in the file. Currently
+   * - **Example default**
+     - ``settings.py`` already has a working value, but the example sets one
+       deliberately. Marked ``[example default]`` in the file. Currently
        ``DEBUG`` and ``USE_SQL_REPORTS``. Safe to leave alone.
    * - **Optional**
-     - Commented out in the template; the ``settings.py`` default applies
+     - Commented out in the example; the ``settings.py`` default applies
        unless you uncomment. Everything else.
 
 Note that ``TIME_ZONE`` is genuinely mandatory but is documented separately
 under :ref:`Time Zone Settings <time-zone-settings>` rather than repeated here.
 
 ``HTTP_OR_HTTPS`` appears below for completeness, but it is **not** mandatory -
-it defaults to ``'http'``, which is why none of the deployment templates set it.
+it defaults to ``'http'``, which is why none of the deployment examples set it.
 Change it only if your site is served over https.
 
 DEBUG Setting
@@ -154,7 +154,7 @@ HTTP or HTTPS Setting
 In order for urls to use the correct protocol for links, set `HTTP_OR_HTTPS` to
 the appropriate protocol. This defaults to ``'http'`` in ``settings.py``, so it
 only needs setting if your site is served over https - none of the deployment
-templates under ``deploy/`` include it.
+examples under ``deploy/`` include it.
 
 .. code-block:: python
 

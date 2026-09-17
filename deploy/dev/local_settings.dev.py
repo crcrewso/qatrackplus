@@ -1,9 +1,9 @@
 # Local development settings - copy this file to qatrack/local_settings.py
-# and customize as needed. This template is for local development only; if
-# you're setting up a real (production) deployment, use the template for
-# your database engine under deploy/ instead (sqlite, postgres, mysql, win) -
-# those default to DEBUG=False and require you to configure a real
-# ALLOWED_HOSTS, rather than this file's permissive local-dev defaults.
+# and customize as needed. This example is for local development ONLY. For a
+# real deployment use the example for your database engine under deploy/
+# instead (sqlite, postgres, mysql, win): those default to DEBUG=False and
+# make you configure a real ALLOWED_HOSTS, rather than the permissive
+# local-development defaults used here.
 #
 # The point of this file is to let you override settings.py for your own
 # environment without editing settings.py itself (which gets updated as the
@@ -29,11 +29,10 @@ DATABASES = {
 }
 DATABASES['readonly'] = DATABASES['default']
 
-# Permissive for local development only. Every other deploy/*/local_settings.py
-# template sets this explicitly (usually to a specific hostname) - this one
-# was missing it entirely, which crashes `manage.py runserver` outright if
-# DEBUG is ever set back to False here (Django requires ALLOWED_HOSTS to be
-# set whenever DEBUG=False).
+# Permissive, for local development only. Do not copy this value to a real
+# deployment - the examples under deploy/ set a specific hostname instead.
+# Note this must stay set even though DEBUG is True below: if you ever switch
+# DEBUG back to False, Django refuses to start without an ALLOWED_HOSTS.
 ALLOWED_HOSTS = ['*']
 
 # Notification/report emails are disabled by default in dev so you don't

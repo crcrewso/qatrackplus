@@ -340,10 +340,10 @@ something other than sqlite - see :ref:`local_test_settings_templates` below,
 and ``make test-<engine>`` under `Running The Test Suite`_ for running against
 one without touching your usual ``local_test_settings.py``.
 
-.. _local_settings_templates:
+.. _local_settings_examples:
 
-``local_settings.py`` templates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``local_settings.py`` examples
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``deploy/dev/local_settings.dev.py`` above is the right starting point for
 development work. The remaining ``local_settings.py`` templates under
@@ -355,7 +355,7 @@ is missing:
    :header-rows: 1
    :widths: 40 60
 
-   * - Template
+   * - Example
      - Use it for
    * - ``deploy/dev/local_settings.dev.py``
      - Local development (sqlite, ``DEBUG`` on). Start here.
@@ -830,7 +830,7 @@ To test against a specific database engine without disturbing whatever
 
 Each requires ``qatrack/local_test_settings.<engine>.py`` to already exist -
 create it from the matching ``deploy/dev/local_test_settings.<engine>.py``
-template first. The target swaps that file in for the run and restores your
+example first. The target swaps that file in for the run and restores your
 previous ``local_test_settings.py`` afterward regardless of whether the
 tests passed.
 
@@ -860,7 +860,7 @@ day-to-day config, use one of the ``make test-<engine>`` targets:
 
 Each of these requires a ``qatrack/local_test_settings.<engine>.py`` file to
 already exist - these are gitignored and yours to create, starting from the
-matching template in ``deploy/dev/`` (``local_test_settings.sqlite.py``,
+matching example in ``deploy/dev/`` (``local_test_settings.sqlite.py``,
 ``local_test_settings.memory.py``, ``local_test_settings.postgres.py``,
 ``local_test_settings.mysql.py``, ``local_test_settings.mssql.py``) and
 filling in real credentials for postgres/mysql/mssql. The target fails with
@@ -1031,7 +1031,7 @@ and say so explicitly in the pull request.
 
 The likely shape of a fix, if someone takes it on, is a docker-compose
 service running a directory server (``osixia/openldap`` or similar) plus a
-matching ``local_test_settings`` template, mirroring how the per-engine
+matching ``local_test_settings`` example, mirroring how the per-engine
 database templates under ``deploy/dev/`` already work. That would also let
 CI install the ``ldap`` extra and actually run those three skipped tests.
 
@@ -1047,8 +1047,8 @@ CI install the ``ldap`` extra and actually run those three skipped tests.
     This matters for how the tests get built, not just for the runtime
     behaviour. The per-engine ``local_test_settings`` templates exist to vary
     *one* axis - the database - so LDAP coverage should be a separate,
-    composable axis rather than being folded into any one engine's template.
-    Bolting the directory settings onto, say, the sqlite template would make
+    composable axis rather than being folded into any one engine's example.
+    Bolting the directory settings onto, say, the sqlite example would make
     the coverage look engine-specific when it is not, and would quietly leave
     the other three engines untested for authentication.
 

@@ -810,20 +810,15 @@ SELENIUM_HEADLESS = os.environ.get('SELENIUM_HEADLESS', 'True').strip().lower() 
 
 use_docker = os.environ.get('USE_DOCKER', '').strip().lower() in {'1', 'true', 'yes', 'on'}
 if use_docker:
-    # Docker configuration LAYERS on top of local_settings.py rather than
-    # replacing it.
+    # Under Docker, settings are applied in this order:
     #
-    # It used to replace it: this branch never imported local_settings.py at
-    # all, so a Docker deployer who edited that file saw no effect and no
-    # error. Since it is the file every other deployment method uses, and the
-    # one all our documentation talks about, that was a reliable way to lose
-    # an afternoon.
+    #     settings.py defaults -> local_settings.py -> environment
     #
-    # Now: local_settings.py is imported first if it exists, then anything
-    # provided through the environment overrides it. Environment wins, because
-    # that is what an operator can change without rebuilding an image.
-    # Deployments with no local_settings.py - the normal Docker case - behave
-    # exactly as before.
+    # The environment wins, since that is what you can change without
+    # rebuilding the image. A local_settings.py is optional here: configuring
+    # everything through deploy/docker/.env is the normal path. If you do have
+    # one, it is read, so settings with no environment equivalent can be set
+    # there. See docs/install/config.rst.
     try:
         from .local_settings import *  # noqa: F403, F401, E402
     except ModuleNotFoundError as e:
@@ -911,10 +906,10 @@ else:
                 "qatrack/local_settings.py is missing. QATrack+ will not run "
                 "without it - for local development:\n\n"
                 "    cp deploy/dev/local_settings.dev.py qatrack/local_settings.py\n\n"
-                "For a real deployment, copy the template matching your database "
+                "For a real deployment, copy the example matching your database "
                 "instead: deploy/sqlite, deploy/postgres, deploy/mysql or "
                 "deploy/win (MS SQL Server). See the 'local_settings.py "
-                "templates' table in docs/developer/guide.rst, and "
+                "examples' table in docs/developer/guide.rst, and "
                 "docs/install/ for full deployment instructions."
             ) from e
         # A bare `pytest` run gets a disposable in-memory database rather
