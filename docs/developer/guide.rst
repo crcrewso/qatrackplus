@@ -637,15 +637,55 @@ matching ``local_test_settings`` template, mirroring how the per-engine
 database templates under ``deploy/dev/`` already work. That would also let
 CI install the ``ldap`` extra and actually run those three skipped tests.
 
+.. important::
 
-Notes on running the Selenium tests in parallel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Whatever shape that takes, **LDAP support must remain independent of the
+    database backend**. Authentication and database choice are orthogonal:
+    any supported directory configuration has to work against sqlite,
+    PostgreSQL, MySQL and MS SQL Server alike, and a site must never have to
+    pick a particular database in order to authenticate against their
+    directory.
 
-Not implemented - recorded here so the groundwork is not re-derived.
+    This matters for how the tests get built, not just for the runtime
+    behaviour. The per-engine ``local_test_settings`` templates exist to vary
+    *one* axis - the database - so LDAP coverage should be a separate,
+    composable axis rather than being folded into any one engine's template.
+    Bolting the directory settings onto, say, the sqlite template would make
+    the coverage look engine-specific when it is not, and would quietly leave
+    the other three engines untested for authentication.
 
-The suite runs serially and takes roughly nine minutes locally. ``pytest-xdist``
-would parallelise it, and the architecture is more amenable than it looks,
-largely because the tests now run headless:
+
+Running the Selenium tests in parallel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``pytest-xdist`` is a development dependency, and the GUI suite can be run
+across several worker processes:
+
+.. code-block:: shell
+
+    make test-selenium-parallel            # 4 workers
+    make test-selenium-parallel jobs=8     # or pick your own
+
+Measured on a 16-core machine, full Selenium suite:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Run
+     - Time
+   * - serial
+     - ~520s
+   * - ``-n 4 --dist loadscope``
+     - ~210s
+
+**Use it for the GUI tests only.** The rest of the suite is *slower* under
+xdist, not faster - those tests average about 48ms each, so worker startup
+costs more than parallelism saves: 57s serial against 60-65s under ``-n``, and
+still 60s with a warm ``--reuse-db``, so it is not database setup either. For
+that reason ``-n`` is deliberately not in ``addopts``; it is scoped to the one
+Makefile target.
+
+What makes it safe here, and why the architecture allows it:
 
 * **Database** - each xdist worker is a separate process, and pytest-django
   gives each its own test database. The in-memory SQLite used in CI is
@@ -665,6 +705,30 @@ per-worker temporary directories.
 
 ``--dist loadscope`` is the distribution mode to use, so all tests in a class
 stay on one worker and match the existing per-class browser lifecycle.
+
+Why ``pytest-xdist`` specifically, rather than the alternatives:
+
+* **It has to be process-based, not thread-based.** Each parallel unit needs
+  its own database connection, its own live-server port and its own browser
+  instance. Thread-based runners (``pytest-parallel`` and similar) share a
+  process, so they share module-level state - including the
+  ``StaticLiveServerTestCase`` machinery and the WebDriver session - which is
+  exactly the state that must not be shared here. xdist forks separate
+  processes, so the isolation is free rather than something to engineer.
+* **pytest-django supports it directly.** It creates a separate test database
+  per worker automatically, which is most of the problem solved. Nothing else
+  integrates with the database fixture this project already relies on.
+* **Django's own ``--parallel`` is not available to us.** It belongs to
+  Django's test runner, and this suite runs under pytest - that is the whole
+  reason ``runtests.sh`` and ``manage.py test`` are discouraged elsewhere in
+  this guide. Adopting ``--parallel`` would mean giving up pytest.
+* **``--dist loadscope`` matches the architecture.** Browsers are created and
+  torn down per test class, so keeping a class together on one worker reuses
+  that browser instead of paying startup repeatedly. Runners that split at
+  the file or test level would either fragment the class or offer no control.
+* **It is maintained by the pytest project itself**, so it tracks pytest
+  releases rather than lagging them - which matters for a suite that is
+  already pinned to a specific pytest major version.
 
 **Sequencing matters.** The remaining ``time.sleep()`` calls should be
 replaced with proper waits *before* any of this is attempted. Parallelism

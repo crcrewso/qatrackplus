@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 # The original idiom for excluding GUI tests, predating --run-selenium.
@@ -49,3 +51,39 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if 'selenium' in item.keywords:
             item.add_marker(skip_selenium)
+
+
+@pytest.fixture(autouse=True, scope='session')
+def _xdist_worker_media_root(tmp_path_factory):
+    """Give each xdist worker its own MEDIA_ROOT.
+
+    pytest-django already hands each worker a separate test database, and
+    LiveServerTestCase already binds a free port per instance, so the
+    database and the web server are isolated for free. The filesystem is
+    not: MEDIA_ROOT, UPLOAD_ROOT and TMP_UPLOAD_ROOT all point inside
+    qatrack/media, which every worker would otherwise write to at once -
+    upload tests clobbering each other's files, and tmp uploads being
+    cleaned up out from under a different worker.
+
+    Redirecting them per worker is what makes `-n` safe. Outside xdist
+    (PYTEST_XDIST_WORKER unset) this is a no-op, so a serial run still
+    uses the real media directory exactly as before.
+    """
+    worker = os.environ.get('PYTEST_XDIST_WORKER')
+    if not worker:
+        yield
+        return
+
+    from django.test import override_settings
+
+    root = tmp_path_factory.mktemp('media-%s' % worker)
+    uploads = root / 'uploads'
+    tmp_uploads = uploads / 'tmp'
+    tmp_uploads.mkdir(parents=True, exist_ok=True)
+
+    with override_settings(
+        MEDIA_ROOT=str(root),
+        UPLOAD_ROOT=str(uploads),
+        TMP_UPLOAD_ROOT=str(tmp_uploads),
+    ):
+        yield

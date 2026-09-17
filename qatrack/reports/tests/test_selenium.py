@@ -1,4 +1,3 @@
-import time
 
 import pytest
 from django.urls import reverse
@@ -244,7 +243,7 @@ class TestReportInterface(BaseQATests):
         self.wait.until(e_c.presence_of_element_located((By.ID, 'report-id-%s' % sr.pk)))
 
         self.click("report-id-%s-schedule" % sr.pk)
-        time.sleep(1)
+        self.wait_for_ajax()
 
         self.click("clear-schedule")
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))

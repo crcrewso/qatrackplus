@@ -209,6 +209,13 @@ class LiveQATests(BaseQATests):
             self.send_keys('id_slug', the_test['name'])
             self.select_by_index('id_category', 1)
             self.select_by_value('id_type', the_test['name'])
+            # NOT wait_for_ajax(): choosing the test type triggers a purely
+            # client-side re-render of the type-dependent fields (choices,
+            # constant value, the calculation procedure editor). No request
+            # is in flight, so an AJAX wait returns immediately and the
+            # fields below are filled before they exist - the save then
+            # fails and wait_for_success() times out.
+            self.wait_for_ajax()
             time.sleep(0.1)
 
             if the_test['choices']:
@@ -356,14 +363,14 @@ class LiveQATests(BaseQATests):
         self.wait.until(e_c.presence_of_element_located((By.ID, 'id_unit')))
 
         self.select_by_index("id_unit", -1)
-        time.sleep(0.5)
+        self.wait_for_ajax()
         self.select_by_index("id_frequency", -1)
         self.select_by_index("id_assigned_to", 0)
         self.select_by_index("id_content_type", 1)
         self.driver.find_element(By.CSS_SELECTOR, '#id_visible_to_from > option:nth-child(1)').click()
         self.driver.find_element(By.CSS_SELECTOR, '#id_visible_to_add_link').click()
 
-        time.sleep(2)
+        self.wait_for_ajax()
 
         self.driver.find_element(By.ID, 'select2-generic_object_id-container').click()
         self.driver.find_element(By.ID, 'select2-generic_object_id-container').click()
@@ -756,14 +763,14 @@ class TestPerformQC(BaseQATests):
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
 
         self.open("/qc/session/unreviewed/")
-        time.sleep(0.2)
+        self.wait_for_ajax()
 
         self.click_by_link_text("Review")
         self.select_by_text("bot-status-select", "reviewed")
 
         self.send_keys("id_comment", "testlistcomment")
         self.click("post-comment")
-        time.sleep(0.2)
+        self.wait_until(lambda: models.Comment.objects.count() == 1, "the comment to be saved")
         assert models.Comment.objects.count() == 1
 
         assert models.TestListInstance.objects.unreviewed().count() == 1
@@ -828,15 +835,15 @@ class TestPerformQC(BaseQATests):
 
         time.sleep(0.2)
         self.driver.execute_script("$('#id_datetime_service').focus()")
-        time.sleep(0.3)
+        self.wait_for_ajax()
         self.click_by_css_selector(".today")
-        time.sleep(0.2)
+        self.wait_for_ajax()
         self.select_by_index("id_service_area_field_fake", 1)
-        time.sleep(0.2)
+        self.wait_for_ajax()
         self.select_by_index("id_service_type", 1)
         self.send_keys("id_problem_description", "Problem!")
         self.click("save-se")
-        time.sleep(0.2)
+        self.wait_for_ajax()
         assert models.TestListInstance.objects.first().serviceevents_initiated.count() == 1
 
     def test_autosave(self):
@@ -844,13 +851,25 @@ class TestPerformQC(BaseQATests):
 
         self.login()
         self.open(self.url)
-        time.sleep(0.2)
+        # No sleep needed before wait_for_elements - waiting is what it does.
         inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
         inputs[0].send_keys(1)
         assert models.AutoSave.objects.count() == 0
+        # Kept: this paces the simulated typing so the debounce timer starts
+        # from the first keystroke before Enter is sent. It is not waiting on
+        # an observable condition, so there is nothing to wait on instead -
+        # removing it makes the autosave never fire and the poll below time
+        # out.
         time.sleep(1)
         inputs[0].send_keys(Keys.ENTER)
-        time.sleep(4.2)  # auto save is debounced with a 4s interval
+        # Autosave is debounced on a 4s interval. This used to sleep a flat
+        # 4.2s and then assert; polling instead returns as soon as the row
+        # lands, and still tolerates a slow run rather than failing at 4.2s.
+        self.wait_until(
+            lambda: models.AutoSave.objects.count() == 1,
+            "the debounced autosave to be written",
+            timeout=max(self.timeout, 10),
+        )
         assert models.AutoSave.objects.count() == 1
 
     def test_load_autosave(self):
@@ -890,7 +909,7 @@ class TestPerformQC(BaseQATests):
 
         url = reverse("perform_qa", kwargs={'pk': utc.pk})
         self.open(url + "?autosave_id=%d&day=%d" % (auto.pk, auto.day + 1))
-        time.sleep(0.2)
+        self.wait_for_ajax()
 
         inputs = self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)[:3]
         title = "Perform %s : day 2" % utc.unit.name
@@ -947,7 +966,7 @@ class TestPerformQC(BaseQATests):
 
         url = reverse("perform_qa", kwargs={'pk': utc.pk})
         self.open(url + "?autosave_id=%d&day=%d" % (auto.pk, auto.day + 1))
-        time.sleep(0.2)
+        self.wait_for_ajax()
 
         self.click("submit-qa")
 
@@ -1004,7 +1023,7 @@ class TestReviewQC(BaseQATests):
         with transaction.atomic():
             self.login()
             self.open(self.url)
-            time.sleep(0.1)
+            self.wait_for_ajax()
             self.wait_for_elements(By.CLASS_NAME, "test-selected-toggle")[0].click()
             self.select_by_text("bulk-status", "Approved")
             self.click("submit-review")

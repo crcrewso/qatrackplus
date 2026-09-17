@@ -1,4 +1,3 @@
-import time
 
 import pytest
 from django.contrib.auth.models import Permission
@@ -77,25 +76,28 @@ class TestFaultForm(BaseQATests):
 
         self.login()
         self.open(reverse('fault_create'))
-        time.sleep(0.3)
+        self.wait_for_ajax()
 
         self.select_unit(self.unit)
-        time.sleep(0.2)
+        self.wait_for_ajax()
         self.select_fault_type(self.fault_type.code)
         # Unlike the perform-QC/service-event flatpickr instances, this
         # one has no "today" quick-link - it auto-fills "now" via its own
         # onOpen handler as soon as the (empty) field is focused.
         self.driver.execute_script("$('#id_fault-occurred').focus()")
-        time.sleep(0.3)
+        self.wait_for_ajax()
         self.click_by_css_selector("body")
-        time.sleep(0.2)
+        self.wait_for_ajax()
         self.send_keys("id_fault-comment", "Test fault comment")
 
         fault_count = models.Fault.objects.count()
         self.click_by_css_selector("button[type=submit]")
         # A successful save redirects to the fault list.
         self.wait_for_fault_list()
-        time.sleep(0.2)
+        self.wait_until(
+            lambda: models.Fault.objects.count() == fault_count + 1,
+            "the fault to be saved",
+        )
 
         assert models.Fault.objects.count() == fault_count + 1
         fault = models.Fault.objects.latest("pk")
@@ -109,7 +111,7 @@ class TestFaultForm(BaseQATests):
 
         self.login()
         self.open(reverse('fault_edit', kwargs={'pk': fault.pk}))
-        time.sleep(0.3)
+        self.wait_for_ajax()
 
         # The existing fault type should already be selected - confirm
         # the round trip before changing anything, same rationale as the
@@ -125,7 +127,10 @@ class TestFaultForm(BaseQATests):
 
         self.click_by_css_selector("button[type=submit]")
         self.wait_for_fault_list()
-        time.sleep(0.2)
+        self.wait_until(
+            lambda: new_fault_type in models.Fault.objects.get(pk=fault.pk).fault_types.all(),
+            "the edited fault type to be saved",
+        )
 
         fault.refresh_from_db()
         assert new_fault_type in fault.fault_types.all()

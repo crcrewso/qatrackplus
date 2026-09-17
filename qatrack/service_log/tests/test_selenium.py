@@ -1,4 +1,3 @@
-import time
 
 import pytest
 from django.contrib.auth.models import Permission
@@ -45,15 +44,15 @@ class TestServiceEventForm(BaseQATests):
 
         self.login()
         self.open(reverse('sl_new') + '?u=%d' % self.unit.pk)
-        time.sleep(0.3)
+        self.wait_for_ajax()
 
         self.select_by_index("id_service_area_field_fake", 1)
-        time.sleep(0.1)
+        self.wait_for_ajax()
         self.select_by_index("id_service_type", 1)
         self.driver.execute_script("$('#id_datetime_service').focus()")
-        time.sleep(0.3)
+        self.wait_for_ajax()
         self.click_by_css_selector(".today")
-        time.sleep(0.2)
+        self.wait_for_ajax()
         self.send_keys("id_problem_description", "Something broke")
         self.send_keys("id_work_description", "Fixed it")
 
@@ -64,7 +63,10 @@ class TestServiceEventForm(BaseQATests):
         # `alert-success` banner on the same page, unlike the perform-QC
         # page's flows - so wait for that navigation instead.
         self.wait.until(lambda d: d.current_url.rstrip('/').endswith('/servicelog'))
-        time.sleep(0.2)
+        self.wait_until(
+            lambda: models.ServiceEvent.objects.count() == se_count + 1,
+            "the service event to be saved",
+        )
 
         assert models.ServiceEvent.objects.count() == se_count + 1
         se = models.ServiceEvent.objects.latest("pk")
@@ -83,7 +85,7 @@ class TestServiceEventForm(BaseQATests):
 
         self.login()
         self.open(reverse('sl_edit', kwargs={'pk': se.pk}))
-        time.sleep(0.3)
+        self.wait_for_ajax()
 
         # Confirm the existing value round-tripped into the field correctly
         # before changing it - this is exactly the kind of check that would
@@ -99,7 +101,10 @@ class TestServiceEventForm(BaseQATests):
         # As with create, a successful save redirects to the service log
         # dashboard rather than showing an `alert-success` banner in place.
         self.wait.until(lambda d: d.current_url.rstrip('/').endswith('/servicelog'))
-        time.sleep(0.2)
+        self.wait_until(
+            lambda: models.ServiceEvent.objects.get(pk=se.pk).problem_description == "Updated problem",
+            "the edited problem description to be saved",
+        )
 
         se.refresh_from_db()
         assert se.problem_description == "Updated problem"

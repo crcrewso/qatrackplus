@@ -357,11 +357,53 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         )
         return self.driver.find_elements(by, value)
 
+    def wait_until(self, predicate, message="condition", timeout=None):
+        """Poll a plain Python predicate until it is true.
+
+        For waiting on *server-side* state - a row appearing in the
+        database after a form submit, say - where there is nothing in the
+        DOM to wait on. Replaces `time.sleep(n); assert Model.objects...`,
+        which has to guess n: too small and the test is flaky, too large
+        and every run pays the full cost even when the row landed
+        immediately. The autosave test was sleeping a flat 4.2s this way.
+
+        Raises TimeoutException naming the condition, rather than failing
+        on the assertion afterwards with no indication that timing was
+        involved.
+        """
+        return WebDriverWait(self.driver, timeout or self.timeout).until(
+            lambda d: predicate(), message="timed out waiting for %s" % message
+        )
+
+    def wait_for_ajax(self):
+        """Wait until jQuery reports no requests in flight.
+
+        These pages fire AJAX on nearly every interaction, and the suite
+        has historically waited for that with a fixed sleep. This returns
+        as soon as the requests finish instead. Pages without jQuery
+        report True immediately.
+        """
+        return self.wait.until(
+            lambda d: d.execute_script(
+                "return typeof jQuery !== 'undefined' ? jQuery.active == 0 : true"
+            )
+        )
+
     def scroll_into_view(self, el_id):
         self.wait.until(e_c.presence_of_element_located((By.ID, el_id)))
         actions = ActionChains(self.driver)
         element = self.driver.find_element(By.ID, el_id)
         actions.move_to_element(element)
+        # DELIBERATELY KEPT, despite looking misplaced: move_to_element only
+        # queues the action and perform() executes it, so a sleep between
+        # them appears to do nothing. It is not decorative. Removing it, or
+        # substituting wait_for_ajax(), breaks
+        # LiveQATests::test_admin_tests - the Django admin's type-dependent
+        # widgets need real settle time that is not tied to any in-flight
+        # request, so there is nothing to wait *on*. Bisected by file to
+        # confirm this is the cause. Replacing it properly means finding the
+        # DOM condition the admin JS actually settles into; until someone
+        # does that, this stays.
         time.sleep(1)
         try:
             actions.perform()
@@ -375,6 +417,16 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         actions = ActionChains(self.driver)
         element = self.driver.find_element(By.CSS_SELECTOR, css_sel)
         actions.move_to_element(element)
+        # DELIBERATELY KEPT, despite looking misplaced: move_to_element only
+        # queues the action and perform() executes it, so a sleep between
+        # them appears to do nothing. It is not decorative. Removing it, or
+        # substituting wait_for_ajax(), breaks
+        # LiveQATests::test_admin_tests - the Django admin's type-dependent
+        # widgets need real settle time that is not tied to any in-flight
+        # request, so there is nothing to wait *on*. Bisected by file to
+        # confirm this is the cause. Replacing it properly means finding the
+        # DOM condition the admin JS actually settles into; until someone
+        # does that, this stays.
         time.sleep(1)
         try:
             actions.perform()

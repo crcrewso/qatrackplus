@@ -37,6 +37,24 @@ test:
 test_simple:
 	uv run pytest ${args}
 
+# The GUI suite in parallel. Worth it here and nowhere else: each Selenium
+# test spends seconds in browser startup and page waits, so workers overlap
+# that. Measured on a 16-core machine, full Selenium suite:
+#
+#     serial          ~520s
+#     -n 4 loadscope  ~210s
+#
+# The rest of the suite is the opposite - those tests average ~48ms each, so
+# worker startup costs more than parallelism saves (57s serial vs 60-65s
+# under -n, and still 60s with a warm --reuse-db, so it is not database
+# setup). Do NOT put -n in addopts; keep it scoped to this target.
+#
+# --dist loadscope keeps every test in a class on one worker, which matters
+# because browsers are created per class - splitting a class would pay that
+# startup repeatedly.
+test-selenium-parallel:
+	uv run pytest -m selenium --run-selenium -n $(or $(jobs),4) --dist loadscope ${args}
+
 # Run the suite against a specific engine's local_test_settings.py, without
 # disturbing whatever you already have set up as your day-to-day one.
 # Requires qatrack/local_test_settings.<engine>.py to already exist -
@@ -162,8 +180,8 @@ run:
 __cleardb__:
 	uv run python manage.py shell -c "from qatrack.qa.models import *; TestListInstance.objects.all().delete(); UnitTestCollection.objects.all().delete(); ContentType.objects.all().delete()"
 
-.PHONY: dev-quickstart cover cover-module cover-mo cover-qatrack test \
-	test_simple test-sqlite test-memory test-postgres test-mysql \
-	test-mssql _test-engine test-integration dumpdata clearct flushdb \
-	help docs-autobuild docs qatrack_daemon.conf \
-	supervisor.conf schema run __cleardb__ mysql-ro-rights
+.PHONY: __cleardb__ _test-engine clearct cover cover-mo cover-module \
+	cover-qatrack dev-quickstart docs docs-autobuild dumpdata flushdb \
+	help nginx.conf run schema supervisor.conf test test-integration \
+	test-memory test-mssql test-mysql test-postgres \
+	test-selenium-parallel test-sqlite test_simple
