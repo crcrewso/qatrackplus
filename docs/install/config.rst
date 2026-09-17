@@ -500,8 +500,8 @@ warning message that will be shown when a performed test is at action level.
 If `DEFAULT_WARNING_MESSAGE = ""` then the default will be to not show any
 warning message when a test is at action level.
 
-FORCE_SCRIPT_NAME, LOGIN_REDIRECT_URL, LOGIN_URL, STATIC_URL, MEDIA_URL, UPLOADS_URL
-....................................................................................
+FORCE_SCRIPT_NAME, LOGIN_REDIRECT_URL, LOGIN_URL, STATIC_URL, MEDIA_URL
+.......................................................................
 
 If you deploy QATrack+ at a non root url (e.g. http://5.5.5.5/qatrack/) then you need to
 set these settings as follows:
@@ -520,8 +520,14 @@ urls as well:
 
     # just an example, change according to how you have configured IIS
     MEDIA_URL = '/qatrack_media/'
-    UPLOADS_URL = MEDIA_URL + 'uploads/'
     STATIC_URL = '/qatrack_static/'
+
+.. note::
+
+    Uploaded-file URLs are derived from ``MEDIA_URL``; there is no separate
+    setting for them. Earlier versions defined an ``UPLOADS_URL``, but nothing
+    ever read it - setting it had no effect - so it has been removed rather
+    than left to look configurable.
 
 
 MAX_TESTS_PER_TESTLIST

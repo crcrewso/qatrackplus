@@ -43,7 +43,7 @@ class QATrackAccountBackend(ModelBackend):
         """
         if settings.ACCOUNTS_CLEAN_USERNAME and callable(settings.ACCOUNTS_CLEAN_USERNAME):
             return settings.ACCOUNTS_CLEAN_USERNAME(username)
-        return username.replace(settings.CLEAN_USERNAME_STRING, "")
+        return username.replace(settings.ACCOUNTS_CLEAN_USERNAME_STRING, "")
 
     def update_user_groups(self, user):
         existing_user_groups = list(user.groups.all())
@@ -229,7 +229,12 @@ class ActiveDirectoryGroupMembershipSSLBackend:
         """
         if settings.AD_CLEAN_USERNAME and callable(settings.AD_CLEAN_USERNAME):
             return settings.AD_CLEAN_USERNAME(username)
-        return username.replace(settings.CLEAN_USERNAME_STRING, "").replace(settings.AD_CLEAN_USERNAME_STRING, "")
+        # Both strings are stripped deliberately: settings.py binds them to the
+        # same default, so this is usually one replacement done twice - but a
+        # deployer may set only one of them, and this backend honours either.
+        return username.replace(settings.ACCOUNTS_CLEAN_USERNAME_STRING, "").replace(
+            settings.AD_CLEAN_USERNAME_STRING, ""
+        )
 
 
 class WindowsIntegratedAuthenticationBackend(ModelBackend):
@@ -273,7 +278,12 @@ class WindowsIntegratedAuthenticationBackend(ModelBackend):
         """
         if settings.AD_CLEAN_USERNAME and callable(settings.AD_CLEAN_USERNAME):
             return settings.AD_CLEAN_USERNAME(username)
-        return username.replace(settings.CLEAN_USERNAME_STRING, "").replace(settings.AD_CLEAN_USERNAME_STRING, "")
+        # Both strings are stripped deliberately: settings.py binds them to the
+        # same default, so this is usually one replacement done twice - but a
+        # deployer may set only one of them, and this backend honours either.
+        return username.replace(settings.ACCOUNTS_CLEAN_USERNAME_STRING, "").replace(
+            settings.AD_CLEAN_USERNAME_STRING, ""
+        )
 
     def configure_user(self, user):
         """
@@ -356,7 +366,7 @@ class QATrackAdfsAuthCodeBackend(AdfsAuthCodeBackend):
         """
         if settings.ACCOUNTS_CLEAN_USERNAME and callable(settings.ACCOUNTS_CLEAN_USERNAME):
             return settings.ACCOUNTS_CLEAN_USERNAME(username)
-        return username.replace(settings.CLEAN_USERNAME_STRING, "")
+        return username.replace(settings.ACCOUNTS_CLEAN_USERNAME_STRING, "")
 
     def update_user_groups(self, user, claims):
         """

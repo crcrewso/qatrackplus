@@ -18,6 +18,30 @@
 # working, or ship a shim that does.
 #
 # Rationale and the options considered are in AGENTS.md, "Adding a setting".
+#
+# Two naming inconsistencies are also parked until then, because renaming a
+# setting breaks every local_settings.py that sets it, and 5.0 is the only
+# place that is acceptable:
+#
+#   1. The clean-username family. Four names, three prefix conventions, and two
+#      of them bound to the same value in settings.py:
+#
+#          ACCOUNTS_CLEAN_USERNAME          callable
+#          AD_CLEAN_USERNAME                callable
+#          ACCOUNTS_CLEAN_USERNAME_STRING = AD_CLEAN_USERNAME_STRING = ''
+#
+#      The aliasing is why two backends call .replace() twice with what is
+#      usually the same value (see accounts/backends.py). Collapsing this to
+#      one pair - a callable and a string, with one prefix - is the fix, but it
+#      touches AD deployments, and AD/LDAP is the area of the codebase with no
+#      test coverage at all. Do not attempt it without a way to test LDAP.
+#
+#   2. Boolean naming. QATrack+'s own flags are USE_ADFS, USE_ISSUES and
+#      USE_SQL_REPORTS, against a single EMAIL_ENABLED. USE_* is the majority,
+#      so EMAIL_ENABLED is the outlier - but it appears in five deploy examples
+#      and two documentation pages, and W001 above already steers deployers
+#      toward it. Renaming it is a 5.0 job; renaming the USE_* settings to
+#      match it would be moving three names to suit one.
 
 import os
 import tempfile

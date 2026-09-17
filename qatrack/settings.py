@@ -144,7 +144,6 @@ TMP_UPLOAD_ROOT = os.path.join(UPLOAD_ROOT, "tmp")
 # trailing slash.
 # Examples: "http://media.lawrence.com/media/", "http://example.com/media/"
 MEDIA_URL = '/media/'
-UPLOADS_URL = MEDIA_URL + 'uploads/'
 
 # Absolute path to the directory static files should be collected to.
 # Don't put anything in this directory yourself; store your static files
@@ -403,7 +402,11 @@ AD_MIRROR_GROUPS = False
 
 AD_CERT_FILE = ''  # AD_CERT_FILE = '/path/to/your/cert.txt'
 
-CLEAN_USERNAME_STRING = AD_CLEAN_USERNAME_STRING = ''
+# Two names, one value. The accounts and ADFS backends strip
+# ACCOUNTS_CLEAN_USERNAME_STRING; the Active Directory and Windows
+# integrated backends strip both.
+# Set either (or both) to remove a prefix from incoming usernames.
+ACCOUNTS_CLEAN_USERNAME_STRING = AD_CLEAN_USERNAME_STRING = ''
 
 # define a function called AD_CLEAN_USERNAME in local_settings.py if you
 # wish to clean usernames before sending to ldap server

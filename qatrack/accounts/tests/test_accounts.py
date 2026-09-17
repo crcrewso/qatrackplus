@@ -41,6 +41,17 @@ class TestCleanUsername:
         backend = QATrackAccountBackend()
         assert backend.clean_username("UserName") == "username"
 
+    @override_settings(ACCOUNTS_CLEAN_USERNAME=None,
+                       ACCOUNTS_CLEAN_USERNAME_STRING="Foo/")
+    def test_accounts_clean_string(self):
+        # The string form had no coverage at all. The AD equivalent is tested
+        # above but is skipped wherever python-ldap is unavailable, which is
+        # everywhere except a machine with the ldap extra installed - so
+        # without this, nothing exercised the strip-a-prefix path on a normal
+        # test run.
+        backend = QATrackAccountBackend()
+        assert backend.clean_username("Foo/bar") == "bar"
+
 
 class TestAdminFilter(TestCase):
 
