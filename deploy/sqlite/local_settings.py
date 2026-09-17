@@ -1,7 +1,24 @@
 # -----------------------------------------------------------------------------
-# Required settings - QATrack+ will not run correctly (or at all) until these
-# are set for your environment.
+# Settings you need to look at. Two kinds live here:
+#
+#   1. Settings with no usable default, marked below with an obvious
+#      placeholder. QATrack+ will not start, or will misbehave, until you
+#      replace them: TIME_ZONE, DATABASES, ALLOWED_HOSTS and
+#      CSRF_TRUSTED_ORIGINS.
+#
+#   2. Settings this template states deliberately even though settings.py
+#      already has a working default - DEBUG and USE_SQL_REPORTS. They are
+#      marked "[template default]" below. You can leave them alone; change
+#      them if the reasoning given does not match your site.
+#
+# Everything not in this section has a sensible default and lives commented
+# out under "Optional settings" further down. See docs/install/config.rst
+# for the full per-setting reference.
 
+# [template default] settings.py already defaults DEBUG to False, so this
+# line changes nothing. It is restated here because it is the single most
+# security-relevant setting in the file, and a deployer should be able to
+# confirm its value without going and reading settings.py.
 # Set to True to enable debug mode (not safe for regular use!)
 DEBUG = False
 
@@ -48,6 +65,12 @@ CSRF_TRUSTED_ORIGINS = ['http://XX.XXX.XXX.XX', 'https://XX.XXX.XXX.XX']
 #     'http://localhost', 'https://localhost',
 # ]
 
+# [template default] settings.py defaults this to False; this template opts
+# in. That is a real choice, not a formality: enabling it requires a
+# 'readonly' database connection, which is why one is configured above. If
+# you set this to False, the readonly block becomes unnecessary - and if you
+# remove the readonly block while leaving this True, settings.py raises
+# "Missing 'readonly' connection information" at startup.
 # Set to False to disable the SQL Query Tool
 USE_SQL_REPORTS = True
 

@@ -46,6 +46,33 @@ Open a PowerShell Window and enter the following commands:
 Mandatory Settings
 ~~~~~~~~~~~~~~~~~~
 
+The ``local_settings.py`` templates under ``deploy/`` sort settings into three
+groups, and it is worth knowing which is which before editing one:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - Group
+     - Meaning
+   * - **Required**
+     - No usable default. QATrack+ will not start, or will behave wrongly,
+       until you replace the placeholder. These are ``TIME_ZONE``,
+       ``DATABASES``, ``ALLOWED_HOSTS`` and ``CSRF_TRUSTED_ORIGINS``.
+   * - **Template default**
+     - ``settings.py`` already has a working value, but the template states one
+       deliberately. Marked ``[template default]`` in the file. Currently
+       ``DEBUG`` and ``USE_SQL_REPORTS``. Safe to leave alone.
+   * - **Optional**
+     - Commented out in the template; the ``settings.py`` default applies
+       unless you uncomment. Everything else.
+
+Note that ``TIME_ZONE`` is genuinely mandatory but is documented separately
+under :ref:`Time Zone Settings <time-zone-settings>` rather than repeated here.
+
+``HTTP_OR_HTTPS`` appears below for completeness, but it is **not** mandatory -
+it defaults to ``'http'``, which is why none of the deployment templates set it.
+Change it only if your site is served over https.
 
 DEBUG Setting
 .............
@@ -125,7 +152,9 @@ HTTP or HTTPS Setting
 .....................
 
 In order for urls to use the correct protocol for links, set `HTTP_OR_HTTPS` to
-the appropriate protocol.
+the appropriate protocol. This defaults to ``'http'`` in ``settings.py``, so it
+only needs setting if your site is served over https - none of the deployment
+templates under ``deploy/`` include it.
 
 .. code-block:: python
 
@@ -169,6 +198,48 @@ set `AUTOCOMMIT = False` for your readonly configuration (see the
 `USE_SQL_REPORTS` setting below).
 
 
+Environment variable overrides
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``local_settings.py`` is the primary way to configure QATrack+, and for an
+ordinary Linux or Windows deployment it is the only one you need. There are two
+other mechanisms, each scoped to a particular situation, and it is worth knowing
+which applies to you so you are not hunting for a setting in the wrong file.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 26 28 46
+
+   * - Mechanism
+     - Applies to
+     - Notes
+   * - ``local_settings.py``
+     - Every ordinary deployment
+     - The documented mechanism. Everything on this page refers to it.
+   * - Docker environment
+     - Docker deployments only
+     - Setting ``USE_DOCKER`` makes ``settings.py`` configure itself from the
+       environment and **skip importing local_settings.py entirely**:
+       ``ALLOWED_HOSTS``, ``CSRF_TRUSTED_ORIGINS``, ``TIME_ZONE`` and the
+       ``POSTGRES_*`` credentials. Set them in ``deploy/docker/.env``.
+   * - ``QATRACK_DB_*``
+     - Test settings only
+     - The per-engine templates under ``deploy/dev/`` read ``QATRACK_DB_NAME``,
+       ``_USER``, ``_PASSWORD``, ``_HOST`` and ``_PORT``, so CI can point the
+       test suite at a service container without rewriting the file. Has no
+       effect on a running QATrack+ instance.
+
+Two Selenium-only variables, ``SELENIUM_BROWSER`` and ``SELENIUM_HEADLESS``, are
+also read from the environment - see the developer guide rather than this page.
+
+.. note::
+
+    These do not layer. Under Docker, ``local_settings.py`` is not read at all,
+    so a setting you add there will appear to be ignored. If you are editing
+    ``local_settings.py`` on a Docker deployment and nothing changes, this is
+    why.
+
+
 Cache Settings
 ~~~~~~~~~~~~~~
 
@@ -188,6 +259,8 @@ dictionary below into your `local_settings.py` file:
 
 Generally you shouldn't need to change this unless you have concerns about disk
 usage.
+
+.. _time-zone-settings:
 
 Time Zone Settings
 ~~~~~~~~~~~~~~~~~~
