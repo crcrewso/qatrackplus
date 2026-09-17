@@ -3,17 +3,38 @@
 #
 # Requires the `mysql` extra: uv sync --extra mysql
 
+import os
+
 DEBUG = True
 TEMPLATE_DBG = True
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'qatrackplus_test',
-        'USER': 'your_mysql_user',
-        'PASSWORD': 'your_mysql_password',
-        'HOST': 'hostname',
-        'PORT': '3306',  # MySQL default
+        # Defaults follow the naming used by
+        # deploy/mysql/create_db_and_role.sql (user qatrack / password
+        # qatrackpass / database qatrackplus). Every value can be overridden by
+        # an environment variable, which is how CI configures itself - see
+        # .github/workflows/ci.yml.
+        #
+        # NAME is the *application* database, not the test database. Django
+        # derives the test database by prefixing 'test_', so this yields
+        # test_qatrackplus. It previously read 'qatrackplus_test', which would
+        # have produced test_qatrackplus_test; CI worked around that with a sed.
+        #
+        # NOTE: create_db_and_role.sql is a *production* script and deliberately
+        # does not grant what testing needs - it grants only qatrackplus.*, so
+        # the test database cannot be created. For a machine you intend to run
+        # tests on, also run:
+        #
+        #     GRANT ALL ON test_qatrackplus.* TO 'qatrack'@'localhost';
+        #     FLUSH PRIVILEGES;
+        #
+        'NAME': os.environ.get('QATRACK_DB_NAME', 'qatrackplus'),
+        'USER': os.environ.get('QATRACK_DB_USER', 'qatrack'),
+        'PASSWORD': os.environ.get('QATRACK_DB_PASSWORD', 'qatrackpass'),
+        'HOST': os.environ.get('QATRACK_DB_HOST', 'localhost'),
+        'PORT': os.environ.get('QATRACK_DB_PORT', '3306'),  # MySQL default
     }
 }
 DATABASES['readonly'] = DATABASES['default']

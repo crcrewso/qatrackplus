@@ -1,17 +1,36 @@
 # Test-specific settings for QATrack+ - PostgreSQL variant
 # Copy this file to qatrack/local_test_settings.py and customize as needed
 
+import os
+
 DEBUG = True
 TEMPLATE_DBG = True
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'qatrackplus_test',
-        'USER': 'your_postgres_user',
-        'PASSWORD': 'your_postgres_password',
-        'HOST': 'hostname',
-        'PORT': '5432',  # PostgreSQL default
+        # Defaults follow the naming used by
+        # deploy/postgres/create_db_and_role.sql (user qatrack / password
+        # qatrackpass / database qatrackplus). Every value can be overridden by
+        # an environment variable, which is how CI configures itself - see
+        # .github/workflows/ci.yml.
+        #
+        # NAME is the *application* database, not the test database. Django
+        # derives the test database by prefixing 'test_', so this yields
+        # test_qatrackplus. It previously read 'qatrackplus_test', which would
+        # have produced test_qatrackplus_test; CI worked around that with a sed.
+        #
+        # NOTE: create_db_and_role.sql is a *production* script and deliberately
+        # does not grant what testing needs - the role cannot create the test
+        # database. For a machine you intend to run tests on, also run:
+        #
+        #     ALTER ROLE qatrack CREATEDB;
+        #
+        'NAME': os.environ.get('QATRACK_DB_NAME', 'qatrackplus'),
+        'USER': os.environ.get('QATRACK_DB_USER', 'qatrack'),
+        'PASSWORD': os.environ.get('QATRACK_DB_PASSWORD', 'qatrackpass'),
+        'HOST': os.environ.get('QATRACK_DB_HOST', 'localhost'),
+        'PORT': os.environ.get('QATRACK_DB_PORT', '5432'),  # PostgreSQL default
     }
 }
 DATABASES['readonly'] = DATABASES['default']

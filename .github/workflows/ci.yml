@@ -198,21 +198,24 @@ jobs:
         if: matrix.db == 'postgres'
         run: |
           cp deploy/dev/local_test_settings.postgres.py qatrack/local_test_settings.py
-          sed -i "s/'NAME': 'qatrackplus_test'/'NAME': 'qatrackplus'/" qatrack/local_test_settings.py
-          sed -i "s/'USER': 'your_postgres_user'/'USER': 'qatrack'/" qatrack/local_test_settings.py
-          sed -i "s/'PASSWORD': 'your_postgres_password'/'PASSWORD': 'qatrackpass'/" qatrack/local_test_settings.py
-          sed -i "s/'HOST': 'hostname'/'HOST': '127.0.0.1'/" qatrack/local_test_settings.py
 
       - name: Setup Test Database configuration (MySQL)
         if: matrix.db == 'mysql'
         run: |
           cp deploy/dev/local_test_settings.mysql.py qatrack/local_test_settings.py
-          sed -i "s/'NAME': 'qatrackplus_test'/'NAME': 'qatrackplus'/" qatrack/local_test_settings.py
-          sed -i "s/'USER': 'your_mysql_user'/'USER': 'qatrack'/" qatrack/local_test_settings.py
-          sed -i "s/'PASSWORD': 'your_mysql_password'/'PASSWORD': 'qatrackpass'/" qatrack/local_test_settings.py
-          sed -i "s/'HOST': 'hostname'/'HOST': '127.0.0.1'/" qatrack/local_test_settings.py
 
       - name: Run Tests
+        # The postgres/mysql test templates read their connection details from
+        # QATRACK_DB_* with defaults matching deploy/<engine>/create_db_and_role.sql,
+        # so the only value CI has to override is the host: the service
+        # containers are reached over TCP on 127.0.0.1, not the local socket
+        # that `localhost` implies. This replaced eight `sed -i` substitutions
+        # that rewrote the copied template in place - those matched on exact
+        # placeholder strings and, because sed does not fail when a pattern
+        # matches nothing, editing a template would have silently stopped CI
+        # patching it rather than failing loudly.
+        env:
+          QATRACK_DB_HOST: 127.0.0.1
         run: pytest -x
 
   windows-tests:
