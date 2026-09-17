@@ -292,6 +292,70 @@ Prefer **LTS releases** for runtime dependencies (Python, Django, Node.js,
 etc.) — clinical deployments need predictable upgrade windows. When proposing
 a new dependency or version bump, note in the PR description whether it's LTS.
 
+### Adding a setting
+
+Where a new setting belongs follows from one sentence:
+
+> **`settings.py` holds every setting and its default. The examples under
+> `deploy/` hold only what a deployer must or might change. The environment
+> holds only what varies between instances of the same image.**
+
+Three questions decide it. Answer them in order.
+
+**1. Can QATrack+ run correctly if the deployer never touches it?**
+
+- **No** → it is **Required**. Set it, active, in every `deploy/*/local_settings.py`
+  example, using an obvious placeholder (`XX.XXX.XXX.XX`, `YOUR_HOST_NAME_HERE`).
+  Add it to the placeholder system check in `qatrack/qatrack_core/checks.py` so an
+  unedited one fails at startup rather than at request time.
+- **Yes** → question 2.
+
+**2. Would a typical site want something other than the `settings.py` default?**
+
+- **Most sites would** → **Example default**. Set it, active, in the examples,
+  marked `[example default]`, with a one-line note on what changing it implies.
+  `USE_SQL_REPORTS = True` is the model: a real choice, with a stated consequence.
+- **Some sites would** → **Optional**. A commented-out example under the
+  "Optional settings" heading.
+- **Almost none would** → **`settings.py` only**. Do not put it in the examples
+  at all. This is the branch that gets forgotten, and the reason the examples
+  have not grown to match `settings.py`'s ~167 settings: a real deployment sets
+  somewhere between 6 and 13 of them.
+
+**3. Does its value differ between instances of the same deployment?**
+
+- **Yes** (hostnames, credentials, anything per-container) → give it an
+  environment override, and document it in `config.rst`'s override table.
+- **No** → `local_settings.py` only. Dicts and lists — `TEST_STATUS_DISPLAY`,
+  `LANGUAGES` — answer no almost by definition; they express badly as
+  environment variables.
+
+Questions 1 and 3 are questions of fact, not taste. You can settle 1 by removing
+the setting and starting the application, and 3 by asking whether two containers
+from one image would need different values. Only question 2 is a judgement call,
+and it fails safely: guess wrong and a setting is merely commented rather than
+active.
+
+#### Who each file is written for
+
+Keep these audiences separate. Mixing them is what made the settings files hard
+to read in the first place.
+
+| File | Audience | Comments should say |
+|---|---|---|
+| `deploy/*/local_settings.py` | deployers | what to change, and what breaks if it is wrong |
+| `qatrack/settings.py` | deployers reading defaults | the same — not why the file is arranged as it is |
+| `docs/install/config.rst` | deployers | the full per-setting reference |
+| **this section** | developers | where new settings go, and why |
+
+Rationale for *how the settings files are organised* belongs here or in the
+commit that changed them — not in the files themselves. A deployer opening
+`local_settings.py` at 2am wants to know which line to edit, not why the line
+exists.
+
+When an inline comment and `config.rst` disagree, the inline comment wins: it is
+the one people actually read while editing.
+
 ### Language
 
 **English (Canada)** is the lightly preferred written language for code
@@ -377,8 +441,8 @@ likely to need a matching change in the others.
 | `qatrack/units/` | `docs/admin/units/`, `docs/user/units/` |
 | `qatrack/reports/` | `docs/user/reports/` |
 | `qatrack/contacts/` | `docs/admin/qa/contacts.rst`, `docs/admin/qa/email.rst` |
-| `qatrack/settings.py` | `docs/install/config.rst` |
-| `qatrack/local_settings*`, `deploy/` | `docs/install/` |
+| `qatrack/settings.py` | `docs/install/config.rst`, and *Adding a setting* above if the grouping changes |
+| `qatrack/local_settings*`, `deploy/` | `docs/install/`, and *Adding a setting* above |
 | `qatrack/qatrack_core/` | `docs/developer/` |
 | `AGENTS.md` | `docs/developer/`, `docs/install/`, `CONTRIBUTING.md`, `uv-setup.md` |
 | `docs/developer/` | `docs/install/`, `AGENTS.md`, `CONTRIBUTING.md`, `uv-setup.md` |

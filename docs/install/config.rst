@@ -49,6 +49,12 @@ Mandatory Settings
 The ``local_settings.py`` examples under ``deploy/`` sort settings into three
 groups, and it is worth knowing which is which before editing one:
 
+.. note::
+
+    This page is for people deploying QATrack+. If you are *adding* a setting
+    and need to know which group it belongs in, see "Adding a setting" in
+    ``AGENTS.md``.
+
 .. list-table::
    :header-rows: 1
    :widths: 22 78
