@@ -537,6 +537,8 @@ QATrack+ directory using the `pytest` command (configuration lives under
 
 **Running Different Types of Tests**
 
+.. _running-selenium-tests:
+
 Selenium (GUI/browser) tests are skipped by default - a plain `pytest` run
 covers everything else, faster and without needing a browser installed:
 
@@ -653,6 +655,57 @@ CI install the ``ldap`` extra and actually run those three skipped tests.
     Bolting the directory settings onto, say, the sqlite template would make
     the coverage look engine-specific when it is not, and would quietly leave
     the other three engines untested for authentication.
+
+
+Finding views the browser tests never reach
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The section above lists gaps we already know about. This is how to find the
+rest, for views specifically.
+
+A plain coverage report cannot answer the useful question on its own. It tells
+you a view is covered, but not by *what* - and a view exercised only by a unit
+test that calls it directly has never had its template rendered, its JavaScript
+run, or its form submitted by a browser. Those are the views most likely to
+break in a way the suite will not notice.
+
+Comparing two runs separates the cases. Because the GUI tests are skipped by
+default (see :ref:`above <running-selenium-tests>`), a plain ``pytest`` run is
+the everything-except-the-browser baseline, and ``-m selenium`` is its
+complement:
+
+.. code-block:: shell
+
+    # Everything except the GUI tests
+    coverage run --source=qatrack -m pytest
+    coverage report --include="*/views.py" -m > cover/no-selenium.txt
+
+    # The GUI tests only
+    coverage run --source=qatrack -m pytest -m selenium
+    coverage report --include="*/views.py" -m > cover/selenium-only.txt
+
+    diff cover/no-selenium.txt cover/selenium-only.txt
+
+``cover/`` is already in ``.gitignore``, so the two reports will not end up in
+a commit. The ``-m`` flag on ``coverage report`` prints the line numbers that
+were never executed, which is what makes the two files comparable.
+
+Read the result as three cases:
+
+* **Covered in both** - exercised by unit tests and by the browser. Nothing to
+  do.
+* **Covered in the first, missed in the second** - unit tests only. These are
+  the best candidates for a new Selenium test, because the parts a browser
+  would exercise are precisely the parts nothing is checking.
+* **Missed in both** - no coverage at all. Worth a unit test first; a Selenium
+  test is a slow and awkward way to get basic coverage of a view.
+
+For a colour-coded view of any single file, ``coverage html --include="*/views.py"``
+writes a browsable report to ``htmlcov/``.
+
+Note that 100% line coverage of a view means every line ran, not that anything
+about the result was asserted. Treat the numbers as a way of finding untested
+areas, not as evidence that the tested ones are correct.
 
 
 Running the Selenium tests in parallel
