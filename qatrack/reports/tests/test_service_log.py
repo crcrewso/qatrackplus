@@ -5,7 +5,7 @@ from django.utils.translation import gettext as _
 
 from qatrack.attachments.models import Attachment
 from qatrack.parts import models as parts_models
-from qatrack.qa.tests import utils
+from qatrack.qa.tests import utils as qa_utils
 from qatrack.reports import service_log as sl
 from qatrack.service_log import models
 from qatrack.service_log.tests import utils as sl_utils
@@ -36,7 +36,7 @@ class TestServiceEventSummaryReport(TestCase):
 
     def test_get_unit_service_area__unit_details(self):
         site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+        unit = qa_utils.create_unit(site=site)
         units = sl.ServiceEventSummaryReport().get_unit_service_area__unit_details([unit.pk])
         assert units == ('Unit(s)', '%s - %s' % (unit.site.name, unit.name))
 
@@ -47,11 +47,11 @@ class TestServiceEventSummaryReport(TestCase):
 
     def test_get_ses_for_site(self):
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         se1 = sl_utils.create_service_event(unit_service_area=usa1)
 
-        unit2 = utils.create_unit(site=None)
+        unit2 = qa_utils.create_unit(site=None)
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         sl_utils.create_service_event(unit_service_area=usa2)
 
@@ -61,11 +61,11 @@ class TestServiceEventSummaryReport(TestCase):
 
     def test_get_ses_for_null_site(self):
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(unit_service_area=usa1)
 
-        unit2 = utils.create_unit(site=None)
+        unit2 = qa_utils.create_unit(site=None)
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         se2 = sl_utils.create_service_event(unit_service_area=usa2)
 
@@ -76,11 +76,11 @@ class TestServiceEventSummaryReport(TestCase):
     def test_generate_html(self):
 
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(unit_service_area=usa1)
 
-        unit2 = utils.create_unit()
+        unit2 = qa_utils.create_unit()
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         sl_utils.create_service_event(unit_service_area=usa2)
 
@@ -91,11 +91,11 @@ class TestServiceEventSummaryReport(TestCase):
     def test_to_table(self):
 
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(unit_service_area=usa1)
 
-        unit2 = utils.create_unit()
+        unit2 = qa_utils.create_unit()
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         sl_utils.create_service_event(unit_service_area=usa2)
 
@@ -130,11 +130,11 @@ class TestServiceEventDetailsReport(TestCase):
     def test_generate_html(self):
 
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(unit_service_area=usa1)
 
-        unit2 = utils.create_unit()
+        unit2 = qa_utils.create_unit()
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         sl_utils.create_service_event(unit_service_area=usa2)
 
@@ -145,11 +145,11 @@ class TestServiceEventDetailsReport(TestCase):
     def test_to_table(self):
 
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(unit_service_area=usa1)
 
-        unit2 = utils.create_unit()
+        unit2 = qa_utils.create_unit()
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         se = sl_utils.create_service_event(unit_service_area=usa2)
         se2 = sl_utils.create_service_event(unit_service_area=usa2)
@@ -213,11 +213,11 @@ class TestServiceEventPersonnelSummaryReport(TestCase):
     def test_generate_html(self):
 
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(unit_service_area=usa1)
 
-        unit2 = utils.create_unit()
+        unit2 = qa_utils.create_unit()
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         sl_utils.create_service_event(unit_service_area=usa2)
 
@@ -228,11 +228,11 @@ class TestServiceEventPersonnelSummaryReport(TestCase):
     def test_to_table(self):
 
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(unit_service_area=usa1)
 
-        unit2 = utils.create_unit()
+        unit2 = qa_utils.create_unit()
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         se = sl_utils.create_service_event(unit_service_area=usa2)
         se2 = sl_utils.create_service_event(unit_service_area=usa2)
@@ -273,7 +273,7 @@ class TestServiceTimesReport(TestCase):
     def test_generate_html(self):
 
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(
             unit_service_area=usa1,
@@ -281,7 +281,7 @@ class TestServiceTimesReport(TestCase):
             lost_time=timezone.timedelta(hours=1, minutes=23),
         )
 
-        unit2 = utils.create_unit()
+        unit2 = qa_utils.create_unit()
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         sl_utils.create_service_event(unit_service_area=usa2)
 
@@ -292,7 +292,7 @@ class TestServiceTimesReport(TestCase):
     def test_to_table(self):
 
         site = USite.objects.create(name="site")
-        unit1 = utils.create_unit(site=site)
+        unit1 = qa_utils.create_unit(site=site)
         usa1 = sl_utils.create_unit_service_area(unit=unit1)
         sl_utils.create_service_event(
             unit_service_area=usa1,
@@ -300,7 +300,7 @@ class TestServiceTimesReport(TestCase):
             lost_time=timezone.timedelta(hours=1, minutes=23),
         )
 
-        unit2 = utils.create_unit()
+        unit2 = qa_utils.create_unit()
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         sl_utils.create_service_event(unit_service_area=usa2)
 
@@ -337,13 +337,13 @@ class TestDueDateReport(TestCase):
 
     def test_get_unit_details(self):
         site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+        unit = qa_utils.create_unit(site=site)
         units = sl.NextScheduledServiceEventsDueDatesReport().get_unit_service_area__unit_details([unit.pk])
         assert units == ('Unit(s)', '%s - %s' % (unit.site.name, unit.name))
 
     def test_generate_next_due_dates_html(self):
         site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+        unit = qa_utils.create_unit(site=site)
         usa = sl_utils.create_unit_service_area(unit=unit)
         sch = sl_utils.create_service_event_schedule(unit_service_area=usa)
         sch.due_date = timezone.now() + timezone.timedelta(days=1)
@@ -354,7 +354,7 @@ class TestDueDateReport(TestCase):
 
     def test_generate_due_and_overdue_html(self):
         site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+        unit = qa_utils.create_unit(site=site)
         usa = sl_utils.create_unit_service_area(unit=unit)
         sch = sl_utils.create_service_event_schedule(unit_service_area=usa)
         sch.due_date = timezone.now() - timezone.timedelta(days=1)
@@ -367,13 +367,13 @@ class TestDueDateReport(TestCase):
     def test_to_table(self):
 
         site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+        unit = qa_utils.create_unit(site=site)
         usa = sl_utils.create_unit_service_area(unit=unit)
         sch1 = sl_utils.create_service_event_schedule(unit_service_area=usa)
         sch1.due_date = timezone.now() - timezone.timedelta(days=1)
         sch1.save()
 
-        unit2 = utils.create_unit(site=None)
+        unit2 = qa_utils.create_unit(site=None)
         usa2 = sl_utils.create_unit_service_area(unit=unit2)
         sl_utils.create_service_event_schedule(unit_service_area=usa2)
 
@@ -436,13 +436,13 @@ class TestAssignedTemplatesReport(TestCase):
 
     def test_get_unit_service_area__unit_details(self):
         site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+        unit = qa_utils.create_unit(site=site)
         units = sl.ScheduledTemplatesReport().get_unit_service_area__unit_details([unit.pk])
         assert units == ('Unit(s)', '%s - %s' % (unit.site.name, unit.name))
 
     def test_generate_summary_html(self):
         site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+        unit = qa_utils.create_unit(site=site)
         usa = sl_utils.create_unit_service_area(unit=unit)
         sl_utils.create_service_event_schedule(unit_service_area=usa)
         rep = sl.ScheduledTemplatesReport()
@@ -452,7 +452,7 @@ class TestAssignedTemplatesReport(TestCase):
     def test_to_table(self):
 
         site = USite.objects.create(name="site")
-        unit = utils.create_unit(site=site)
+        unit = qa_utils.create_unit(site=site)
         usa = sl_utils.create_unit_service_area(unit=unit)
         sl_utils.create_service_event_schedule(unit_service_area=usa)
 
