@@ -607,6 +607,73 @@ For more information on using pytest, refer to the `pytest documentation
         make cover
 
 
+Test order and isolation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Test order is **deterministic**. pytest collects files in directory order and
+runs the tests within each file in definition order, and no order-randomising
+plugin is installed - so ``-p no:randomly``, which you may see in other
+projects' instructions, does nothing here. Two runs of the same selection
+execute in the same order.
+
+That is convenient for reproducing a failure, and it is also how order
+dependence survives: a test that only passes because an earlier test left
+something behind will keep passing, every time, until someone runs it on its
+own.
+
+So when a test fails only as part of a larger run, check that first:
+
+.. code-block:: shell
+
+    # in the suite
+    pytest -m selenium
+
+    # on its own - if this passes, the test depends on something before it
+    pytest qatrack/service_log/tests/test_selenium.py::TestServiceEventForm::test_create_service_event
+
+``pytest-randomly`` would find this class of bug systematically by shuffling
+the order on every run. It has deliberately **not** been adopted yet. Its
+value depends on the rest of the suite being predictable, and the Selenium
+tests still have residual timing flakiness (see below); adding randomised
+ordering on top would mix two sources of nondeterminism and make a red CI run
+harder to attribute to either. It would also mean carrying a seed back from CI
+to reproduce anything.
+
+If it is adopted, the sensible first scope is the non-Selenium suite - it is
+fast, it has no browser timing in it, and order bugs there are worth finding.
+Leave the GUI tests on deterministic ordering until they are quiet.
+
+Known flakiness in the Selenium suite
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A handful of GUI tests fail intermittently under Chromium. They pass under
+Firefox, which is the profile of a timing race rather than a real difference
+in behaviour between the browsers - a test that asserts on something the
+browser has not finished doing yet.
+
+When one of these fails, start with the screenshot: every failing Selenium
+test writes one to ``selenium-screenshots/``, and CI uploads that directory as
+an artifact. The picture usually names the problem immediately - a button
+still reading "Submitting...", a form that has not populated - which is faster
+than re-running locally and hoping.
+
+The pattern to look for is an assertion that runs straight after an action
+without waiting for the result of that action. ``click()`` returns as soon as
+the click has been *dispatched*; if the click triggers a request, the
+assertion after it is racing the response. The fix is to wait for something
+observable that means the work finished - usually the success alert:
+
+.. code-block:: python
+
+    self.click("submit-qa")
+    self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
+    assert models.TestListInstance.objects.count() == 1
+
+Prefer waiting on a condition to ``time.sleep()``. A sleep is both slower than
+it needs to be on a fast machine and too short on a loaded one, which is how
+most of these become flaky in the first place.
+
+
 Areas with no test coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
