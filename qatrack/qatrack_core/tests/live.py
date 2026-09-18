@@ -37,7 +37,12 @@ def retry_if_exception(ex, max_retries, sleep_time=None, reraise=True):
             while x:
                 try:
                     return func(*args, **kwargs)
-                except:  # noqa: E722
+                except ex:
+                    # `ex` was accepted as a parameter but never used - the
+                    # bare except retried on *anything*, including an
+                    # AssertionError raised inside the wrapped function. That
+                    # turned a fast, clear test failure into the same failure
+                    # several seconds later, after pointless retries.
                     x -= 1
                     if x == 0 and reraise:
                         raise
@@ -321,10 +326,14 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         super().tearDown()
 
     @contextmanager
-    def wait_for_page_load(self, timeout=5):
+    def wait_for_page_load(self, timeout=None):
+        # Defaults to cls.timeout rather than a hard-coded 5. setUpClass sets
+        # that to 10 for Chromium because it renders these JS-heavy pages less
+        # predictably, and this wait was the one place still ignoring it - so a
+        # Chromium run got 10s everywhere except here.
         old_page = self.driver.find_element(By.TAG_NAME, 'html')
         yield
-        WebDriverWait(self.driver, timeout).until(staleness_of(old_page))
+        WebDriverWait(self.driver, timeout or self.timeout).until(staleness_of(old_page))
 
     @retry_if_exception(Exception, 2, sleep_time=1)
     def open(self, url):
@@ -409,7 +418,9 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
             actions.perform()
             self.driver.find_element(By.CSS_SELECTOR, "body").click()
             self.driver.execute_script("window.scrollTo(0, -200);")
-        except:  # noqa: E722
+        except WebDriverException:
+            # Best-effort: the element may already be in view, or the body
+            # click may be intercepted. Neither is worth failing the test for.
             pass
 
     def scroll_into_view_css(self, css_sel):
@@ -431,7 +442,8 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         try:
             actions.perform()
             self.driver.execute_script("window.scrollTo(0, -200);")
-        except:  # noqa: E722
+        except WebDriverException:
+            # Best-effort, as above.
             pass
 
     def _dismiss_open_datepicker(self):
@@ -565,7 +577,11 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                 self.scroll_into_view(el_id)
                 self.driver.find_element(By.ID, el_id).send_keys(text)
                 break
-            except:  # noqa: E722
+            except WebDriverException:
+                # Retried rather than failed: these interactions are the ones
+                # most prone to a transient "element not interactable" while
+                # the page is still settling. A non-WebDriver error is a real
+                # failure and propagates immediately.
                 if i == 2:
                     raise
                 else:
@@ -577,7 +593,10 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         element = self.driver.find_element(By.ID, el_id)
         try:
             element.click()
-        except:  # noqa: E722
+        except WebDriverException:
+            # Falls back to a JS click, which ignores overlays and viewport
+            # position. Scoped to WebDriverException so a genuine error in the
+            # test is not silently turned into a different kind of click.
             self.driver.execute_script("arguments[0].click();", element)
 
     def click_by_css_selector(self, css_sel):
@@ -585,7 +604,10 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         element = self.driver.find_element(By.CSS_SELECTOR, css_sel)
         try:
             element.click()
-        except:  # noqa: E722
+        except WebDriverException:
+            # Falls back to a JS click, which ignores overlays and viewport
+            # position. Scoped to WebDriverException so a genuine error in the
+            # test is not silently turned into a different kind of click.
             self.driver.execute_script("arguments[0].click();", element)
 
     def click_by_link_text(self, link_text):
@@ -594,7 +616,11 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                 self.wait.until(e_c.presence_of_element_located((By.LINK_TEXT, link_text)))
                 self.driver.find_element(By.LINK_TEXT, link_text).click()
                 break
-            except:  # noqa: E722
+            except WebDriverException:
+                # Retried rather than failed: these interactions are the ones
+                # most prone to a transient "element not interactable" while
+                # the page is still settling. A non-WebDriver error is a real
+                # failure and propagates immediately.
                 if i == 2:
                     raise
                 else:
