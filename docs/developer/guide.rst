@@ -425,7 +425,9 @@ exercise different code paths, and CI deliberately runs both.
 Understanding the Settings Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-QATrack+ uses a layered approach to Django settings, with each file serving a specific purpose. Understanding this hierarchy will help you configure your development and testing environment.
+QATrack+ uses a layered approach to Django settings, with each file serving
+a specific purpose. Understanding this hierarchy will help you configure
+your development and testing environment.
 
 Every file below is imported with ``from ... import *``, so the *last* one
 loaded wins for any given setting. Under a test run the chain is
@@ -469,6 +471,40 @@ respective contexts: QATrack+ won't start at all without
 copy from ``deploy/`` if it's missing, rather than crashing confusingly or
 silently falling back to the wrong database. See "Running The Test Suite"
 below for the per-engine variants of ``local_test_settings.py``.
+
+**What actually needs to be in your** ``local_test_settings.py``
+
+In practice, the database. ``test_settings.py`` already pins everything the
+suite needs in order to behave the same way on every machine - ``DEBUG``,
+``NOTIFICATIONS_ON``, ``DEFAULT_NUMBER_FORMAT``, ``AD_CLEAN_USERNAME``,
+``HTTP_OR_HTTPS``, ``REVIEW_BULK``, ``TIME_ZONE``,
+``AUTHENTICATION_BACKENDS`` and a deliberately fast password hasher - and it
+does so *before* importing your file. Setting any of those again in
+``local_test_settings.py`` only restates a value you already have. Put a
+setting there when you want to **differ** from that default, not to confirm
+it. The examples in ``deploy/dev/`` are written that way: a ``DATABASES``
+block, and nothing else that is not optional.
+
+**Environment variables**
+
+Under Docker, environment variables are applied *on top of*
+``local_settings.py`` rather than instead of it, so a containerised
+deployment can keep one settings file and override only what differs per
+instance. See :ref:`qatrack-config` for which settings support this.
+
+**Where does a new setting go?**
+
+That question has a written answer, and it depends on who you are:
+
+* **Adding a setting to the codebase** - see *Adding a setting* in
+  ``AGENTS.md`` at the repository root. It reduces to one rule
+  (``settings.py`` holds every setting and its default; the ``deploy/``
+  examples hold only what a deployer must or might change; the environment
+  holds only what varies between instances of the same image) plus three
+  questions that decide which of the three applies.
+* **Configuring a deployment** - see :ref:`qatrack-config`, which groups
+  every setting a deployer touches into Required, Example default, and
+  Optional.
 
 Collect Static Files
 ~~~~~~~~~~~~~~~~~~~~
