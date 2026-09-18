@@ -833,9 +833,28 @@ class TestPerformQC(BaseQATests):
 
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
 
-        time.sleep(0.2)
+        # The date fields get their calendar from flatpickr, bound by
+        # sl_serviceevent.js once the page's own JS has run. Focusing the
+        # input before that binding exists just focuses a plain text box and
+        # no calendar opens, so wait for the binding rather than guessing at
+        # how long it takes - flatpickr records its instance on the element.
+        self.wait.until(
+            lambda d: d.execute_script(
+                "var el = document.getElementById('id_datetime_service');"
+                "return !!(el && el._flatpickr);"
+            )
+        )
         self.driver.execute_script("$('#id_datetime_service').focus()")
-        self.wait_for_ajax()
+
+        # Wait for the calendar itself, not for wait_for_ajax(). jQuery.active
+        # is a whole-page condition: any unrelated request still in flight on
+        # this form keeps it above zero, so the test could sit here for the
+        # full timeout with the calendar open and ready in front of it. That
+        # is what the failure screenshots showed. What the click below needs
+        # is the calendar, so wait for exactly that.
+        self.wait.until(
+            e_c.visibility_of_element_located((By.CSS_SELECTOR, ".flatpickr-calendar.open"))
+        )
         self.click_by_css_selector(".today")
         self.wait_for_ajax()
         self.select_by_index("id_service_area_field_fake", 1)
