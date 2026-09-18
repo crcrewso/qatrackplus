@@ -76,6 +76,11 @@ USE_SQL_REPORTS = True
 # Optional settings - QATrack+ runs fine with these left as-is. Uncomment and
 # edit any of them to customize your installation.
 
+# How long a user's own language choice is remembered in their browser.
+# Defaults to one year. Shorten it if you want the site language to revert to
+# the default for shared workstations sooner.
+# LANGUAGE_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
+
 # All supported languages are enabled by default (see LANGUAGES/LANGUAGE_CODE
 # in settings.py) - only set these here if you want to restrict which
 # languages are available, or change the default. See the "Adding a New

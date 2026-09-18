@@ -109,10 +109,8 @@ DATETIME_HELP = "Format DD MMM YYYY hh:mm (hh:mm is 24h time e.g. 31 May 2012 14
 # http://www.i18nguy.com/unicode/language-identifiers.html
 LANGUAGE_CODE = 'en'
 # How long a user's own language choice is remembered in their browser.
-# Documented for deployers under "Language Settings" in
-# docs/install/config.rst. TODO: still needs a commented, discoverable
-# example in the deploy/*/local_settings.py templates themselves, so it is
-# visible when setting a site up rather than only in the docs.
+# Documented under "Language Settings" in docs/install/config.rst, with a
+# commented example in each deploy/*/local_settings.py.
 LANGUAGE_COOKIE_AGE = 360 * 24 * 60 * 60  # 1 year
 
 # If you set this to False, Django will make some optimizations so as not
