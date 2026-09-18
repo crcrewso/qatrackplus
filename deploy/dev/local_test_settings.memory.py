@@ -3,9 +3,15 @@
 #
 # Faster than the file-based sqlite variant since nothing touches disk, at
 # the cost of not being able to inspect the database file after a test run.
-
-DEBUG = True
-TEMPLATE_DBG = True
+#
+# This file's job is to say which database the test suite should use.
+#
+# Everything else that makes the suite deterministic is already set by
+# qatrack/test_settings.py, which is imported immediately before this file:
+# DEBUG, NOTIFICATIONS_ON, DEFAULT_NUMBER_FORMAT, AD_CLEAN_USERNAME,
+# HTTP_OR_HTTPS, REVIEW_BULK, TIME_ZONE, AUTHENTICATION_BACKENDS and the
+# password hasher. Repeating any of them here just restates a value you
+# already have - add a setting below only when you want to *differ* from it.
 
 DATABASES = {
     'default': {
@@ -15,24 +21,8 @@ DATABASES = {
 }
 DATABASES['readonly'] = DATABASES['default']
 
-# Test-specific settings
-NOTIFICATIONS_ON = False
-DEFAULT_NUMBER_FORMAT = None
-AD_CLEAN_USERNAME = None
-HTTP_OR_HTTPS = "http"
-REVIEW_BULK = True
-TIME_ZONE = 'America/Toronto'
-
-# Selenium: which browser, and whether it is visible. Either can come from
-# the environment for a one-off run instead:
-#   SELENIUM_BROWSER=chromium pytest --run-selenium           # bash/zsh
-#   $env:SELENIUM_BROWSER='chromium'; pytest --run-selenium   # PowerShell
-# Selenium Manager resolves the driver itself; settings.py has the variables
-# for pinning a specific binary.
-#
-# SELENIUM_BROWSER = 'chromium'   # 'firefox' is the default
-# SELENIUM_HEADLESS = False       # watch it run; needs a real display
-
-AUTHENTICATION_BACKENDS = ['qatrack.accounts.backends.QATrackAccountBackend']
-
-# Customize any of the above settings as needed for your test environment
+# Optional: pin the browser for every Selenium run, instead of choosing it
+# per run on the command line. See "Setting Up Selenium Browser Testing" in
+# docs/developer/guide.rst for what these do and for the one-off form.
+# SELENIUM_BROWSER = 'chromium'    # 'firefox' is the default
+# SELENIUM_HEADLESS = False        # watch the run in a real browser window

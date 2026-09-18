@@ -10,7 +10,6 @@
 # project evolves, and would overwrite your changes).
 
 DEBUG = True # Local development only - do not use True in a real deployment!
-TEMPLATE_DBG = True
 
 # TIME_ZONE must be actively set - the placeholder in settings.py isn't a
 # real time zone name, so Django refuses to start otherwise. Change this to
