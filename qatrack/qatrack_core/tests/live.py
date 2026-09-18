@@ -322,6 +322,18 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         super().tearDownClass()
 
     def tearDown(self):
+        # Capture the page before navigating away from it, so that a failing
+        # test leaves evidence behind. conftest.py writes this out, and only
+        # when the test actually failed - it cannot take the screenshot
+        # itself, because for a unittest TestCase pytest's report hook does
+        # not run until after tearDown has completed, by which point the
+        # about:blank below has already replaced the page.
+        try:
+            self._failure_screenshot_png = self.driver.get_screenshot_as_png()
+        except WebDriverException:
+            # Best effort only - the test result is what matters, not this.
+            self._failure_screenshot_png = None
+
         self.driver.get("about:blank")
         super().tearDown()
 

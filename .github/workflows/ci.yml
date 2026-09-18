@@ -362,6 +362,18 @@ jobs:
           SELENIUM_BROWSER: ${{ matrix.browser }}
         run: pytest -m selenium
 
+      # conftest.py writes a screenshot of the browser for each Selenium test
+      # that fails, and nothing at all when they pass. Collecting them here is
+      # the point of the feature: a GUI failure that only happens on CI leaves
+      # no other record of what the page actually looked like.
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: selenium-screenshots-linux-${{ matrix.browser }}
+          path: selenium-screenshots/
+          if-no-files-found: ignore
+
   selenium-tests-windows:
     name: Selenium Tests (Windows)
     runs-on: windows-latest
@@ -396,3 +408,15 @@ jobs:
         env:
           SELENIUM_BROWSER: ${{ matrix.browser }}
         run: uv run pytest -m selenium
+
+      # conftest.py writes a screenshot of the browser for each Selenium test
+      # that fails, and nothing at all when they pass. Collecting them here is
+      # the point of the feature: a GUI failure that only happens on CI leaves
+      # no other record of what the page actually looked like.
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: selenium-screenshots-windows-${{ matrix.browser }}
+          path: selenium-screenshots/
+          if-no-files-found: ignore

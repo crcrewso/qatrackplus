@@ -1,4 +1,5 @@
 import os
+import pathlib
 
 import pytest
 
@@ -35,6 +36,57 @@ def pytest_configure(config):
             ),
             stacklevel=2,
         )
+
+
+SCREENSHOT_DIR = pathlib.Path(__file__).parent / 'selenium-screenshots'
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Save a browser screenshot when a Selenium test fails.
+
+    Adapted from copilot/selenium-modern-implementation, which had this and we
+    did not. A failed GUI test otherwise leaves nothing behind: the traceback
+    says an element was not found, but not what the page actually looked like
+    at that moment. That matters most in CI, where re-running locally may not
+    reproduce it - the Chromium timing flakes being the obvious example.
+
+    The image itself is captured by SeleniumTests.tearDown rather than here.
+    This hook does not run until the whole unittest lifecycle is over, and
+    that tearDown navigates to about:blank, so capturing at this point would
+    reliably save a blank page. Here we only decide whether to keep it.
+    """
+    outcome = yield
+    report = outcome.get_result()
+
+    if report.when != 'call' or not report.failed:
+        return
+
+    # item.instance is set for unittest.TestCase-based tests, which is what
+    # the Selenium suite uses. Non-GUI tests have neither attribute below and
+    # so are unaffected.
+    instance = getattr(item, 'instance', None)
+    png = getattr(instance, '_failure_screenshot_png', None)
+
+    if png is None:
+        # tearDown never ran (a failure in setUpClass/setUp, say). The driver
+        # may still be showing something useful, so try it live.
+        driver = getattr(instance, 'driver', None)
+        if driver is None:
+            return
+        try:
+            png = driver.get_screenshot_as_png()
+        except Exception:  # noqa: BLE001 - see below
+            return
+
+    safe_name = item.nodeid.replace('/', '_').replace('::', '__').replace(' ', '_')
+    try:
+        SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+        (SCREENSHOT_DIR / ('%s.png' % safe_name)).write_bytes(png)
+    except OSError:
+        # The test has already failed; an error while saving evidence about
+        # it should not replace the real failure in the report.
+        pass
 
 
 def pytest_collection_modifyitems(config, items):
