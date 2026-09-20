@@ -328,6 +328,7 @@ quote-style = "single"
 include = [
     "poe_tasks/dev.toml",
     "poe_tasks/tests.toml",
+    "poe_tasks/ci.toml",
     "poe_tasks/coverage.toml",
     "poe_tasks/docs.toml",
     "poe_tasks/data.toml",

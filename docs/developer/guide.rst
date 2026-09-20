@@ -619,6 +619,9 @@ Before opening a PR, also run the full pre-commit suite (ruff lint plus
 
     uv run pre-commit run --all-files
 
+This is one of the three checks :ref:`poe ci <reproducing-ci-locally>` runs
+together, which is the shorter way to ask the same question before you push.
+
 Using Make Commands
 ~~~~~~~~~~~~~~~~~~~
 
@@ -1123,6 +1126,106 @@ multiplies flakiness rather than curing it, and the Chromium timing flakes
 documented in ``setUpClass`` would become considerably harder to diagnose
 spread across several workers.
 
+
+.. _reproducing-ci-locally:
+
+Reproducing CI Locally
+----------------------
+
+CI (``.github/workflows/ci.yml``) runs seven jobs. Most of a red run is caught
+by three of them, and those three need only the environment you already have
+to develop in - no database server, no browser, no Docker:
+
+.. code-block:: shell
+
+    poe ci
+
+``poe`` is `poethepoet <https://poethepoet.natn.io/>`__, and it is
+deliberately *not* a project dependency - the task definitions live in
+``[tool.poe.tasks]`` in ``pyproject.toml`` and mirror the Makefile. Install it
+once, globally:
+
+.. code-block:: shell
+
+    uv tool install poethepoet
+
+``poe ci`` runs them in CI's own order, which is also cheapest-first - lint
+fails in seconds, the dependency check in about one, and only then do you wait
+on the suite:
+
+#. ``poe lint`` - the pre-commit suite over every file (ruff, YAML/TOML
+   validity, ``django-upgrade``, ``manage.py check``). Matches the
+   **Pre-Commit Test** job.
+#. ``poe deps`` - ``uv lock --check`` followed by ``uv pip check``: the
+   lockfile is still current for ``pyproject.toml``, and the packages actually
+   installed agree with each other. Matches the **Requirements Test** job.
+#. ``poe test`` - the suite on the default database, Selenium excluded.
+   Matches the **Linux Tests** job's ``memory`` matrix entry.
+
+If you would rather not install poe, that is the whole of the task - run them
+yourself:
+
+.. code-block:: shell
+
+    uv run pre-commit run --all-files    # poe lint
+    uv lock --check && uv pip check      # poe deps
+    uv run pytest                        # poe test
+
+Each step is a task in its own right, so you can run just the one you want
+while you work and keep ``poe ci`` for the moment before you push.
+
+A green ``poe ci`` prints a reminder of what it did *not* cover, because that
+part is not small:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 45 25
+
+   * - CI job
+     - What it does
+     - Locally
+   * - Linux Tests (postgres, mysql, mssql)
+     - The same suite against a real database server
+     - ``poe test-engine postgres`` and friends, if you have the server
+   * - Windows Tests
+     - The suite on ``windows-latest``, sqlite and MSSQL
+     - No equivalent - needs Windows
+   * - Selenium Tests
+     - The browser suite, firefox and chromium
+     - ``poe test-gui-firefox-headless`` and friends
+   * - Selenium Tests (Windows)
+     - The browser suite on ``windows-latest``
+     - No equivalent - needs Windows
+   * - Docker Build & Run Check
+     - Builds the compose stack, starts it, verifies a backup restores
+     - ``deploy/docker``; see the Docker deployment docs
+
+Two things ``poe ci`` deliberately does *not* do, both from the Requirements
+Test job:
+
+* **It does not run** ``uv sync --all-extras --locked``. That rewrites the
+  virtual environment you are working in, and ``--all-extras`` pulls
+  ``python-ldap``, which wants ``libldap2-dev`` and ``libsasl2-dev`` present
+  on the machine. ``uv lock --check`` answers what the sync was really being
+  asked - *is the lockfile current?* - and changes nothing.
+* **It does not pin pre-commit.** CI installs ``pre-commit`` 4.6.0 explicitly
+  with ``uvx pre-commit@4.6.0``; locally you get whatever ``uv.lock`` resolved
+  for the dev group, which is the same version today. If the two ever
+  disagree, change the lockfile rather than adding a second pin.
+
+Running the whole workflow locally
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+There is no supported way to run the GitHub workflow itself on a
+workstation, and none is planned. Tools such as `act
+<https://github.com/nektos/act>`__ exist, but the Linux Tests job depends on
+GitHub-provisioned Postgres and MySQL *service containers*, the Windows jobs
+need a Windows runner, and the Docker job builds a compose stack inside the
+runner - so a local run would reproduce the parts ``poe ci`` already covers
+and skip exactly the parts you would want a runner for.
+
+If you need to debug the workflow itself rather than the code, push the branch
+and use ``workflow_dispatch`` - the workflow accepts a manual trigger.
 
 Customizing Organization Logos
 ------------------------------
