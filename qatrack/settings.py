@@ -105,9 +105,12 @@ DATETIME_HELP = "Format DD MMM YYYY hh:mm (hh:mm is 24h time e.g. 31 May 2012 14
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
 LANGUAGE_CODE = 'en'
-# Duration of the language cookie 
-# TODO: add nice documentation to the local_settings defaults so deployment is clear. 
-LANGUAGE_COOKIE_AGE = 360 * 24 * 60 * 60 # 1 year
+# How long a user's own language choice is remembered in their browser.
+# Documented for deployers under "Language Settings" in
+# docs/install/config.rst. TODO: still needs a commented, discoverable
+# example in the deploy/*/local_settings.py templates themselves, so it is
+# visible when setting a site up rather than only in the docs.
+LANGUAGE_COOKIE_AGE = 360 * 24 * 60 * 60  # 1 year
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
@@ -719,7 +722,7 @@ if use_docker:
             for scheme in ('http://', 'https://')
             if host != '*'
         ]
-    
+
     SECRET_FILEPATH = os.path.join(PROJECT_ROOT, '..', 'deploy', 'docker', 'user-data', 'secret_key.txt')
     try:
         with open(SECRET_FILEPATH) as f:
@@ -746,7 +749,35 @@ if use_docker:
     if 'readonly' not in DATABASES and USE_SQL_REPORTS:
         DATABASES['readonly'] = DATABASES['default']
 else:
-    from .local_settings import *  # noqa: F403, F401, E402
+    # sys.argv, because this is import time - neither Django nor pytest has
+    # set anything up yet that would answer the question. It gates only the
+    # missing-local_settings.py fallback below.
+    _running_pytest = any([('py.test' in v or 'pytest' in v) for v in sys.argv])
+    try:
+        from .local_settings import *  # noqa: F403, F401, E402
+    except ImportError:
+        if not _running_pytest:
+            raise ImportError(
+                "qatrack/local_settings.py is missing. Create it before running "
+                "QATrack+ - for local development:\n\n"
+                "    cp deploy/dev/local_settings.dev.py qatrack/local_settings.py\n\n"
+                "For a real deployment, copy the template matching your database "
+                "instead: deploy/sqlite, deploy/postgres, deploy/mysql or "
+                "deploy/win (MS SQL Server). See the 'local_settings.py "
+                "templates' table in docs/developer/guide.rst, and "
+                "docs/install/ for full deployment instructions."
+            ) from None
+        # A bare `pytest` run gets a disposable in-memory database rather
+        # than needing the setup a real deployment does. Reached only when
+        # local_settings.py is absent; when it exists it configures the run.
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': ':memory:',
+            }
+        }
+        DATABASES['readonly'] = DATABASES['default']
+        ALLOWED_HOSTS = ['*']
 
 TEMPLATES[0]['OPTIONS']['debug'] = DEBUG
 
@@ -801,18 +832,63 @@ if EMAIL_NOTIFICATION_PWD and not EMAIL_HOST_PASSWORD:
 # Testing settings
 
 # Selenium Browser Configuration
-# Options: 'firefox', 'chromium'
-# Set to 'firefox' to use Firefox, 'chromium' to use Chromium
-SELENIUM_BROWSER = ''
+# Options: 'firefox' (default) or 'chromium'. Override for a single run from
+# the environment rather than editing a settings file:
+#
+#     SELENIUM_BROWSER=chromium pytest --run-selenium           # bash/zsh
+#     $env:SELENIUM_BROWSER='chromium'; pytest --run-selenium   # PowerShell
+#
+SELENIUM_BROWSER = os.environ.get('SELENIUM_BROWSER', 'firefox')
 
-# Browser Driver Paths (leave empty to use system default)
+# Browser Driver Paths - leave empty (the default) to let Selenium Manager
+# (built into Selenium 4.6+) auto-detect the installed browser and download
+# a matching driver on its own; no manual driver install needed on any
+# host. Only set one of these if you need to pin a specific driver binary
+# instead (e.g. one already installed system-wide).
 SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver
 SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver
 
+# Chromium Browser Binary Path - leave empty (the default) to let Selenium
+# find whatever Chrome/Chromium is on the system. Set it only when Chrome is
+# not discoverable that way.
+#
+# Everything below here is Linux/Flatpak only - skip it on Windows or macOS.
+# A Flatpak install (`com.google.Chrome`, `org.chromium.Chromium`) has no
+# plain `google-chrome`/`chromium` on PATH for Selenium Manager to find:
+#
+#     SELENIUM_CHROMIUM_BINARY_PATH = (
+#         '/var/lib/flatpak/exports/bin/com.google.Chrome'  # system-wide install
+#     )
+#     # or, for a per-user install:
+#     # SELENIUM_CHROMIUM_BINARY_PATH = (
+#     #     os.path.expanduser('~/.local/share/flatpak/exports/bin/com.google.Chrome')
+#     # )
+#
+# A Flatpak browser also needs its actual profile directory redirected
+# somewhere its sandbox can write - it can't see chromedriver's default
+# temp directory - by pointing TMPDIR (before starting the test run) at a
+# directory already inside the Flatpak's permitted filesystem list (check
+# with `flatpak info --show-permissions <app-id>`; XDG user directories
+# like ~/Downloads are usually granted, arbitrary /tmp paths are not):
+#
+#     TMPDIR=~/Downloads/selenium-chrome-tmp pytest --run-selenium
+#
+# Otherwise Chrome fails to start with "session not created: DevToolsActivePort
+# file doesn't exist" - it's a sandboxing symptom, not a Selenium bug.
+SELENIUM_CHROMIUM_BINARY_PATH = ''
+
 # Headless Mode
-# Set to True to run browsers in headless mode (no visible browser window)
-# Set to False to see the browser during test execution
-SELENIUM_VIRTUAL_DISPLAY = False  # Set to True to use headless browser for testing (requires xvfb)
+# True (the default) uses the browser's own native headless mode, so no
+# display server is needed and it behaves the same on a workstation, a CI
+# runner or a sandbox. False needs a real display, and lets you watch a run:
+#
+#     SELENIUM_HEADLESS=False pytest --run-selenium           # bash/zsh
+#     $env:SELENIUM_HEADLESS='False'; pytest --run-selenium   # PowerShell
+#
+# Only the literal 'false', any case, turns it off, so a typo stays headless
+# rather than opening a browser on an unattended run. bool() is not used: it
+# treats the string 'False' as true.
+SELENIUM_HEADLESS = os.environ.get('SELENIUM_HEADLESS', 'True').strip().lower() != 'false'
 
 if any([('py.test' in v or 'pytest' in v) for v in sys.argv]):
     DATABASES.pop('readonly', None)

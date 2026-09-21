@@ -10,7 +10,11 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.servers.basehttp import WSGIServer
 from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    StaleElementReferenceException,
+    WebDriverException,
+)
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.command import Command
@@ -33,7 +37,9 @@ def retry_if_exception(ex, max_retries, sleep_time=None, reraise=True):
             while x:
                 try:
                     return func(*args, **kwargs)
-                except:  # noqa: E722
+                except ex:
+                    # Narrow, so an AssertionError from the wrapped function
+                    # fails fast instead of being retried.
                     x -= 1
                     if x == 0 and reraise:
                         raise
@@ -52,7 +58,9 @@ def WebElement_click(self):
     later versions of webdrivers that won't click on an element if it
     is not in view
     """
-    self.parent.execute_script("arguments[0].scrollIntoView();", self)
+    # Centred, not top-aligned: the default puts the element under the fixed
+    # navbar and the click is intercepted by the dropdown-toggle.
+    self.parent.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});", self)
     return self._execute(Command.CLICK_ELEMENT)
 
 
@@ -64,7 +72,9 @@ orig_send_keys = WebElement.send_keys
 @retry_if_exception(WebDriverException, 5, sleep_time=1)  # noqa: E302
 def WebElement_send_keys(self, keys):
     """Monky patch send_keys to ensure element is in view"""
-    self.parent.execute_script("arguments[0].scrollIntoView();", self)
+    # Centred, not top-aligned: the default puts the element under the fixed
+    # navbar and the click is intercepted by the dropdown-toggle.
+    self.parent.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});", self)
     return orig_send_keys(self, keys)
 
 
@@ -92,99 +102,187 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
 
     @classmethod
     def setUpClass(cls):
-        use_virtual_display = getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False)
+        # Native headless, not a virtual display, so no display server is
+        # needed anywhere. SELENIUM_HEADLESS = False to watch a run.
+        headless = getattr(settings, 'SELENIUM_HEADLESS', True)
         browser_setting = getattr(settings, 'SELENIUM_BROWSER', 'firefox')
 
-        if use_virtual_display:
-            # Make sure xvfb is installed
-            from pyvirtualdisplay import Display
-            cls.display = Display(visible=0, size=(1920, 1080))
-            cls.display.start()
-        else:
-            cls.display = None
+        cls.browser_setting = browser_setting
 
         if browser_setting == 'chromium':
             from selenium.webdriver.chrome.options import Options as ChromeOptions
             from selenium.webdriver.chrome.service import Service as ChromeService
 
-            chromium_driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '')
             chrome_options = ChromeOptions()
-            if use_virtual_display:
-                chrome_options.add_argument('--headless')
+            if headless:
+                # The "new" headless mode (Chrome 109+) - the old
+                # `--headless` renders differently enough from a real
+                # window that it's been superseded for testing purposes.
+                chrome_options.add_argument('--headless=new')
                 chrome_options.add_argument('--no-sandbox')
                 chrome_options.add_argument('--disable-dev-shm-usage')
+                chrome_options.add_argument('--disable-gpu')
 
-            if chromium_driver_path:
-                service = ChromeService(executable_path=chromium_driver_path)
-                cls.driver = webdriver.Chrome(service=service, options=chrome_options)
+            binary_path = getattr(settings, 'SELENIUM_CHROMIUM_BINARY_PATH', '')
+            if binary_path:
+                # For installs with no plain binary on PATH, such as Flatpak.
+                # settings.py documents the TMPDIR caveat that comes with it.
+                chrome_options.binary_location = binary_path
+
+            driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '')
+            if driver_path:
+                cls.driver = webdriver.Chrome(service=ChromeService(executable_path=driver_path), options=chrome_options)
             else:
+                # Selenium Manager resolves the driver itself.
                 cls.driver = webdriver.Chrome(options=chrome_options)
         else:
             from selenium.webdriver.firefox.options import Options as FirefoxOptions
             from selenium.webdriver.firefox.service import Service as FirefoxService
 
             ff_options = FirefoxOptions()
-            if use_virtual_display:
-                ff_options.add_argument('--headless')
-            else:
-                ff_options.add_argument('--disable-headless')
+            if headless:
+                ff_options.add_argument('-headless')
+            # Enables the WebDriver BiDi session needed for
+            # set_viewport_size() below, in both headless and visible
+            # mode - a no-op cost-wise if a given run never calls it.
+            ff_options.web_socket_url = True
 
-            firefox_driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '')
-            if firefox_driver_path:
-                service = FirefoxService(executable_path=firefox_driver_path)
+            driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '') or shutil.which('geckodriver')
+            if driver_path:
+                cls.driver = webdriver.Firefox(service=FirefoxService(executable_path=driver_path), options=ff_options)
             else:
-                # Try to use system geckodriver
-                service = FirefoxService(executable_path=shutil.which('geckodriver'))
-                
-            cls.driver = webdriver.Firefox(service=service, options=ff_options)
+                # No explicit path and no system geckodriver on PATH -
+                # Selenium Manager auto-resolves one for the installed
+                # Firefox, same as the chromium branch above.
+                cls.driver = webdriver.Firefox(options=ff_options)
 
         orig_find_element = cls.driver.find_element
 
-        @retry_if_exception(WebDriverException, 2, sleep_time=1)
         def WebElement_find_element(*args, **kwargs):
-            """Monky patch find element to allow retries"""
-            return orig_find_element(*args, **kwargs)
+            """Resolve find_element through an explicit wait.
+
+            The implicit wait is switched off below, so this is what
+            replaces it. Every existing `driver.find_element(...)` call
+            site keeps the same behaviour - block until the element turns
+            up, up to cls.timeout - but now via a single explicit wait
+            rather than a driver-level implicit one layered underneath
+            every other wait in the suite.
+
+            WebDriverWait ignores NoSuchElementException while polling, so
+            this retries until the element appears; StaleElementReference
+            is added because a page still settling can hand back an element
+            that goes stale between locating and returning it, which is
+            what the retry decorator here used to paper over.
+            """
+            return WebDriverWait(
+                cls.driver,
+                cls.timeout,
+                ignored_exceptions=(NoSuchElementException, StaleElementReferenceException),
+            ).until(lambda d: orig_find_element(*args, **kwargs))
 
         cls.driver.find_element = WebElement_find_element
 
-        cls.driver.set_page_load_timeout(2)
-        cls.driver.implicitly_wait(2)
+        # Chromium gets longer because it renders these JS-heavy pages less
+        # predictably, not because it is slower overall - it finishes the
+        # suite faster than Firefox. A few waits per run land just over 5s,
+        # a different few each time. One value feeds all three waits below,
+        # including the cls.wait that nearly every self.wait.until() uses.
+        cls.timeout = 10 if browser_setting == 'chromium' else 5
+        cls.driver.set_page_load_timeout(cls.timeout)
+
+        # Off deliberately: Selenium warns against mixing implicit and
+        # explicit waits, because the implicit one applies inside *each poll*
+        # of a WebDriverWait, so a nominal cls.timeout can take far longer to
+        # fail. find_element is patched above to resolve through an explicit
+        # wait instead, and find_elements() - used to assert absence - returns
+        # immediately rather than blocking for the full timeout.
+        cls.driver.implicitly_wait(0)
 
         cls.driver.set_window_position(0, 0)
         cls.driver.set_window_size(1920, 1080)
-        cls.wait = WebDriverWait(cls.driver, 2)
+
+        if not headless:
+            # A tiling WM can ignore set_window_size silently, leaving a
+            # viewport far smaller than asked for (~760x900 seen on 4K) and
+            # elements genuinely unclickable. Maximize is usually honoured
+            # within the window's tile, and keyboard focus follows the real
+            # rendered area rather than the override below.
+            try:
+                cls.driver.maximize_window()
+            except WebDriverException:
+                pass
+
+        cls.set_viewport_size(1920, 1080)
+
+        cls.wait = WebDriverWait(cls.driver, cls.timeout)
 
         super().setUpClass()
 
     @classmethod
-    def maximize(cls):
+    def set_viewport_size(cls, width, height):
+        """Override the browser's logical (CSS-pixel) content viewport -
+        via Chrome DevTools Protocol for Chromium, WebDriver BiDi for
+        Firefox - independent of whatever size the window manager
+        actually gave the real window. Works the same in headless mode
+        (there the "real window" is just whatever set_window_size was
+        given, with no window manager involved) and callable per-test to
+        check layout at a range of sizes, not just at class setup.
 
-        if getattr(settings, 'SELENIUM_VIRTUAL_DISPLAY', False):
-            for i in range(5):
-                try:
-                    cls.driver.maximize_window()
-                    return
-                except WebDriverException:
-                    time.sleep(1)
-
-        cls.driver.set_window_size(1920, 1080)
+        Never requests a viewport *larger* than the real window's
+        current size: under a tiling WM sharing screen space with other
+        windows, that real area can be well under a requested size
+        (confirmed as small as ~760x900 on a 4K/tiled display), and
+        asking the browser to lay out at a size regardless of that makes
+        it paint content assuming screen space that doesn't exist - the
+        right-hand (and/or bottom) portion of the page ends up genuinely
+        past the real window's edge, not just visually cropped, but
+        truly offscreen and unclickable/unfocusable there. Capping to
+        whatever's really available keeps every pixel the layout thinks
+        it has actually reachable, at the cost of a narrower layout on a
+        cramped tile - a real, visible constraint rather than a hidden
+        one.
+        """
+        real_size = cls.driver.get_window_size()
+        width = min(width, real_size['width'])
+        height = min(height, real_size['height'])
+        if cls.browser_setting == 'chromium':
+            cls.driver.execute_cdp_cmd(
+                'Emulation.setDeviceMetricsOverride',
+                {'width': width, 'height': height, 'deviceScaleFactor': 1, 'mobile': False},
+            )
+        else:
+            from selenium.webdriver.common.bidi.browsing_context import BrowsingContext
+            BrowsingContext(cls.driver).set_viewport(
+                context=cls.driver.current_window_handle,
+                viewport={'width': width, 'height': height},
+            )
 
     @classmethod
     def tearDownClass(cls):
         cls.driver.quit()
-        if cls.display:
-            cls.display.stop()
         super().tearDownClass()
 
     def tearDown(self):
+        # Captured here, written out by conftest.py only if the test failed.
+        # It cannot capture this itself: for a unittest TestCase pytest's
+        # report hook runs after tearDown, once about:blank has replaced the
+        # page.
+        try:
+            self._failure_screenshot_png = self.driver.get_screenshot_as_png()
+        except WebDriverException:
+            # Best effort only - the test result is what matters, not this.
+            self._failure_screenshot_png = None
+
         self.driver.get("about:blank")
         super().tearDown()
 
     @contextmanager
-    def wait_for_page_load(self, timeout=2):
+    def wait_for_page_load(self, timeout=None):
+        # cls.timeout, so this honours the per-browser value like every other
+        # wait.
         old_page = self.driver.find_element(By.TAG_NAME, 'html')
         yield
-        WebDriverWait(self.driver, timeout).until(staleness_of(old_page))
+        WebDriverWait(self.driver, timeout or self.timeout).until(staleness_of(old_page))
 
     @retry_if_exception(Exception, 2, sleep_time=1)
     def open(self, url):
@@ -196,17 +294,77 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
             e_c.presence_of_element_located((By.XPATH, '//ul[@class = "messagelist"]/li[@class = "success"]'))
         )
 
+    def wait_for_elements(self, by, value, minimum=1):
+        """Wait until at least `minimum` matching elements exist, then return them.
+
+        driver.find_elements() is not a safe thing to index into. The
+        implicit wait makes it return as soon as *one* element matches, so
+        a page still rendering can hand back a shorter list than the test
+        expects - or, if nothing has rendered yet, an empty one. Indexing
+        that then raises IndexError from a line that looks nothing like a
+        timeout, which is exactly how the Chromium CI failures presented
+        (`inputs[0]` on an empty qa-input list).
+
+        Waiting on the count instead fails as a TimeoutException naming the
+        selector, which is both honest about what went wrong and bounded by
+        the same browser-aware timeout as every other wait in this suite.
+        """
+        self.wait.until(
+            lambda d: len(d.find_elements(by, value)) >= minimum,
+            "expected at least %d element(s) matching %s=%r" % (minimum, by, value),
+        )
+        return self.driver.find_elements(by, value)
+
+    def wait_until(self, predicate, message="condition", timeout=None):
+        """Poll a plain Python predicate until it is true.
+
+        For waiting on *server-side* state - a row appearing in the
+        database after a form submit, say - where there is nothing in the
+        DOM to wait on. Replaces `time.sleep(n); assert Model.objects...`,
+        which has to guess n: too small and the test is flaky, too large
+        and every run pays the full cost even when the row landed
+        immediately. The autosave test was sleeping a flat 4.2s this way.
+
+        Raises TimeoutException naming the condition, rather than failing
+        on the assertion afterwards with no indication that timing was
+        involved.
+        """
+        return WebDriverWait(self.driver, timeout or self.timeout).until(
+            lambda d: predicate(), message="timed out waiting for %s" % message
+        )
+
+    def wait_for_ajax(self):
+        """Wait until jQuery reports no requests in flight.
+
+        These pages fire AJAX on nearly every interaction, and the suite
+        has historically waited for that with a fixed sleep. This returns
+        as soon as the requests finish instead. Pages without jQuery
+        report True immediately.
+        """
+        return self.wait.until(
+            lambda d: d.execute_script(
+                "return typeof jQuery !== 'undefined' ? jQuery.active == 0 : true"
+            )
+        )
+
     def scroll_into_view(self, el_id):
         self.wait.until(e_c.presence_of_element_located((By.ID, el_id)))
         actions = ActionChains(self.driver)
         element = self.driver.find_element(By.ID, el_id)
         actions.move_to_element(element)
+        # Not decorative, despite sitting between a queued action and its
+        # perform(): the admin's type-dependent widgets need settle time with
+        # no in-flight request to wait on. Removing it breaks
+        # LiveQATests::test_admin_tests. Replacing it means finding the DOM
+        # condition the admin JS settles into.
         time.sleep(1)
         try:
             actions.perform()
             self.driver.find_element(By.CSS_SELECTOR, "body").click()
             self.driver.execute_script("window.scrollTo(0, -200);")
-        except:  # noqa: E722
+        except WebDriverException:
+            # Best-effort: the element may already be in view, or the body
+            # click may be intercepted. Neither is worth failing the test for.
             pass
 
     def scroll_into_view_css(self, css_sel):
@@ -214,25 +372,72 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         actions = ActionChains(self.driver)
         element = self.driver.find_element(By.CSS_SELECTOR, css_sel)
         actions.move_to_element(element)
+        # Not decorative, despite sitting between a queued action and its
+        # perform(): the admin's type-dependent widgets need settle time with
+        # no in-flight request to wait on. Removing it breaks
+        # LiveQATests::test_admin_tests. Replacing it means finding the DOM
+        # condition the admin JS settles into.
         time.sleep(1)
         try:
             actions.perform()
             self.driver.execute_script("window.scrollTo(0, -200);")
-        except:  # noqa: E722
+        except WebDriverException:
+            # Best-effort, as above.
             pass
+
+    def _dismiss_open_datepicker(self):
+        """Close an open flatpickr calendar if one is covering the page.
+
+        flatpickr renders its calendar as an overlay, and it stays open
+        until something dismisses it. Any click that lands underneath it
+        fails with "element click intercepted", naming a .flatpickr-day as
+        the overlaying element.
+
+        This used to go unnoticed: the select2 option lookup fetched a
+        possibly-empty list and looped over it, so a dropdown that never
+        opened silently selected nothing and the test carried on. Waiting
+        on the options properly turned that into a visible failure, which
+        is how this surfaced.
+
+        Retrying does not help - WebElement.click already retries for 5s
+        and the calendar outlives that - so dismiss it explicitly.
+        """
+        if self.driver.find_elements(By.CSS_SELECTOR, ".flatpickr-calendar.open"):
+            # An outside click, not ESCAPE: flatpickr keeps the selection on
+            # the former and discards it on the latter.
+            self.driver.execute_script("document.body.click();")
+            WebDriverWait(self.driver, self.timeout).until(
+                lambda d: not d.find_elements(By.CSS_SELECTOR, ".flatpickr-calendar.open")
+            )
+
+    def _select2_container(self, el_id):
+        """Return the select2 container for el_id, or None if it isn't one.
+
+        Uses find_elements rather than find_element-inside-a-try: with the
+        implicit wait off, find_elements returns immediately, so probing a
+        plain <select> costs nothing. The old form paid a full cls.timeout
+        on every non-select2 element before the exception let it fall
+        through to the plain-select path.
+        """
+        found = self.driver.find_elements(By.ID, "select2-%s-container" % el_id)
+        return found[0] if found else None
+
+    def _select2_options(self):
+        """Wait for the select2 dropdown options to render, then return them."""
+        return self.wait_for_elements(By.CLASS_NAME, "select2-results__option")
 
     def select_by_index(self, el_id, index):
         """Set force_select2= True when selecting a 0 index for a select2 element"""
 
         self.scroll_into_view(el_id)
-        try:
-            # select2?
-            sel2 = self.driver.find_element(By.ID, "select2-%s-container" % el_id)
+        sel2 = self._select2_container(el_id)
+        if sel2 is not None:
+            self._dismiss_open_datepicker()
             sel2.click()
-            time.sleep(0.1)
-            els = self.driver.find_elements(By.CLASS_NAME, "select2-results__option")
-            els[index].click()
-        except:  # noqa: E722
+            # Waits for the options to render; an IndexError here is a real
+            # failure and propagates.
+            self._select2_options()[index].click()
+        else:
             select_el = self.driver.find_element(By.ID, el_id)
             select = Select(select_el)
             try:
@@ -260,10 +465,11 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                     raise Exception("Option with text '%s' not found" % text)
         except WebDriverException:
 
+            self._dismiss_open_datepicker()
             sel2 = self.driver.find_element(By.ID, "select2-%s-container" % el_id)
             sel2.click()
 
-            els = self.driver.find_elements(By.CLASS_NAME, "select2-results__option")
+            els = self._select2_options()
             for el in els:
                 if el.text == text:
                     el.click()
@@ -288,10 +494,11 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                     raise Exception("Option with value '%s' not found" % val)
         except WebDriverException:
 
+            self._dismiss_open_datepicker()
             sel2 = self.driver.find_element(By.ID, "select2-%s-container" % el_id)
             sel2.click()
 
-            els = self.driver.find_elements(By.CLASS_NAME, "select2-results__option")
+            els = self._select2_options()
             for el in els:
                 if el.get_attribute('id').endswith(val):
                     el.click()
@@ -303,7 +510,9 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                 self.scroll_into_view(el_id)
                 self.driver.find_element(By.ID, el_id).send_keys(text)
                 break
-            except:  # noqa: E722
+            except WebDriverException:
+                # Retried: these are the interactions prone to a transient
+                # "element not interactable". Other errors propagate.
                 if i == 2:
                     raise
                 else:
@@ -315,7 +524,10 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         element = self.driver.find_element(By.ID, el_id)
         try:
             element.click()
-        except:  # noqa: E722
+        except WebDriverException:
+            # Falls back to a JS click, which ignores overlays and viewport
+            # position. Scoped to WebDriverException so a genuine error in the
+            # test is not silently turned into a different kind of click.
             self.driver.execute_script("arguments[0].click();", element)
 
     def click_by_css_selector(self, css_sel):
@@ -323,7 +535,10 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         element = self.driver.find_element(By.CSS_SELECTOR, css_sel)
         try:
             element.click()
-        except:  # noqa: E722
+        except WebDriverException:
+            # Falls back to a JS click, which ignores overlays and viewport
+            # position. Scoped to WebDriverException so a genuine error in the
+            # test is not silently turned into a different kind of click.
             self.driver.execute_script("arguments[0].click();", element)
 
     def click_by_link_text(self, link_text):
@@ -332,7 +547,9 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                 self.wait.until(e_c.presence_of_element_located((By.LINK_TEXT, link_text)))
                 self.driver.find_element(By.LINK_TEXT, link_text).click()
                 break
-            except:  # noqa: E722
+            except WebDriverException:
+                # Retried: these are the interactions prone to a transient
+                # "element not interactable". Other errors propagate.
                 if i == 2:
                     raise
                 else:
