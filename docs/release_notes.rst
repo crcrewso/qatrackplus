@@ -10,6 +10,22 @@ Release Notes
 QATrack+ v4.0
 ~~~~~~~~~~~~~
 
+v4.0.1
+------
+
+New Features
+^^^^^^^^^^^^
+
+* Tests' calculation procedures can now be checked in one go, from the **Check
+  Calculation Procedures** button on the *Tests* page of the admin, or with
+  ``python manage.py check_calculations``. Procedures are scanned for anything
+  NumPy 2 removed or changed, and the most recent saved result of each
+  composite, string composite and file upload test is recalculated and compared
+  with the result that was saved. Nothing is saved by the check itself. This is
+  worth running after any upgrade that moves NumPy, SciPy or pandas. See
+  :ref:`qa_check_calculations`.
+
+
 v4.0.0
 ------
 
