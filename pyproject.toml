@@ -633,7 +633,7 @@ cmd = "pytest --cov-report term-missing --cov ./${module} ${module}"
 # Current shell situation, so it stays honest as tasks are added:
 #
 #   * `cmd` tasks (no shell at all): test, test_simple, cover*, run,
-#     clearct, flushdb, schema, cleardb, next-docs.
+#     clearct, flushdb, schema, cleardb, next-docs, check-calculations.
 #   * `interpreter = "python"`: every other next-* task.
 #   * POSIX-shell-only, each of which HAS a next-* successor:
 #     dev-quickstart, _test-engine, test-integration, dumpdata, docs.
@@ -805,6 +805,23 @@ help = "DESTRUCTIVE: empty every table (manage.py flush) - schema and migrations
 # therefore no shell. Behaviour differs slightly and for the better: flush
 # also resets sequences and re-runs post-migrate handlers.
 cmd = "python manage.py flush --noinput"
+
+# ==========================================================================
+# Checks
+# ==========================================================================
+
+
+[tool.poe.tasks.check-calculations]
+help = "Check tests' calculation procedures still run and still give their saved results"
+# Worth a task of its own rather than leaving it to `manage.py`: it is the
+# one check to run after any upgrade that moves NumPy, SciPy or pandas, and
+# `poe --help` is where a contributor looks for that. A `cmd` task, so the
+# command's own options pass straight through and no second copy of them
+# needs maintaining here:
+#
+#     poe check-calculations --scan-only
+#     poe check-calculations --output calculation-check.txt
+cmd = "python manage.py check_calculations"
 
 # ==========================================================================
 # Deployment helpers

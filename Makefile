@@ -147,6 +147,14 @@ clearct:
 flushdb:
 	uv run python manage.py sqlflush | uv run python manage.py dbshell
 
+# Check that tests' calculation procedures still run, and still give the
+# results that were saved - worth doing after any upgrade that moves NumPy,
+# SciPy or pandas. Options pass through, e.g.
+#
+#     make check-calculations args="--scan-only --output calculation-check.txt"
+check-calculations:
+	uv run python manage.py check_calculations ${args}
+
 docs:
 	cd docs && uv run make html
 
