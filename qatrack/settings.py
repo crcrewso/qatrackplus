@@ -230,6 +230,7 @@ TEMPLATES = [
 FIXTURE_DIRS = (
     'fixtures/defaults/qa',
     'fixtures/defaults/units',
+    'fixtures/defaults/service_log',
 )
 
 # ------------------------------------------------------------------------------
