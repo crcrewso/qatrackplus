@@ -1184,3 +1184,38 @@ class TestReviewQC(BaseQATests):
         unreviewed. Every existing test in this class only exercises
         unreviewed -> reviewed; the reverse direction is untested."""
         raise NotImplementedError
+
+
+@pytest.mark.skip(reason="stub - not yet implemented")
+class TestQAOverview(BaseQATests):
+    """Selenium coverage for the review/overview pages (qa/overview.html,
+    driven by qaoverview.js).
+
+    Nothing drives these pages through a browser today. That gap is not
+    theoretical: the `slimscroll is not a function` bug fixed in #824 lived
+    on exactly this page, was a JavaScript console error rather than a
+    server error, and no test in this suite could have caught it - the
+    fix had to be confirmed by loading the page by hand.
+    """
+
+    def test_overview_loads(self):
+        """Open /qa/review/ and confirm the unit/frequency containers are
+        rendered - the RequireJS module graph for this page resolves
+        jquery, moment, lodash, slimscroll and felter, and a missing
+        dependency shows up only as a console error."""
+        raise NotImplementedError
+
+    def test_overview_has_no_console_errors(self):
+        """Assert the page produces no SEVERE browser-console entries.
+
+        This is the check that would have caught #824. Note it needs a
+        browser that exposes the log endpoint - Chromium does,
+        geckodriver does not - so it should skip rather than fail on
+        Firefox.
+        """
+        raise NotImplementedError
+
+    def test_overview_due_dates(self):
+        """Drive the due-dates overview (overview_due_dates) and its
+        user-scoped variant, which share the same JS bundle."""
+        raise NotImplementedError
