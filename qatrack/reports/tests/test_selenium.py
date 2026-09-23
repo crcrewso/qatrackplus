@@ -1,6 +1,7 @@
 
 import datetime
 
+import pytest
 from django.forms.fields import DateField
 from django.urls import reverse
 from django.utils import timezone
@@ -281,3 +282,9 @@ class TestReportInterface(BaseQATests):
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
         assert models.ReportSchedule.objects.count() == 0
 
+    @pytest.mark.skip(reason="stub - not yet implemented")
+    def test_delete_saved_report(self):
+        """Delete a saved report entirely via the UI (reports-delete) -
+        every existing test in this class that touches an existing
+        SavedReport edits or schedules it; none delete it."""
+        raise NotImplementedError
