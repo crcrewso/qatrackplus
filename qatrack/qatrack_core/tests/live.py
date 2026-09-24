@@ -565,15 +565,36 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
             self.driver.execute_script("arguments[0].click();", element)
 
     def click_by_css_selector(self, css_sel):
-        self.scroll_into_view_css(css_sel)
-        element = self.driver.find_element(By.CSS_SELECTOR, css_sel)
-        try:
-            element.click()
-        except WebDriverException:
-            # Falls back to a JS click, which ignores overlays and viewport
-            # position. Scoped to WebDriverException so a genuine error in the
-            # test is not silently turned into a different kind of click.
-            self.driver.execute_script("arguments[0].click();", element)
+        """Click the first match, re-finding it if it goes stale.
+
+        Two different failures arrive as the same exception type and need
+        opposite answers. An element that is present but covered wants the JS
+        click, which ignores overlays and viewport position. An element that
+        has been replaced since it was located wants to be found again -
+        JS-clicking the dead reference raises the same staleness error one
+        line further down, which reads as though the fallback itself failed.
+
+        The date pickers are where this bites. `.open .today` matches against
+        a calendar the previous interaction may still be closing, so the
+        element can be located and gone before the click lands.
+        """
+        for attempt in range(3):
+            self.scroll_into_view_css(css_sel)
+            element = self.driver.find_element(By.CSS_SELECTOR, css_sel)
+            try:
+                element.click()
+                return
+            except StaleElementReferenceException:
+                # Replaced mid-flight. Re-find rather than click a dead
+                # reference; only give up once the page stops swapping it.
+                if attempt == 2:
+                    raise
+            except WebDriverException:
+                # Present but not directly clickable - covered by an overlay,
+                # or out of position. Scoped so a genuine error is not
+                # silently turned into a different kind of click.
+                self.driver.execute_script("arguments[0].click();", element)
+                return
 
     def click_by_link_text(self, link_text):
         for i in range(3):

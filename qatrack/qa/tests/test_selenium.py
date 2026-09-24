@@ -672,7 +672,7 @@ class TestPerformQC(BaseQATests):
         inputs[0].send_keys(1)
         inputs[1].send_keys(2)
         inputs[1].send_keys(Keys.TAB)
-        self.wait.until(lambda d: d.execute_script("return typeof jQuery !== 'undefined' ? jQuery.active == 0 : true"))
+        self.wait_for_ajax()
         self.click_by_css_selector(".choose-date")
         self.wait.until(e_c.element_to_be_clickable((By.CSS_SELECTOR, ".open .today")))
         self.click_by_css_selector(".open .today")
@@ -688,7 +688,8 @@ class TestPerformQC(BaseQATests):
 
         self.driver.find_element(By.CSS_SELECTOR, ".qa-string .qa-input").send_keys("test")
         self.click_by_css_selector("body")
-        self.wait.until(lambda d: d.execute_script("return typeof jQuery !== 'undefined' ? jQuery.active == 0 : true"))
+        self.wait_for_ajax()
+
     def test_perform_ok(self):
         """Ensure that no failed tests on load and 3 "NO TOL" tests present"""
 
