@@ -8,6 +8,26 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
 
+PAPER_SIZES = ("letter", "a4")
+
+
+def clean_paper_size(paper_size):
+    """Validate a paper size before it is interpolated into a CSS declaration.
+
+    An unexpected value here does not fail, it changes the rendered document.
+    The web UI cannot send one (the model field carries `choices` and the form
+    validates against them), but this is reachable from management commands
+    and scheduled reports, and a silently mis-rendered QC record is a poor
+    failure mode.
+    """
+    cleaned = (paper_size or "letter").strip().lower()
+    if cleaned not in PAPER_SIZES:
+        raise ValueError(
+            "unsupported paper size %r - expected one of %s"
+            % (paper_size, ", ".join(PAPER_SIZES))
+        )
+    return cleaned
+
 
 def weasyprint_to_pdf(html, name="", paper_size="letter"):
     """Convert HTML to PDF using WeasyPrint with proper paper size support
@@ -18,25 +38,23 @@ def weasyprint_to_pdf(html, name="", paper_size="letter"):
         paper_size: Paper size for PDF ('letter' or 'a4')
     """
     try:
-        from weasyprint import CSS, HTML
+        from weasyprint import HTML
     except ImportError:
         raise ImportError("WeasyPrint not installed. Install with: uv pip install weasyprint")
 
     # The report templates link the real bootstrap/adminlte print stylesheets
-    # and include reports/pdf.css themselves, so the only thing we need to add
-    # here is the page geometry.  Do *not* re-implement the Bootstrap grid: a
-    # flexbox `.row` stops WeasyPrint from fragmenting its contents across
-    # pages, which silently truncates any report containing a forced page
-    # break (see reports/pdf.css).
-    paper_css = """
-    @page {
-        size: %s;
-        margin: 20px 20px 20px 30px;
-    }
-    """ % paper_size.lower()
-
+    # and include reports/pdf.css themselves, so the only thing to add here is
+    # the page size - and it is added the same way Chrome gets it, through
+    # set_paper_size(), so there is one mechanism rather than one per engine.
+    # Margins come from reports/pdf.css for both engines; declaring them here
+    # as well meant two sources that had to be kept in step by hand.
+    #
+    # Do *not* re-implement the Bootstrap grid here: a flexbox `.row` stops
+    # WeasyPrint from fragmenting its contents across pages, which silently
+    # truncates any report containing a forced page break (see
+    # reports/pdf.css).
     pdf = BytesIO()
-    HTML(string=html).write_pdf(pdf, stylesheets=[CSS(string=paper_css)])
+    HTML(string=set_paper_size(html, paper_size)).write_pdf(pdf)
     return pdf.getvalue()
 
 
@@ -49,7 +67,7 @@ def set_paper_size(html, paper_size="letter"):
     the user picked.  CSS is the only lever that works, and it has to come
     after reports/pdf.css so it wins the cascade against its `@page` block.
     """
-    rule = "<style>@page { size: %s; }</style>" % paper_size.lower()
+    rule = "<style>@page { size: %s; }</style>" % clean_paper_size(paper_size)
     if "</head>" in html:
         return html.replace("</head>", "%s</head>" % rule, 1)
     return rule + html

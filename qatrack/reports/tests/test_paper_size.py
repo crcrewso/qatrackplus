@@ -71,3 +71,66 @@ class TestPaperSizeDefaults(TestCase):
         choices = [choice[0] for choice in form.fields['paper_size'].choices]
         self.assertIn('letter', choices)
         self.assertIn('a4', choices)
+
+
+class TestCleanPaperSize(TestCase):
+    """The value is interpolated into a CSS declaration, so it is validated.
+
+    An unexpected string does not fail loudly - it changes the rendered
+    document - which is the wrong failure mode for a QC record.
+    """
+
+    def test_valid_sizes_pass_through_normalised(self):
+        from qatrack.qatrack_core.utils import clean_paper_size
+
+        assert clean_paper_size("letter") == "letter"
+        assert clean_paper_size("A4") == "a4"
+        assert clean_paper_size(" Letter ") == "letter"
+
+    def test_empty_falls_back_to_letter(self):
+        from qatrack.qatrack_core.utils import clean_paper_size
+
+        assert clean_paper_size("") == "letter"
+        assert clean_paper_size(None) == "letter"
+
+    def test_unexpected_value_is_rejected(self):
+        from qatrack.qatrack_core.utils import clean_paper_size
+
+        with self.assertRaises(ValueError):
+            clean_paper_size("legal")
+
+    def test_css_injection_is_rejected(self):
+        from qatrack.qatrack_core.utils import clean_paper_size
+
+        with self.assertRaises(ValueError):
+            clean_paper_size("letter; } body { display: none } @page {")
+
+
+class TestBothEnginesShareOnePaperSizeMechanism(TestCase):
+    """Chrome and WeasyPrint must not set page geometry different ways.
+
+    Margins live in reports/pdf.css and the size is injected by
+    set_paper_size(), which both engines call. Previously WeasyPrint passed
+    its own stylesheet declaring both, so the margin was stated twice and had
+    to be kept in step with pdf.css by hand.
+    """
+
+    def test_weasyprint_renders_a_pdf(self):
+        from qatrack.qatrack_core.utils import weasyprint_to_pdf
+
+        pdf = weasyprint_to_pdf("<html><body><h1>hi</h1></body></html>")
+        assert pdf[:4] == b"%PDF", pdf[:20]
+
+    def test_weasyprint_honours_the_injected_size(self):
+        from qatrack.qatrack_core.utils import weasyprint_to_pdf
+
+        html = "<html><head></head><body><h1>hi</h1></body></html>"
+        assert weasyprint_to_pdf(html, paper_size="letter") != weasyprint_to_pdf(html, paper_size="a4")
+
+    def test_weasyprint_adds_no_margin_rule_of_its_own(self):
+        """pdf.css is the only place margins are declared."""
+        import inspect
+
+        from qatrack.qatrack_core import utils
+
+        assert "margin:" not in inspect.getsource(utils.weasyprint_to_pdf)
