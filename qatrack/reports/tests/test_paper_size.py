@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from qatrack.qatrack_core.utils import set_paper_size
 from qatrack.reports.forms import ReportForm
@@ -134,3 +134,46 @@ class TestBothEnginesShareOnePaperSizeMechanism(TestCase):
         from qatrack.qatrack_core import utils
 
         assert "margin:" not in inspect.getsource(utils.weasyprint_to_pdf)
+
+
+class TestChromeFailureReporting(TestCase):
+    """A failed report should say which thing failed.
+
+    Neither the exit status nor the output file was checked, so a browser that
+    ran and produced nothing surfaced as "executable not found" - naming the
+    one component that was working. See #835, where the reporter had a browser
+    that ran the command by hand but silently failed under the service.
+    """
+
+    def test_missing_chrome_path_names_the_setting(self):
+        from qatrack.qatrack_core.utils import ChromeNotFound, chrometopdf
+
+        with override_settings(CHROME_PATH=""):
+            with self.assertRaises(ChromeNotFound) as caught:
+                chrometopdf("<html><body>x</body></html>")
+        assert "CHROME_PATH" in str(caught.exception)
+
+    def test_unrunnable_executable_is_reported_as_not_found(self):
+        from qatrack.qatrack_core.utils import ChromeNotFound, chrometopdf
+
+        with override_settings(CHROME_PATH="/nonexistent/browser"):
+            with self.assertRaises(ChromeNotFound):
+                chrometopdf("<html><body>x</body></html>")
+
+    def test_a_browser_that_produces_no_pdf_is_not_reported_as_missing(self):
+        """The #835 case: it runs, it exits, there is no PDF."""
+        from qatrack.qatrack_core.utils import ChromeNotFound, ChromePdfFailed, chrometopdf
+
+        with override_settings(CHROME_PATH="/bin/true"):
+            with self.assertRaises(ChromePdfFailed) as caught:
+                chrometopdf("<html><body>x</body></html>")
+        assert not isinstance(caught.exception, ChromeNotFound)
+        assert "wrote no PDF" in str(caught.exception)
+
+    def test_nonzero_exit_is_reported_with_the_log_location(self):
+        from qatrack.qatrack_core.utils import ChromePdfFailed, chrometopdf
+
+        with override_settings(CHROME_PATH="/bin/false"):
+            with self.assertRaises(ChromePdfFailed) as caught:
+                chrometopdf("<html><body>x</body></html>")
+        assert "report-stderr.txt" in str(caught.exception)

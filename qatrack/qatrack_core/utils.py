@@ -8,6 +8,18 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
 
+class PdfGenerationError(Exception):
+    """A report PDF could not be produced."""
+
+
+class ChromeNotFound(PdfGenerationError):
+    """No usable Chrome/Chromium executable is configured."""
+
+
+class ChromePdfFailed(PdfGenerationError):
+    """Chrome was runnable but did not produce a PDF."""
+
+
 PAPER_SIZES = ("letter", "a4")
 
 
@@ -111,16 +123,51 @@ def chrometopdf(html, name="", paper_size="letter"):
         if os.name.lower() == "nt":
             command = ' '.join(command)
 
+        if not settings.CHROME_PATH:
+            raise ChromeNotFound(
+                "No Chrome/Chromium executable was found. Set CHROME_PATH in "
+                "qatrack/local_settings.py to the browser to use for PDF generation."
+            )
+
+        stderr_path = os.path.join(settings.LOG_ROOT, 'report-stderr.txt')
         stdout = open(os.path.join(settings.LOG_ROOT, 'report-stdout.txt'), 'a')
-        stderr = open(os.path.join(settings.LOG_ROOT, 'report-stderr.txt'), 'a')
-        subprocess.call(command, stdout=stdout, stderr=stderr)
+        stderr = open(stderr_path, 'a')
+        try:
+            status = subprocess.call(command, stdout=stdout, stderr=stderr)
+        except OSError as e:
+            raise ChromeNotFound(
+                "Could not run '%s': %s. Check CHROME_PATH in "
+                "qatrack/local_settings.py." % (settings.CHROME_PATH, e)
+            )
+        finally:
+            stdout.close()
+            stderr.close()
+
+        # The exit status and the output file are checked separately: they
+        # fail differently, and the difference is what tells a deployer
+        # whether the browser is wrong or its environment is. Neither was
+        # checked before - a browser that ran but produced nothing left
+        # open(out_path) to raise FileNotFoundError, which the handler below
+        # reported as "executable not found", pointing at the one thing that
+        # was demonstrably fine. That is the symptom described in #835.
+        if status != 0:
+            raise ChromePdfFailed(
+                "'%s' exited with status %d without producing a report. Its output "
+                "is in %s." % (settings.CHROME_PATH, status, stderr_path)
+            )
+
+        if not os.path.exists(out_path):
+            raise ChromePdfFailed(
+                "'%s' exited cleanly but wrote no PDF to %s. A browser that does "
+                "not support --print-to-pdf, or cannot write to that directory, "
+                "fails exactly this way. Its output is in %s."
+                % (settings.CHROME_PATH, out_path, stderr_path)
+            )
 
         out_file = open(out_path, 'r+b')
         pdf = out_file.read()
         out_file.close()
 
-    except OSError:
-        raise OSError("chrome '%s' executable not found" % (settings.CHROME_PATH))
     finally:
         if tmp_html and not tmp_html.closed:
             tmp_html.close()
