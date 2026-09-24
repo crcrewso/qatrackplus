@@ -64,7 +64,7 @@ accountability this whole policy is about.
 | **Framework** | Django 4.2 (LTS) |
 | **Database** | PostgreSQL, MS SQL Server, or MySQL (existing support maintained; not a target for new development) |
 | **Package manager** | [uv](https://docs.astral.sh/uv/) — pip is only used for production Windows/MS SQL Server deployments, not local development |
-| **Frontend** | Vue 3 + Vite, Node.js 22+ — only needed to build `qatrack/qatrack_core/static/dist/faults.js`, see *Getting started* below |
+| **Frontend** | Server-rendered Django templates with HTMX and jQuery. No build step, no Node.js — a Vue/Vite bundle was retired and is expected back no earlier than 4.1 |
 | **Linter / formatter** | [ruff](https://docs.astral.sh/ruff/) |
 | **Test runner** | pytest (`uv run pytest` — GUI tests are skipped by default, see [Running the tests](#running-the-tests)) |
 | **Docs** | Sphinx — `uv run make docs` from repo root |
@@ -149,21 +149,14 @@ uv run python manage.py collectstatic --noinput
 uv run python manage.py runserver
 ```
 
-The compiled Vue frontend bundle
-(`qatrack/qatrack_core/static/dist/faults.js`) is **not** committed to the
-repository — release archives ship a pre-built copy, but a `git clone`
-doesn't include one, so anyone working from source (including an agent)
-needs to build it once, and again whenever files under
-`qatrack/faults/static/faults/src/` change:
-
-```bash
-npm ci          # install frontend dependencies (needs Node.js 22+)
-npm run build   # compiles faults.js into qatrack/qatrack_core/static/dist/
-```
-
-Without this step the development server runs fine, but the faults UI will
-be missing its compiled JS. The generated `faults.js` is gitignored — don't
-commit it.
+> **There is no frontend build step at present.** QATrack+ had a Vue 3 +
+> Vite bundle, and the faults UI now uses server-rendered HTMX with jQuery
+> instead; `package.json` went with it. Node.js is **not** a prerequisite for
+> anything today — `npm ci` would fail, because there is no manifest to read.
+>
+> A frontend build is expected to return no earlier than 4.1. The release
+> workflow already tests for `package.json` and runs the Node steps only if
+> it is there, so nothing needs changing here when it comes back.
 
 `local_test_settings.sqlite.py` is one of five ready-made templates under
 `deploy/dev/` (`sqlite`, `memory`, `postgres`, `mysql`, `mssql`) - copy a

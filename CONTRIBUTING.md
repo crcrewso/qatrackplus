@@ -133,14 +133,9 @@ Selenium setup.
    ```bash
    uv run python manage.py runserver
    ```
-7. Build the frontend (needs Node.js 22+). The compiled Vue bundle
-   (`qatrack/qatrack_core/static/dist/faults.js`) ships pre-built in release
-   archives but isn't committed to the repo, so a `git clone` needs it built
-   once, and again whenever `qatrack/faults/static/faults/src/` changes:
-   ```bash
-   npm ci
-   npm run build
-   ```
+There is no frontend build step at the moment, and Node.js is not needed —
+see the note in [AGENTS.md](AGENTS.md#getting-started). One is expected back
+no earlier than 4.1.
 
 ### Coding guidelines
 
