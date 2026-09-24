@@ -178,7 +178,10 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                 cls.driver,
                 cls.timeout,
                 ignored_exceptions=(NoSuchElementException, StaleElementReferenceException),
-            ).until(lambda d: orig_find_element(*args, **kwargs))
+            ).until(
+                lambda d: orig_find_element(*args, **kwargs),
+                "no element matched find_element(%s)" % ", ".join(repr(a) for a in args),
+            )
 
         cls.driver.find_element = WebElement_find_element
 
@@ -282,7 +285,10 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         # wait.
         old_page = self.driver.find_element(By.TAG_NAME, 'html')
         yield
-        WebDriverWait(self.driver, timeout or self.timeout).until(staleness_of(old_page))
+        WebDriverWait(self.driver, timeout or self.timeout).until(
+            staleness_of(old_page),
+            "the page to be replaced - navigation did not complete",
+        )
 
     @retry_if_exception(Exception, 2, sleep_time=1)
     def open(self, url):
@@ -344,11 +350,15 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         return self.wait.until(
             lambda d: d.execute_script(
                 "return typeof jQuery !== 'undefined' ? jQuery.active == 0 : true"
-            )
+            ),
+            "jQuery.active to reach 0 - a request on this page is still in flight",
         )
 
     def scroll_into_view(self, el_id):
-        self.wait.until(e_c.presence_of_element_located((By.ID, el_id)))
+        self.wait.until(
+            e_c.presence_of_element_located((By.ID, el_id)),
+            "#%s to exist before scrolling to it" % el_id,
+        )
         actions = ActionChains(self.driver)
         element = self.driver.find_element(By.ID, el_id)
         actions.move_to_element(element)
@@ -368,7 +378,10 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
             pass
 
     def scroll_into_view_css(self, css_sel):
-        self.wait.until(e_c.presence_of_element_located((By.CSS_SELECTOR, css_sel)))
+        self.wait.until(
+            e_c.presence_of_element_located((By.CSS_SELECTOR, css_sel)),
+            "%r to exist before scrolling to it" % css_sel,
+        )
         actions = ActionChains(self.driver)
         element = self.driver.find_element(By.CSS_SELECTOR, css_sel)
         actions.move_to_element(element)
@@ -565,7 +578,10 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
     def click_by_link_text(self, link_text):
         for i in range(3):
             try:
-                self.wait.until(e_c.presence_of_element_located((By.LINK_TEXT, link_text)))
+                self.wait.until(
+                    e_c.presence_of_element_located((By.LINK_TEXT, link_text)),
+                    "a link reading %r" % link_text,
+                )
                 self.driver.find_element(By.LINK_TEXT, link_text).click()
                 break
             except WebDriverException:
