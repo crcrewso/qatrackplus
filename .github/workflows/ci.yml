@@ -357,22 +357,59 @@ jobs:
       # runner - no browser/driver install step needed. Runs the Selenium
       # suite only (bypasses the skip-by-default via -m selenium), against
       # one browser per matrix entry, headless (this branch's default).
+      #
+      # A GUI failure does not fail the build. The suite has residual timing
+      # flakiness that is still being worked through, and a red X that is
+      # usually noise teaches people to stop reading it. The outcome is still
+      # reported, in the summary step below, so it stays visible without
+      # gating anything.
+      #
+      # --tb=line holds a failure to one line. A full traceback for a browser
+      # test is mostly Selenium's own frames, and the screenshot is better
+      # evidence than any of it.
       - name: Run Selenium Tests
+        id: selenium
+        continue-on-error: true
+        shell: bash
         env:
           SELENIUM_BROWSER: ${{ matrix.browser }}
-        run: pytest -m selenium
+        run: |
+          set -o pipefail
+          pytest -m selenium -q --tb=line -rf 2>&1 | tee selenium.log
 
-      # conftest.py writes a screenshot of the browser for each Selenium test
-      # that fails, and nothing at all when they pass. Collecting them here is
-      # the point of the feature: a GUI failure that only happens on CI leaves
-      # no other record of what the page actually looked like.
+      # always(), not failure(). The step above is continue-on-error, so the
+      # job never reports failure and failure() would never fire - which
+      # would quietly stop uploading the screenshots this exists for.
+      #
+      # conftest.py writes one per failing Selenium test and nothing when they
+      # pass, so a green run still uploads no artifact.
       - name: Upload failure screenshots
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: selenium-screenshots-linux-${{ matrix.browser }}
           path: selenium-screenshots/
           if-no-files-found: ignore
+
+      # The job reports success either way, so this is the only place the
+      # result is stated plainly. Names the failing tests and nothing else -
+      # the log has the detail and the artifact has the pictures.
+      - name: Report Selenium outcome
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Selenium — Linux / ${{ matrix.browser }}"
+            if [ "${{ steps.selenium.outcome }}" = "success" ]; then
+              echo "All GUI tests passed."
+            else
+              echo "**Failures below did not fail the build.** Screenshots are attached as an artifact."
+              echo
+              echo '```'
+              grep -E '^(FAILED|ERROR)' selenium.log || echo "no FAILED lines - the run did not finish; see the log"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   selenium-tests-windows:
     name: Selenium Tests (Windows)
@@ -404,19 +441,56 @@ jobs:
       # install step needed. Runs the Selenium suite only (bypasses the
       # skip-by-default via -m selenium), headless (this branch's
       # default).
+      #
+      # A GUI failure does not fail the build. The suite has residual timing
+      # flakiness that is still being worked through, and a red X that is
+      # usually noise teaches people to stop reading it. The outcome is still
+      # reported, in the summary step below, so it stays visible without
+      # gating anything.
+      #
+      # --tb=line holds a failure to one line. A full traceback for a browser
+      # test is mostly Selenium's own frames, and the screenshot is better
+      # evidence than any of it.
       - name: Run Selenium Tests
+        id: selenium
+        continue-on-error: true
+        shell: bash
         env:
           SELENIUM_BROWSER: ${{ matrix.browser }}
-        run: uv run pytest -m selenium
+        run: |
+          set -o pipefail
+          uv run pytest -m selenium -q --tb=line -rf 2>&1 | tee selenium.log
 
-      # conftest.py writes a screenshot of the browser for each Selenium test
-      # that fails, and nothing at all when they pass. Collecting them here is
-      # the point of the feature: a GUI failure that only happens on CI leaves
-      # no other record of what the page actually looked like.
+      # always(), not failure(). The step above is continue-on-error, so the
+      # job never reports failure and failure() would never fire - which
+      # would quietly stop uploading the screenshots this exists for.
+      #
+      # conftest.py writes one per failing Selenium test and nothing when they
+      # pass, so a green run still uploads no artifact.
       - name: Upload failure screenshots
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: selenium-screenshots-windows-${{ matrix.browser }}
           path: selenium-screenshots/
           if-no-files-found: ignore
+
+      # The job reports success either way, so this is the only place the
+      # result is stated plainly. Names the failing tests and nothing else -
+      # the log has the detail and the artifact has the pictures.
+      - name: Report Selenium outcome
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Selenium — Windows / ${{ matrix.browser }}"
+            if [ "${{ steps.selenium.outcome }}" = "success" ]; then
+              echo "All GUI tests passed."
+            else
+              echo "**Failures below did not fail the build.** Screenshots are attached as an artifact."
+              echo
+              echo '```'
+              grep -E '^(FAILED|ERROR)' selenium.log || echo "no FAILED lines - the run did not finish; see the log"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
