@@ -227,7 +227,13 @@ class TestReportInterface(BaseQATests):
         )
         # need to reload page to get report table
         self.driver.refresh()
-
+        # The row arrives with the reloaded table, so wait for it. The other
+        # tests here that pre-create a report already do; this one clicked
+        # straight after refresh() and raced the page.
+        self.wait.until(
+            e_c.presence_of_element_located((By.ID, 'report-id-%s' % sr.pk)),
+            "the saved report's row to appear in the reloaded table",
+        )
         self.click('report-id-%s' % sr.pk)
 
         self.click('report-id-%s-schedule' % sr.pk)

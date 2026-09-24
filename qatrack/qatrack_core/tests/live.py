@@ -5,10 +5,7 @@ from functools import wraps
 
 import pytest
 from django.conf import settings
-from django.contrib.staticfiles.handlers import StaticFilesHandler
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
-from django.core.servers.basehttp import WSGIServer
-from django.test.testcases import LiveServerThread, QuietWSGIRequestHandler
 from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -81,24 +78,25 @@ def WebElement_send_keys(self, keys):
 WebElement.send_keys = WebElement_send_keys  # noqa: E305
 
 
-# Following two classes are trying to work around this issue:
-# https://code.djangoproject.com/ticket/29062#no2
-class LiveServerSingleThread(LiveServerThread):
-    """Runs a single threaded server rather than multi threaded. Reverts https://github.com/django/django/pull/7832"""
-
-    def __create_server(self):
-        return WSGIServer((self.host, self.port), QuietWSGIRequestHandler, allow_reuse_address=False)
-
-
-class StaticLiveServerSingleThreadedTestCase(StaticLiveServerTestCase):
-    "A thin sub-class which only sets the single-threaded server as a class"
-    server_thread_class = LiveServerSingleThread
-
-    static_handler = StaticFilesHandler
-
-
+# A LiveServerSingleThread/StaticLiveServerSingleThreadedTestCase pair used to
+# sit here, forcing a single-threaded server to work around
+# https://code.djangoproject.com/ticket/29062. It never ran. Its override was
+# spelled `__create_server` with two leading underscores, which Python
+# name-mangles to `_LiveServerSingleThread__create_server`, while Django calls
+# `_create_server` - so Django's own ThreadedWSGIServer was used throughout,
+# and the suite has only ever run multi-threaded.
+#
+# Removed rather than repaired. Repairing it would put the suite into a
+# configuration it has never actually run in, which is not a restoration, and
+# the signature had drifted too: Django 4.2 passes `connections_override`,
+# which is how the server thread is given the test's database connections.
+# Dropping it would leave the server opening its own, unable to see the test's
+# data at all.
+#
+# If threading turns out to cause trouble, that is a change to make
+# deliberately and measure, not a workaround to reinstate.
 @pytest.mark.selenium
-class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
+class SeleniumTests(StaticLiveServerTestCase):
 
     @classmethod
     def setUpClass(cls):
