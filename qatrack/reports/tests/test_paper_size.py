@@ -257,3 +257,80 @@ class TestEngineSelection(TestCase):
         from qatrack.reports import reports
 
         assert reports.BaseReport(report_opts={}).to_pdf()[:4] == b"%PDF"
+
+
+class TestChromeCommandQuoting(TestCase):
+    """The browser command is handed to subprocess as a sequence.
+
+    On Windows it used to be flattened with ' '.join() before the call.
+    Nothing in that join quotes anything, and every Chrome location
+    settings.py probes lives under "C:\\Program Files (x86)", so what reached
+    CreateProcess named an executable "C:\\Program" with the remainder as
+    arguments.  Windows' prefix-guessing fallback covered that up for the
+    executable; it does not extend to --print-to-pdf=, so a TMP_REPORT_ROOT
+    under a profile directory containing a space came apart without an error.
+    """
+
+    def _capture_command(self, chrome_path, tmp_report_root=None):
+        """Run chrometopdf far enough to see what it would have executed."""
+        import subprocess
+        from unittest import mock
+
+        from qatrack.qatrack_core.utils import ChromePdfFailed, chrometopdf
+
+        captured = {}
+
+        def fake_call(command, *args, **kwargs):
+            captured['command'] = command
+            return 0
+
+        overrides = {'CHROME_PATH': chrome_path}
+        if tmp_report_root:
+            overrides['TMP_REPORT_ROOT'] = tmp_report_root
+
+        with override_settings(**overrides):
+            with mock.patch.object(subprocess, "call", fake_call):
+                # No PDF is written, because nothing ran -- the command is
+                # what is under test, not its result.
+                with self.assertRaises(ChromePdfFailed):
+                    chrometopdf("<html><body>x</body></html>")
+
+        return captured['command']
+
+    def test_command_is_a_sequence_not_a_string(self):
+        command = self._capture_command("/usr/bin/chromium")
+        assert isinstance(command, (list, tuple)), repr(command)
+
+    def test_executable_with_spaces_stays_one_argument(self):
+        chrome = r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+        command = self._capture_command(chrome)
+        assert command[0] == chrome
+
+    def test_executable_with_spaces_is_quoted_for_windows(self):
+        """What subprocess would actually hand to CreateProcess."""
+        import subprocess
+
+        chrome = r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+        line = subprocess.list2cmdline(self._capture_command(chrome))
+        assert line.startswith('"%s"' % chrome), line
+
+    def test_output_path_with_spaces_is_quoted_for_windows(self):
+        """The half no CreateProcess heuristic rescues."""
+        import subprocess
+        import tempfile
+
+        root = tempfile.mkdtemp(suffix=" reports")
+        command = self._capture_command("/usr/bin/chromium", tmp_report_root=root)
+
+        out_arg = [a for a in command if a.startswith("--print-to-pdf=")]
+        assert len(out_arg) == 1, command
+        assert " " in out_arg[0], out_arg
+        assert '"%s"' % out_arg[0] in subprocess.list2cmdline(command)
+
+    def test_missing_chrome_path_is_caught_before_the_command_is_built(self):
+        """CHROME_PATH of None used to raise TypeError out of the join."""
+        from qatrack.qatrack_core.utils import ChromeNotFound, chrometopdf
+
+        with override_settings(CHROME_PATH=None):
+            with self.assertRaises(ChromeNotFound):
+                chrometopdf("<html><body>x</body></html>")

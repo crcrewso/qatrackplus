@@ -181,6 +181,21 @@ def chrometopdf(html, name="", paper_size="letter"):
         tmp_html.write(set_paper_size(html, paper_size).encode("UTF-8"))
         tmp_html.close()
 
+        if not settings.CHROME_PATH:
+            raise ChromeNotFound(
+                "No Chrome/Chromium executable was found. Set CHROME_PATH in "
+                "qatrack/local_settings.py to the browser to use for PDF generation."
+            )
+
+        # Passed as a sequence on every platform. On Windows this was
+        # collapsed with ' '.join() first, which quotes nothing: every Chrome
+        # location settings.py probes is under "C:\Program Files (x86)", and
+        # TMP_REPORT_ROOT can sit under a profile directory with a space in
+        # it, so both the executable and --print-to-pdf= were split on their
+        # spaces before Chrome saw them. subprocess quotes a sequence itself
+        # with list2cmdline(), which is what it is for. Likely a second cause
+        # of #835 - a service account's temp directory is not the one a
+        # deployer tests from by hand.
         command = [
             settings.CHROME_PATH,
             '--headless',
@@ -190,15 +205,6 @@ def chrometopdf(html, name="", paper_size="letter"):
             '--print-to-pdf-no-header',
             "file://%s" % tmp_html.name,
         ]
-
-        if os.name.lower() == "nt":
-            command = ' '.join(command)
-
-        if not settings.CHROME_PATH:
-            raise ChromeNotFound(
-                "No Chrome/Chromium executable was found. Set CHROME_PATH in "
-                "qatrack/local_settings.py to the browser to use for PDF generation."
-            )
 
         stderr_path = os.path.join(settings.LOG_ROOT, 'report-stderr.txt')
         stdout = open(os.path.join(settings.LOG_ROOT, 'report-stdout.txt'), 'a')
