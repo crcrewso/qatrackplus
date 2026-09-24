@@ -317,15 +317,51 @@ Set `CHROME_PATH` to the Chrome/Chromium executable for generating PDF reports. 
 
 .. note::
 
-    PDF reports are normally rendered by WeasyPrint; Chrome is used as a
-    fallback when WeasyPrint is unavailable or fails, so `CHROME_PATH` only
-    needs to be valid for that fallback to work.
-
     The paper size of a generated PDF follows the paper size selected for the
     report itself. It is applied through the report stylesheet rather than a
     Chrome command line switch, so it is honoured by both renderers. Before
     v4.0.1, reports rendered through Chrome were always produced at Letter
     size regardless of the size chosen for the report.
+
+    See `PDF_ENGINE`_ for choosing a renderer.
+
+
+.. _PDF_ENGINE:
+
+PDF_ENGINE
+..........
+
+Which renderer produces report PDFs.
+
+.. code-block:: python
+
+    PDF_ENGINE = "auto"        # Chrome if CHROME_PATH is valid, else WeasyPrint
+    PDF_ENGINE = "chrome"      # Chrome/Chromium only
+    PDF_ENGINE = "weasyprint"  # WeasyPrint only - no browser required
+
+The default, ``auto``, prefers Chrome. Chrome is what the installation guides
+have always required, what existing deployments already have, and what the
+report stylesheets were tuned against, so upgrading does not quietly change
+how every report looks.
+
+Set ``weasyprint`` if you cannot install a browser on the server. WeasyPrint
+needs no browser, but it does need **Pango, cairo and harfbuzz installed as
+system packages** - the Python package alone is not enough, and where they are
+missing the import fails with an ``OSError`` rather than an ``ImportError``.
+On Debian/Ubuntu:
+
+.. code-block:: console
+
+    sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libgdk-pixbuf-2.0-0
+
+If neither renderer is available, generating a report raises an error naming
+what to install rather than producing a PDF that looks wrong.
+
+.. note::
+
+    When a report will not generate, the browser's own output is written to
+    ``report-stdout.txt`` and ``report-stderr.txt`` in your log directory.
+    That is the first place to look.
 
 
 

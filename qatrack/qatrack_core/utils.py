@@ -8,6 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
 
+
 class PdfGenerationError(Exception):
     """A report PDF could not be produced."""
 
@@ -39,6 +40,76 @@ def clean_paper_size(paper_size):
             % (paper_size, ", ".join(PAPER_SIZES))
         )
     return cleaned
+
+
+def chrome_available():
+    """Whether a Chrome/Chromium executable is configured and present."""
+    return bool(settings.CHROME_PATH) and os.path.exists(settings.CHROME_PATH)
+
+
+def weasyprint_available():
+    """Whether WeasyPrint can actually render here.
+
+    Catches OSError as well as ImportError: WeasyPrint is a cffi wrapper
+    around Pango, cairo and harfbuzz, which are system packages rather than
+    Python ones. Where they are absent - python:*-slim images, most notably -
+    the import fails with OSError, not ImportError.
+    """
+    try:
+        import weasyprint  # noqa: F401
+    except (ImportError, OSError):
+        return False
+    return True
+
+
+def html_to_pdf(html, name="", paper_size="letter"):
+    """Render html to PDF with whichever engine is configured and usable.
+
+    settings.PDF_ENGINE selects:
+
+      "auto"        Chrome if available, otherwise WeasyPrint (default)
+      "chrome"      Chrome only
+      "weasyprint"  WeasyPrint only
+
+    Chrome leads in "auto" because it is what the install documentation has
+    always required, what deployments already have, and what the report
+    stylesheets were tuned against - so an upgrade does not silently change
+    how every report looks. WeasyPrint needs no browser, which is what makes
+    it the right answer for a deployment that cannot install one (#835).
+
+    Neither engine available is an error rather than a silent fallback: a
+    report that cannot be produced should say so, not arrive wrong.
+    """
+    engine = getattr(settings, "PDF_ENGINE", "auto")
+
+    if engine == "chrome":
+        return chrometopdf(html, name=name, paper_size=paper_size)
+
+    if engine == "weasyprint":
+        if not weasyprint_available():
+            raise PdfGenerationError(
+                "PDF_ENGINE is 'weasyprint' but WeasyPrint cannot load. It needs "
+                "Pango, cairo and harfbuzz installed as system packages, not just "
+                "the Python package."
+            )
+        return weasyprint_to_pdf(html, name=name, paper_size=paper_size)
+
+    if engine != "auto":
+        raise PdfGenerationError(
+            "Unknown PDF_ENGINE %r - expected 'auto', 'chrome' or 'weasyprint'." % engine
+        )
+
+    if chrome_available():
+        return chrometopdf(html, name=name, paper_size=paper_size)
+
+    if weasyprint_available():
+        return weasyprint_to_pdf(html, name=name, paper_size=paper_size)
+
+    raise PdfGenerationError(
+        "No PDF engine is available. Either set CHROME_PATH to a browser, or "
+        "install WeasyPrint's system dependencies (Pango, cairo, harfbuzz). "
+        "PDF_ENGINE can pin a specific engine."
+    )
 
 
 def weasyprint_to_pdf(html, name="", paper_size="letter"):
