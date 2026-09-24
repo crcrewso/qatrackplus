@@ -427,7 +427,22 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         return self.wait_for_elements(By.CLASS_NAME, "select2-results__option")
 
     def select_by_index(self, el_id, index):
-        """Set force_select2= True when selecting a 0 index for a select2 element"""
+        """Select the option at `index`, whichever widget the field uses.
+
+        Three paths, and all of them fire a `change` event, so a handler
+        bound to the field runs either way:
+
+        - a select2 container: open it and click the option
+        - a plain <select>: Selenium's own Select.select_by_index
+        - a <select> Selenium declines to click, because a widget covers it:
+          assign the value and dispatch `change` directly
+
+        The event matters as much as the value. Several forms pair a visible
+        decoy select with a hidden field that a change handler fills in, and
+        it is the hidden one that submits - so a caller that set the value
+        without firing `change` would leave the form looking correct on
+        screen and failing validation on save.
+        """
 
         self.scroll_into_view(el_id)
         sel2 = self._select2_container(el_id)
@@ -447,7 +462,13 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
                 self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", select_el, val)
 
     def select_by_text(self, el_id, text):
+        """Select the option whose visible label is `text`.
 
+        The select_by_index notes on widget paths and the `change` event
+        apply here too; this differs only in how the option is identified.
+        Prefer it where the label is the thing the test means, so a reordered
+        choice list does not silently change what is selected.
+        """
         self.scroll_into_view(el_id)
         try:
             select_el = self.driver.find_element(By.ID, el_id)

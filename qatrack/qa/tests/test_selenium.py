@@ -873,7 +873,19 @@ class TestPerformQC(BaseQATests):
             )
         )
         self.select_by_index("id_service_area_field_fake", 1)
-        self.wait_for_ajax()
+        # The visible select is a decoy: its change handler copies the value
+        # into the hidden service_area_field, which is required and is what
+        # actually submits. That copy is synchronous DOM work with no request
+        # behind it, so an AJAX wait here waits for nothing. Assert the copy
+        # instead, so losing it fails here naming the field rather than at the
+        # save as a validation error.
+        self.wait.until(
+            lambda d: d.execute_script(
+                "var el = document.getElementById('id_service_area_field');"
+                "return !!(el && el.value);"
+            ),
+            "the service area to be copied into the submitted field",
+        )
         self.select_by_index("id_service_type", 1)
         self.send_keys("id_problem_description", "Problem!")
         self.click("save-se")
