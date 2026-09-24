@@ -10,6 +10,67 @@ Release Notes
 QATrack+ v4.0
 ~~~~~~~~~~~~~
 
+.. _`release_notes_401`:
+
+v4.0.1
+------
+
+A maintenance release. No database migrations, no configuration changes
+required, and nothing user-facing changes shape - every item below is a fix
+for something that was already wrong.
+
+Bug Fixes
+^^^^^^^^^
+
+* Database backups on MySQL no longer skip the database itself.
+  ``backup_site`` reported success while writing only the media archive
+  (:issues:`857`).
+* Service Event Templates are usable again on units whose Return to Service QC
+  is not an exact superset of the template's. Matching is now by intersection,
+  so a template shared between machines contributes only the tests that apply
+  to the chosen unit (:issues:`829`).
+* Report links no longer come out as ``http://https://…`` when the Site domain
+  includes a scheme. Every "view record" link and the "View on site" link in
+  report headers failed to resolve (:issues:`853`).
+* The JavaScript translation catalogue is served to anonymous visitors again.
+  It sits on every page, so signed-out users received the login page's HTML
+  into a ``<script>`` tag and the client-side catalogue never loaded.
+* Intermittent ``slimscroll is not a function`` errors on the QC overview,
+  parts reporting and unit available time pages (:issues:`822`).
+* The service-setup section missing from the Windows upgrade guide has been
+  restored. Without it an upgrade completes and the site does not come back up.
+* Report PDFs honour the paper size chosen for the report. Reports rendered
+  through Chrome were always produced at Letter regardless of the setting.
+* Long reports are no longer truncated at a page break.
+* Date and time formats are configurable from a single setting and derived
+  everywhere else, so the parser, the display, the date pickers and the field
+  help text cannot disagree. Non-English locales no longer render a literal
+  format key into the page, which had been blocking QC submission
+  (:issues:`826`).
+
+Documentation
+^^^^^^^^^^^^^
+
+* The Docker install instructions match ``deploy/docker/README.md`` again,
+  including the ``USE_DOCKER`` setting the guide had never mentioned
+  (:issues:`876`).
+* The documentation builds without warnings. Thirty-odd malformed section
+  underlines, a mistyped cross-reference role and a missing blank line before a
+  target label were all silently degrading the rendered output.
+
+Developer
+^^^^^^^^^
+
+* The Selenium suite runs headless on Firefox and Chromium, waits on conditions
+  rather than fixed delays, and saves a screenshot of the page when a browser
+  test fails. It also runs in CI for the first time.
+* 99 tests that had never been collected now run, with a guard so that
+  recurring is not silent.
+* A ``poe`` task set provides the Makefile's targets on Windows, where ``make``
+  is unavailable.
+* The dead ``installfixtures`` management command has been removed; use
+  ``loaddata`` as the installation guides describe (:issues:`877`).
+
 v4.0.0
 ------
 
@@ -45,7 +106,7 @@ Technical Improvements
 Bug Fixes
 ^^^^^^^^^
 
-* Service Event Templates can now be shared across different machines and modalities. When selecting a template, only the Return to Service tests that apply to the chosen unit will be added to the form (:issue:`829`).
+* Service Event Templates can now be shared across different machines and modalities. When selecting a template, only the Return to Service tests that apply to the chosen unit will be added to the form (:issues:`829`).
 * Fixed an issue where resuming an autosaved QC session could display the wrong start date and time.
 * Fixed tolerance compatibility validation across different test types.
 * Fixed reference value type preservation in admin forms.
