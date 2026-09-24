@@ -705,6 +705,76 @@ for path in chrome_paths:
         CHROME_PATH = path
 
 # ------------------------------------------------------------------------------
+# Testing settings
+#
+# Read by the Selenium test harness. Defined above the local_settings import
+# below, so qatrack/local_settings.py and qatrack/local_test_settings.py can
+# both override them - previously these were assigned after that import and
+# anything a settings file set here was silently discarded.
+
+# Selenium Browser Configuration
+# Options: 'firefox' (default) or 'chromium'. Override for a single run from
+# the environment rather than editing a settings file:
+#
+#     SELENIUM_BROWSER=chromium pytest --run-selenium           # bash/zsh
+#     $env:SELENIUM_BROWSER='chromium'; pytest --run-selenium   # PowerShell
+#
+SELENIUM_BROWSER = os.environ.get('SELENIUM_BROWSER', 'firefox')
+
+# Browser Driver Paths - leave empty (the default) and Selenium Manager
+# (Selenium 4.6+) locates the installed browser and fetches a driver to match,
+# so most hosts need nothing installed by hand.
+#
+# The exception is a driver already on PATH that does not match the browser.
+# Selenium Manager prints an incompatibility warning and then uses it anyway,
+# and the run fails with SessionNotCreatedException. Set the matching path
+# below, or take the stale driver off PATH.
+SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver
+SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver
+
+# Chromium Browser Binary Path - leave empty (the default) to let Selenium
+# find whatever Chrome/Chromium is on the system. Set it only when Chrome is
+# not discoverable that way.
+#
+# Everything below here is Linux/Flatpak only - skip it on Windows or macOS.
+# A Flatpak install (`com.google.Chrome`, `org.chromium.Chromium`) has no
+# plain `google-chrome`/`chromium` on PATH for Selenium Manager to find:
+#
+#     SELENIUM_CHROMIUM_BINARY_PATH = (
+#         '/var/lib/flatpak/exports/bin/com.google.Chrome'  # system-wide install
+#     )
+#     # or, for a per-user install:
+#     # SELENIUM_CHROMIUM_BINARY_PATH = (
+#     #     os.path.expanduser('~/.local/share/flatpak/exports/bin/com.google.Chrome')
+#     # )
+#
+# A Flatpak browser also needs its actual profile directory redirected
+# somewhere its sandbox can write - it can't see chromedriver's default
+# temp directory - by pointing TMPDIR (before starting the test run) at a
+# directory already inside the Flatpak's permitted filesystem list (check
+# with `flatpak info --show-permissions <app-id>`; XDG user directories
+# like ~/Downloads are usually granted, arbitrary /tmp paths are not):
+#
+#     TMPDIR=~/Downloads/selenium-chrome-tmp pytest --run-selenium
+#
+# Otherwise Chrome fails to start with "session not created: DevToolsActivePort
+# file doesn't exist" - it's a sandboxing symptom, not a Selenium bug.
+SELENIUM_CHROMIUM_BINARY_PATH = ''
+
+# Headless Mode
+# True (the default) uses the browser's own native headless mode, so no
+# display server is needed and it behaves the same on a workstation, a CI
+# runner or a sandbox. False needs a real display, and lets you watch a run:
+#
+#     SELENIUM_HEADLESS=False pytest --run-selenium           # bash/zsh
+#     $env:SELENIUM_HEADLESS='False'; pytest --run-selenium   # PowerShell
+#
+# Only the literal 'false', any case, turns it off, so a typo stays headless
+# rather than opening a browser on an unattended run. bool() is not used: it
+# treats the string 'False' as true.
+SELENIUM_HEADLESS = os.environ.get('SELENIUM_HEADLESS', 'True').strip().lower() != 'false'
+
+# ------------------------------------------------------------------------------
 # local_settings contains anything that should be overridden
 # based on site specific requirements (e.g. deployment, development etc)
 
@@ -828,67 +898,6 @@ if EMAIL_NOTIFICATION_USER and not EMAIL_HOST_USER:
 if EMAIL_NOTIFICATION_PWD and not EMAIL_HOST_PASSWORD:
     EMAIL_HOST_PASSWORD = EMAIL_NOTIFICATION_PWD
 
-# ------------------------------------------------------------------------------
-# Testing settings
-
-# Selenium Browser Configuration
-# Options: 'firefox' (default) or 'chromium'. Override for a single run from
-# the environment rather than editing a settings file:
-#
-#     SELENIUM_BROWSER=chromium pytest --run-selenium           # bash/zsh
-#     $env:SELENIUM_BROWSER='chromium'; pytest --run-selenium   # PowerShell
-#
-SELENIUM_BROWSER = os.environ.get('SELENIUM_BROWSER', 'firefox')
-
-# Browser Driver Paths - leave empty (the default) to let Selenium Manager
-# (built into Selenium 4.6+) auto-detect the installed browser and download
-# a matching driver on its own; no manual driver install needed on any
-# host. Only set one of these if you need to pin a specific driver binary
-# instead (e.g. one already installed system-wide).
-SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver
-SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver
-
-# Chromium Browser Binary Path - leave empty (the default) to let Selenium
-# find whatever Chrome/Chromium is on the system. Set it only when Chrome is
-# not discoverable that way.
-#
-# Everything below here is Linux/Flatpak only - skip it on Windows or macOS.
-# A Flatpak install (`com.google.Chrome`, `org.chromium.Chromium`) has no
-# plain `google-chrome`/`chromium` on PATH for Selenium Manager to find:
-#
-#     SELENIUM_CHROMIUM_BINARY_PATH = (
-#         '/var/lib/flatpak/exports/bin/com.google.Chrome'  # system-wide install
-#     )
-#     # or, for a per-user install:
-#     # SELENIUM_CHROMIUM_BINARY_PATH = (
-#     #     os.path.expanduser('~/.local/share/flatpak/exports/bin/com.google.Chrome')
-#     # )
-#
-# A Flatpak browser also needs its actual profile directory redirected
-# somewhere its sandbox can write - it can't see chromedriver's default
-# temp directory - by pointing TMPDIR (before starting the test run) at a
-# directory already inside the Flatpak's permitted filesystem list (check
-# with `flatpak info --show-permissions <app-id>`; XDG user directories
-# like ~/Downloads are usually granted, arbitrary /tmp paths are not):
-#
-#     TMPDIR=~/Downloads/selenium-chrome-tmp pytest --run-selenium
-#
-# Otherwise Chrome fails to start with "session not created: DevToolsActivePort
-# file doesn't exist" - it's a sandboxing symptom, not a Selenium bug.
-SELENIUM_CHROMIUM_BINARY_PATH = ''
-
-# Headless Mode
-# True (the default) uses the browser's own native headless mode, so no
-# display server is needed and it behaves the same on a workstation, a CI
-# runner or a sandbox. False needs a real display, and lets you watch a run:
-#
-#     SELENIUM_HEADLESS=False pytest --run-selenium           # bash/zsh
-#     $env:SELENIUM_HEADLESS='False'; pytest --run-selenium   # PowerShell
-#
-# Only the literal 'false', any case, turns it off, so a typo stays headless
-# rather than opening a browser on an unattended run. bool() is not used: it
-# treats the string 'False' as true.
-SELENIUM_HEADLESS = os.environ.get('SELENIUM_HEADLESS', 'True').strip().lower() != 'false'
 
 if any([('py.test' in v or 'pytest' in v) for v in sys.argv]):
     DATABASES.pop('readonly', None)

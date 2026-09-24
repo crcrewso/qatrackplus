@@ -512,25 +512,36 @@ QATrack+ includes Selenium tests that simulate user interactions with the web in
 **Browser Requirements**
 
 You need a browser installed - either Firefox or Chrome/Chromium, whichever
-you prefer. You do **not** need to separately install or configure a
-matching driver (geckodriver/chromedriver): Selenium Manager, built into
-Selenium 4.6+, detects whichever browser you have installed and downloads a
-matching driver automatically the first time a Selenium test runs. This
-works the same on a workstation, a bare CI runner, or an agent sandbox - no
-display server (X11/Wayland/Xvfb) is needed either, since tests run the
-browser in its own native headless mode by default.
+you prefer. You do not normally need to install or configure a matching
+driver (geckodriver/chromedriver): Selenium Manager, built into Selenium
+4.6+, detects whichever browser you have and fetches a driver to match the
+first time a Selenium test runs. No display server is needed either, since
+tests run the browser in its own native headless mode by default - so this
+behaves the same on a workstation, a CI runner or a sandbox.
+
+There is one case that does need a path set. If a ``geckodriver`` or
+``chromedriver`` is already on ``PATH`` and does not match the installed
+browser, Selenium Manager prints an incompatibility warning and then uses it
+anyway, and the run fails with ``SessionNotCreatedException``. Either take
+the stale driver off ``PATH``, or point
+``SELENIUM_FIREFOX_DRIVER_PATH`` / ``SELENIUM_CHROMIUM_DRIVER_PATH`` at one
+that matches.
 
 .. code-block:: shell
 
-    # Install whichever browser you don't already have
+    # Linux - install whichever browser you don't already have
     sudo apt install firefox
     # - or -
     sudo apt install chromium
 
+On Windows and macOS, install the browser the usual way; Selenium Manager
+locates it just the same.
+
 **Configuring Selenium Tests**
 
-Set `SELENIUM_BROWSER` in `qatrack/local_test_settings.py` to pick which
-browser drives the tests:
+Set `SELENIUM_BROWSER` in `qatrack/local_test_settings.py` - or in
+`qatrack/local_settings.py`, either is honoured - to pick which browser
+drives the tests:
 
 .. code-block:: python
 
