@@ -1037,6 +1037,29 @@ class TestPerformQC(BaseQATests):
 
 
 @pytest.mark.selenium
+def bulk_review_initialised(driver):
+    """Truthy once qabulkreview.js has run *and* the filter row has moved.
+
+    Two `.test-selected-toggle` checkboxes render, one per table.
+    qabulkreview.js hides index 0; columnFilter (sPlaceHolder: "head:after")
+    then moves that row to the bottom, leaving the visible one at index 0.
+    Between those two steps index 0 is display:none, and jQuery.active is 0
+    throughout, so an AJAX wait returns inside the window.
+
+    Both conditions are required. One toggle hidden proves the script ran -
+    and therefore that its change handler is bound. Index 0 shown proves the
+    reorder finished. Waiting only for "a visible toggle" is satisfied before
+    the hide, when the handler is not yet bound and a click does nothing.
+
+    Returns the toggles so a caller can `.until(...)[0].click()`.
+    """
+    toggles = driver.find_elements(By.CLASS_NAME, "test-selected-toggle")
+    if len(toggles) < 2:
+        return False
+    shown = [t.is_displayed() for t in toggles]
+    return toggles if (not all(shown) and shown[0]) else False
+
+
 class TestReviewQC(BaseQATests):
 
     def setUp(self):
@@ -1050,13 +1073,59 @@ class TestReviewQC(BaseQATests):
             self.url = "/qc/session/unreviewed/"
 
     @override_settings(REVIEW_BULK=True)
+    def test_bulk_review_gate_rejects_every_premature_state(self):
+        """Drive the DOM to each state the gate must reject, deterministically.
+
+        The race this gate exists for is roughly one page load in five on the
+        machine that reported it, and does not reproduce here at all - eight
+        consecutive runs never saw the gate block once. So waiting for the
+        window to occur is not a test; constructing it is.
+
+        Each case sets the two toggles' visibility directly and asks the
+        predicate, which is the whole of its input.
+        """
+        with transaction.atomic():
+            self.login()
+            self.open(self.url)
+            self.wait.until(bulk_review_initialised, "the bulk review JS to initialise")
+
+            def set_visibility(first, second):
+                self.driver.execute_script(
+                    "var els = document.getElementsByClassName('test-selected-toggle');"
+                    "els[0].style.display = arguments[0] ? '' : 'none';"
+                    "els[1].style.display = arguments[1] ? '' : 'none';",
+                    first,
+                    second,
+                )
+
+            # Before qabulkreview.js runs: both visible, no change handler
+            # bound yet. This is the state "click the first visible toggle"
+            # would accept, and the click would do nothing.
+            set_visibility(True, True)
+            assert not bulk_review_initialised(self.driver), "accepted the pre-hide state"
+
+            # After the hide, before the reorder: index 0 is the hidden one,
+            # so clicking index 0 is clicking something invisible.
+            set_visibility(False, True)
+            assert not bulk_review_initialised(self.driver), "accepted the mid-window state"
+
+            # Settled: the hidden toggle has moved to index 1.
+            set_visibility(True, False)
+            toggles = bulk_review_initialised(self.driver)
+            assert toggles, "rejected the settled state"
+            assert toggles[0].is_displayed()
+
+    @override_settings(REVIEW_BULK=True)
     def test_review_ok(self):
         """Ensure that no failed tests on load and 3 "NO TOL" tests present"""
         with transaction.atomic():
             self.login()
             self.open(self.url)
             self.wait_for_ajax()
-            self.wait_for_elements(By.CLASS_NAME, "test-selected-toggle")[0].click()
+            self.wait.until(
+                bulk_review_initialised,
+                "the bulk review JS to hide the filter row's select-all checkbox",
+            )[0].click()
             self.select_by_text("bulk-status", "Approved")
             self.click("submit-review")
             assert models.TestListInstance.objects.unreviewed().count() == 1
