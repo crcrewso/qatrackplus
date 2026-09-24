@@ -4,11 +4,28 @@ import datetime
 from django.forms.fields import DateField
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import get_format
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as e_c
 
 from qatrack.qa.tests.test_selenium import BaseQATests
 from qatrack.reports import models, qc
+
+#: The date range these reports filter on. Kept as dates, and rendered
+#: through the configured input format at the point of use.
+REPORT_RANGE = (datetime.date(1989, 1, 2), datetime.date(1990, 1, 4))
+
+
+def report_filter_range():
+    """REPORT_RANGE as the strings a SavedReport stores in its filters.
+
+    Derived rather than written out. A saved filter is parsed back with
+    DATE_INPUT_FORMATS, so a literal here is a date the form stops accepting
+    the moment that setting changes - and it fails as a filter that matches
+    nothing rather than as a parse error, which is a long way from this line.
+    """
+    fmt = get_format('DATE_INPUT_FORMATS')[0]
+    return [d.strftime(fmt) for d in REPORT_RANGE]
 
 
 class TestReportInterface(BaseQATests):
@@ -86,7 +103,7 @@ class TestReportInterface(BaseQATests):
             report_type=qc.TestListInstanceSummaryReport.report_type,
             report_format="pdf",
             title="title",
-            filters={'work_completed': ['2 Jan 1989', '4 Jan 1990']},
+            filters={'work_completed': report_filter_range()},
             created_by=self.user,
             modified_by=self.user,
         )
@@ -106,7 +123,7 @@ class TestReportInterface(BaseQATests):
         # does not match DATE_FORMAT. The claim is that the saved range came
         # back, in whatever format it is displayed.
         start, end = (DateField().clean(v.strip()) for v in wc.get_attribute("value").split(" - "))
-        assert (start, end) == (datetime.date(1989, 1, 2), datetime.date(1990, 1, 4))
+        assert (start, end) == REPORT_RANGE
         heading = self.driver.find_element(By.ID, "id_reportnote_set-0-heading")
         assert heading.get_attribute("value") == "heading"
         content = self.driver.find_element(By.ID, "id_reportnote_set-0-content")
@@ -119,7 +136,7 @@ class TestReportInterface(BaseQATests):
             report_type=qc.TestListInstanceSummaryReport.report_type,
             report_format="pdf",
             title="title",
-            filters={'work_completed': ['2 Jan 1989', '4 Jan 1990']},
+            filters={'work_completed': report_filter_range()},
             created_by=self.user,
             modified_by=self.user,
         )
@@ -147,7 +164,7 @@ class TestReportInterface(BaseQATests):
             report_type=qc.TestListInstanceSummaryReport.report_type,
             report_format="pdf",
             title="title",
-            filters={'work_completed': ['2 Jan 1989', '4 Jan 1990']},
+            filters={'work_completed': report_filter_range()},
             created_by=self.user,
             modified_by=self.user,
         )
@@ -173,7 +190,7 @@ class TestReportInterface(BaseQATests):
             report_type=qc.TestListInstanceSummaryReport.report_type,
             report_format="pdf",
             title="title",
-            filters={'work_completed': ['2 Jan 1989', '4 Jan 1990']},
+            filters={'work_completed': report_filter_range()},
             created_by=self.user,
             modified_by=self.user,
         )
@@ -204,7 +221,7 @@ class TestReportInterface(BaseQATests):
             report_type=qc.TestListInstanceSummaryReport.report_type,
             report_format="pdf",
             title="title",
-            filters={'work_completed': ['2 Jan 1989', '4 Jan 1990']},
+            filters={'work_completed': report_filter_range()},
             created_by=self.user,
             modified_by=self.user,
         )
@@ -234,7 +251,7 @@ class TestReportInterface(BaseQATests):
             report_type=qc.TestListInstanceSummaryReport.report_type,
             report_format="pdf",
             title="title",
-            filters={'work_completed': ['2 Jan 1989', '4 Jan 1990']},
+            filters={'work_completed': report_filter_range()},
             created_by=self.user,
             modified_by=self.user,
         )
