@@ -56,14 +56,37 @@ jobs:
         run: uv pip check
 
   linux-tests:
-    name: Linux Tests
-    runs-on: ubuntu-latest
+    name: Linux Tests (${{ matrix.os }}, ${{ matrix.db }})
+    runs-on: ${{ matrix.os }}
     needs: [lint, requirements]
+    # ubuntu-latest is a moving alias, so on its own it is a canary rather
+    # than a promise: it tells us early when the next image breaks something,
+    # but it does not assert that QATrack+ works on any platform a deployer
+    # was told to use. docs/install/linux.rst commits to 24.04 LTS and says
+    # 22.04 is also tested, and neither was being checked deliberately -
+    # 22.04 not at all.
+    #
+    # So: keep the floating matrix as the early warning, and pin one job per
+    # documented version. The memory database is the one to duplicate - no
+    # service containers, fastest of the four, and it still exercises Python
+    # and the system libraries across the whole suite, which is where a
+    # change of base image actually shows up.
+    #
+    # 22.04 leaves standard support in April 2027 and 24.04 in April 2029;
+    # drop each entry when its version leaves the install guide.
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.12"]
         db: [memory, sqlite, postgres, mysql]
+        include:
+          - os: ubuntu-24.04
+            python-version: "3.12"
+            db: memory
+          - os: ubuntu-22.04
+            python-version: "3.12"
+            db: memory
     
     services:
       postgres:
