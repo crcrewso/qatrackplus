@@ -95,7 +95,6 @@ WebElement.send_keys = WebElement_send_keys  # noqa: E305
 #
 # If threading turns out to cause trouble, that is a change to make
 # deliberately and measure, not a workaround to reinstate.
-@pytest.mark.selenium
 def ajax_settled(driver):
     """True once jQuery has no requests in flight, or the page has no jQuery.
 
@@ -166,6 +165,7 @@ def explicit_find_element(driver, orig_find_element, timeout):
     return find_element
 
 
+@pytest.mark.selenium
 class SeleniumTests(StaticLiveServerTestCase):
 
     @classmethod
