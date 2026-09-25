@@ -74,9 +74,11 @@ DATABASES = {
 # timezone as the operating system.
 # If running in a Windows environment this must be set to the same as your
 # system time zone.
-# This value must be actively set in local_settings.py - the placeholder
-# below is not a real time zone name, so Django itself refuses to start
-# (ValueError: Incorrect timezone setting) if it's left in place.
+# This value must be actively set in local_settings.py. The placeholder below
+# is not a real time zone name, and _check_time_zone() at the end of this file
+# refuses to start until it is replaced. Django has its own check, but it is
+# skipped where time.tzset() is missing - Windows, notably - so it cannot be
+# relied on for the platform these two lines are about.
 TIME_ZONE = 'YOUR_TIME_ZONE_GOES_HERE'
 
 # If you set this to False, Django will not format dates, numbers and
@@ -1022,3 +1024,52 @@ Q_CLUSTER = {
     'label': 'Django Q',
     'orm': 'default',
 }
+
+# ------------------------------------------------------------------------------
+# Configuration guards
+#
+# Last in the file on purpose: everything above, including local_settings.py and
+# the pytest-only test_settings import, has had its say by now.
+
+def _check_time_zone():
+    """Reject an unset or unusable TIME_ZONE with something actionable.
+
+    Django validates TIME_ZONE itself, but only where ``time.tzset`` exists and
+    ``/usr/share/zoneinfo`` is readable - so not on Windows, and not in slim
+    containers. There the placeholder survives startup and fails much later, at
+    the first request that formats a date. Checking here covers every platform,
+    and happens early enough to say which file to edit.
+
+    It cannot be a system check: Django raises during Settings.__init__, before
+    INSTALLED_APPS is read, so no check in qatrack_core/checks.py would ever run.
+    """
+    import zoneinfo
+
+    from django.core.exceptions import ImproperlyConfigured
+
+    if TIME_ZONE == 'YOUR_TIME_ZONE_GOES_HERE':
+        raise ImproperlyConfigured(
+            "TIME_ZONE is still the placeholder shipped in settings.py.\n\n"
+            "QATrack+ records when QA was performed, so an unset time zone is "
+            "not a cosmetic problem - it shifts due dates and schedules.\n\n"
+            "Set it in qatrack/local_settings.py, e.g.\n\n"
+            "    TIME_ZONE = 'America/Toronto'\n\n"
+            "Names come from the IANA database: "
+            "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"
+        )
+
+    try:
+        zoneinfo.ZoneInfo(TIME_ZONE)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+        raise ImproperlyConfigured(
+            "TIME_ZONE = %r is not a time zone name Python recognises.\n\n"
+            "Set it in qatrack/local_settings.py to an IANA name such as "
+            "'America/Toronto' or 'Europe/London'. Windows names like "
+            "'Eastern Standard Time' are not accepted.\n\n"
+            "If your system has no time zone database, install tzdata." % TIME_ZONE
+        )
+
+
+# Kept importable (lowercase, so Django ignores it as a setting) so the
+# failure branches can be tested without a broken local_settings.py.
+_check_time_zone()
