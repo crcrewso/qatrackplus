@@ -1,4 +1,3 @@
-import shutil
 import time
 from contextlib import contextmanager
 from functools import wraps
@@ -10,6 +9,7 @@ from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
     StaleElementReferenceException,
+    TimeoutException,
     WebDriverException,
 )
 from selenium.webdriver.common.action_chains import ActionChains
@@ -96,6 +96,76 @@ WebElement.send_keys = WebElement_send_keys  # noqa: E305
 # If threading turns out to cause trouble, that is a change to make
 # deliberately and measure, not a workaround to reinstate.
 @pytest.mark.selenium
+def ajax_settled(driver):
+    """True once jQuery has no requests in flight, or the page has no jQuery.
+
+    The naive form of this - `typeof jQuery !== 'undefined' ? jQuery.active
+    == 0 : true` - cannot tell a page that has no jQuery from a page whose
+    jQuery has not finished loading, and answers True for both. On a page
+    still fetching its scripts that returns immediately, and the next line of
+    the test runs `$(...)` against a document where `$` does not exist yet.
+    That is the `$ is not defined` failure seen at select_unit.
+
+    `document.readyState` breaks the tie: while it is not yet "complete" a
+    missing jQuery means "not loaded yet", so keep waiting. Once the document
+    is complete and jQuery is still absent, the page genuinely does not use
+    it.
+
+    Returns the whole state in one round trip and decides here rather than in
+    the script, so the decision is testable without a browser.
+    """
+    has_jquery, active, ready_state = driver.execute_script(
+        "var has = typeof jQuery !== 'undefined';"
+        "return [has, has ? jQuery.active : -1, document.readyState];"
+    )
+    if has_jquery:
+        return active == 0
+    return ready_state == 'complete'
+
+
+def explicit_find_element(driver, orig_find_element, timeout):
+    """Wrap driver.find_element in an explicit wait, raising NoSuchElement.
+
+    The implicit wait is switched off by the caller, so this is what replaces
+    it. Every existing `driver.find_element(...)` call site keeps the same
+    behaviour - block until the element turns up, up to `timeout` - but via a
+    single explicit wait rather than a driver-level implicit one layered
+    underneath every other wait in the suite.
+
+    WebDriverWait ignores NoSuchElementException while polling, so this
+    retries until the element appears; StaleElementReference is added because
+    a page still settling can hand back an element that goes stale between
+    locating and returning it.
+
+    **The timeout is re-raised as NoSuchElementException, not TimeoutException.**
+    That is deliberate and it matters for every wait in the suite. Conditions
+    like `presence_of_element_located` call find_element internally, so a
+    TimeoutException escaping from here propagates straight through the
+    surrounding WebDriverWait - which only ignores NoSuchElementException - and
+    the message the call site passed to `.until(..., "waiting for X")` is
+    never used. Raising NoSuchElementException instead lets the outer wait
+    treat this as "not there yet", finish its own deadline, and fail with the
+    call site's message. NoSuchElementException is also what unpatched Selenium
+    raises for a missing element, so a bare find_element() call behaves as
+    callers expect.
+    """
+
+    def find_element(*args, **kwargs):
+        try:
+            return WebDriverWait(
+                driver,
+                timeout,
+                ignored_exceptions=(NoSuchElementException, StaleElementReferenceException),
+            ).until(lambda d: orig_find_element(*args, **kwargs))
+        except TimeoutException as exc:
+            raise NoSuchElementException(
+                "no element matched find_element(%s) within %ss"
+                % (", ".join(repr(a) for a in args), timeout)
+            ) from exc
+
+    return find_element
+
+
 class SeleniumTests(StaticLiveServerTestCase):
 
     @classmethod
@@ -145,7 +215,17 @@ class SeleniumTests(StaticLiveServerTestCase):
             # mode - a no-op cost-wise if a given run never calls it.
             ff_options.web_socket_url = True
 
-            driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '') or shutil.which('geckodriver')
+            # An explicit setting or nothing, symmetric with the chromium
+            # branch above. This used to fall back to
+            # shutil.which('geckodriver'), which read as a convenience and was
+            # not one: Selenium Manager already finds a geckodriver on PATH,
+            # and additionally checks it against the installed browser and
+            # warns when they do not match. Handing it the path ourselves
+            # skipped that check, and geckodriver then picks the browser on its
+            # own - which is how a run drove a Firefox-derived fork instead of
+            # Firefox and still reported a pass. Set SELENIUM_FIREFOX_DRIVER_PATH
+            # to pin a specific driver.
+            driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '')
             if driver_path:
                 cls.driver = webdriver.Firefox(service=FirefoxService(executable_path=driver_path), options=ff_options)
             else:
@@ -154,41 +234,18 @@ class SeleniumTests(StaticLiveServerTestCase):
                 # Firefox, same as the chromium branch above.
                 cls.driver = webdriver.Firefox(options=ff_options)
 
-        orig_find_element = cls.driver.find_element
-
-        def WebElement_find_element(*args, **kwargs):
-            """Resolve find_element through an explicit wait.
-
-            The implicit wait is switched off below, so this is what
-            replaces it. Every existing `driver.find_element(...)` call
-            site keeps the same behaviour - block until the element turns
-            up, up to cls.timeout - but now via a single explicit wait
-            rather than a driver-level implicit one layered underneath
-            every other wait in the suite.
-
-            WebDriverWait ignores NoSuchElementException while polling, so
-            this retries until the element appears; StaleElementReference
-            is added because a page still settling can hand back an element
-            that goes stale between locating and returning it, which is
-            what the retry decorator here used to paper over.
-            """
-            return WebDriverWait(
-                cls.driver,
-                cls.timeout,
-                ignored_exceptions=(NoSuchElementException, StaleElementReferenceException),
-            ).until(
-                lambda d: orig_find_element(*args, **kwargs),
-                "no element matched find_element(%s)" % ", ".join(repr(a) for a in args),
-            )
-
-        cls.driver.find_element = WebElement_find_element
-
         # Chromium gets longer because it renders these JS-heavy pages less
         # predictably, not because it is slower overall - it finishes the
         # suite faster than Firefox. A few waits per run land just over 5s,
         # a different few each time. One value feeds all three waits below,
         # including the cls.wait that nearly every self.wait.until() uses.
+        # Set before the find_element patch, which needs it.
         cls.timeout = 10 if browser_setting == 'chromium' else 5
+
+        cls.driver.find_element = explicit_find_element(
+            cls.driver, cls.driver.find_element, cls.timeout
+        )
+
         cls.driver.set_page_load_timeout(cls.timeout)
 
         # Off deliberately: Selenium warns against mixing implicit and
@@ -340,16 +397,16 @@ class SeleniumTests(StaticLiveServerTestCase):
     def wait_for_ajax(self):
         """Wait until jQuery reports no requests in flight.
 
-        These pages fire AJAX on nearly every interaction, and the suite
-        has historically waited for that with a fixed sleep. This returns
-        as soon as the requests finish instead. Pages without jQuery
-        report True immediately.
+        These pages fire AJAX on nearly every interaction, and the suite has
+        historically waited for that with a fixed sleep. This returns as soon
+        as the requests finish instead. A page that genuinely has no jQuery
+        settles once the document is complete - see ajax_settled for why that
+        second condition is load-bearing.
         """
         return self.wait.until(
-            lambda d: d.execute_script(
-                "return typeof jQuery !== 'undefined' ? jQuery.active == 0 : true"
-            ),
-            "jQuery.active to reach 0 - a request on this page is still in flight",
+            ajax_settled,
+            "jQuery.active to reach 0, or the page to finish loading without "
+            "jQuery - a request on this page is still in flight",
         )
 
     def scroll_into_view(self, el_id):
