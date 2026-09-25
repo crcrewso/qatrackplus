@@ -89,3 +89,8 @@ django-q2.conf
 gunicorn.conf
 # Screenshots captured when a Selenium test fails (see conftest.py)
 selenium-screenshots/
+
+# Local test-database credentials, copied from
+# deploy/dev/.env.test-databases.example. Throwaway, but still not committed -
+# the example is the file that belongs in git.
+deploy/dev/.env
