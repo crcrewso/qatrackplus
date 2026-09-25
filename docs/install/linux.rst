@@ -261,6 +261,29 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
         cd ~/web/qatrackplus
         uv sync --extra mysql
 
+.. dropdown:: For Active Directory / LDAP authentication: Install Requirements
+    :color: warning
+
+    ``python-ldap`` is not installed by default. If you intend to authenticate
+    against Active Directory or another LDAP directory, add the ``ldap`` extra
+    to the command above, for example:
+
+    .. code-block:: bash
+
+        uv sync --extra postgres --extra ldap
+
+    Without it the LDAP backends still appear in ``AUTHENTICATION_BACKENDS``
+    and QATrack+ will refuse to start with a message saying so, rather than
+    failing later when somebody tries to log in.
+
+    On Linux ``python-ldap`` is built from source and needs its development
+    headers:
+
+    .. code-block:: bash
+
+        sudo apt install libldap2-dev libsasl2-dev
+
+
 
 Making sure everything is working up to this point
 --------------------------------------------------

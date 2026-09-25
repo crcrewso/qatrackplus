@@ -2,8 +2,8 @@ version = 1
 revision = 3
 requires-python = ">=3.12, <=3.13"
 resolution-markers = [
-    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version >= '3.13'",
+    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 
@@ -2505,6 +2505,11 @@ dependencies = [
 docker = [
     { name = "gunicorn" },
 ]
+ldap = [
+    { name = "django-auth-ldap" },
+    { name = "python-ldap", version = "3.4.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13' or sys_platform != 'win32'" },
+    { name = "python-ldap", version = "3.4.5", source = { url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" }, marker = "python_full_version < '3.13' and sys_platform == 'win32'" },
+]
 mssql = [
     { name = "django-auth-ldap" },
     { name = "mssql-django" },
@@ -2569,6 +2574,7 @@ requires-dist = [
     { name = "concurrent-log-handler", specifier = "==0.9.19" },
     { name = "django", specifier = "==4.2" },
     { name = "django-auth-adfs", specifier = ">=1.7.0" },
+    { name = "django-auth-ldap", marker = "extra == 'ldap'", specifier = "<4.9" },
     { name = "django-auth-ldap", marker = "extra == 'mssql'", specifier = "<4.9" },
     { name = "django-braces", specifier = ">=1.17,<1.18" },
     { name = "django-contrib-comments", specifier = ">=2.2,<3.0" },
@@ -2608,7 +2614,9 @@ requires-dist = [
     { name = "pynliner", specifier = ">=0.8.0,<1.0" },
     { name = "pyreadline", marker = "sys_platform == 'win32' and extra == 'win'" },
     { name = "python-dateutil", specifier = ">=2.8.1,<3.0" },
+    { name = "python-ldap", marker = "python_full_version == '3.12.*' and sys_platform == 'win32' and extra == 'ldap'", url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" },
     { name = "python-ldap", marker = "python_full_version == '3.12.*' and sys_platform == 'win32' and extra == 'mssql'", url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" },
+    { name = "python-ldap", marker = "(python_full_version != '3.12.*' and extra == 'ldap') or (sys_platform != 'win32' and extra == 'ldap')" },
     { name = "python-ldap", marker = "(python_full_version != '3.12.*' and extra == 'mssql') or (sys_platform != 'win32' and extra == 'mssql')" },
     { name = "pywin32", marker = "sys_platform == 'win32' and extra == 'win'", specifier = ">=300" },
     { name = "reportlab", specifier = ">=4.0.0,<5.0" },
@@ -2621,7 +2629,7 @@ requires-dist = [
     { name = "xlrd", specifier = ">=2.0.1,<3.0" },
     { name = "xlsxwriter", specifier = ">=1.3.7,<4.0" },
 ]
-provides-extras = ["mysql", "mssql", "postgres", "win", "docker", "translations"]
+provides-extras = ["mysql", "mssql", "ldap", "postgres", "win", "docker", "translations"]
 
 [package.metadata.requires-dev]
 dev = [

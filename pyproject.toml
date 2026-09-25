@@ -95,6 +95,23 @@ mysql = [
 
 mssql = [
     "mssql-django>=1.5",
+    # LDAP is here for historical reasons only - nothing about Active
+    # Directory requires SQL Server. It stays for now because
+    # docs/install/win*.rst tell Windows sites to install this extra, and
+    # Windows plus AD is the common deployment; removing it would silently
+    # take LDAP away from everyone following the current instructions.
+    # Scheduled for 4.1, together with the Windows command cleanup.
+    "python-ldap",
+    "django-auth-ldap<4.9",
+]
+
+# Active Directory / LDAP authentication, installable on its own.
+#
+# Added because the alternative was telling a PostgreSQL site to install the
+# SQL Server extra to get AD login. On Linux python-ldap builds from source
+# and needs libldap2-dev and libsasl2-dev; the [tool.uv.sources] override
+# below supplies a prebuilt wheel on Windows.
+ldap = [
     "python-ldap",
     "django-auth-ldap<4.9",
 ]

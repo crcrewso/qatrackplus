@@ -117,10 +117,11 @@ def check_ldap_backend_dependencies(app_configs, **kwargs):
                 "AUTHENTICATION_BACKENDS includes %s, which needs python-ldap, "
                 "but it is not installed." % ', '.join(needs_ldap),
                 hint=(
-                    "Install it with the extra that provides it:\n\n"
-                    "    uv sync --extra ldap\n\n"
-                    "or, on releases where it ships inside the SQL Server extra:\n\n"
-                    "    uv sync --extra mssql\n\n"
+                    "Add the ldap extra to however you installed, alongside "
+                    "your database extra:\n\n"
+                    "    uv sync --extra postgres --extra ldap\n\n"
+                    "The SQL Server extra also still carries it, so a Windows "
+                    "install following docs/install/win.rst already has it.\n\n"
                     "On Linux python-ldap builds from source and needs "
                     "libldap2-dev and libsasl2-dev. Without it these backends "
                     "load but fail at login, because the import error is "
