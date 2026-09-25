@@ -522,10 +522,11 @@ behaves the same on a workstation, a CI runner or a sandbox.
 There is one case that does need a path set. If a ``geckodriver`` or
 ``chromedriver`` is already on ``PATH`` and does not match the installed
 browser, Selenium Manager prints an incompatibility warning and uses it
-anyway. That is often survivable - chromedriver 152 has been observed driving
-Chrome 153 with nothing worse than the warning - and how far the mismatch can
-stretch before a session refuses to start has not been measured. So treat the
-warning itself as the signal rather than waiting for a failure: either take
+anyway. Whether that matters depends on how far apart they are - measured
+against Chrome 153, one major version behind still starts a session with
+nothing worse than the warning, while three behind fails with
+``SessionNotCreatedException``. Rather than work out where your own line is,
+treat the warning itself as the signal: either take
 the stale driver off ``PATH``, or point
 ``SELENIUM_FIREFOX_DRIVER_PATH`` / ``SELENIUM_CHROMIUM_DRIVER_PATH`` at one
 that matches.
