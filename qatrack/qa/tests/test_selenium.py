@@ -1039,18 +1039,23 @@ class TestPerformQC(BaseQATests):
 
 @pytest.mark.selenium
 def bulk_review_initialised(driver):
-    """Truthy once qabulkreview.js has run *and* the filter row has moved.
+    """Truthy once qabulkreview.js has run *and* the filter row has settled.
 
-    Two `.test-selected-toggle` checkboxes render, one per table.
-    qabulkreview.js hides index 0; columnFilter (sPlaceHolder: "head:after")
-    then moves that row to the bottom, leaving the visible one at index 0.
-    Between those two steps index 0 is display:none, and jQuery.active is 0
-    throughout, so an AJAX wait returns inside the window.
+    The page renders several `.test-selected-toggle` checkboxes from a single
+    declaration, because DataTables clones the header row - measured on
+    /qc/session/unreviewed/: three, in thead rows 0 and 1 and tfoot row 0. The
+    exact number is a DataTables detail and not worth depending on, so the
+    predicate only asserts what it needs:
 
-    Both conditions are required. One toggle hidden proves the script ran -
-    and therefore that its change handler is bound. Index 0 shown proves the
-    reorder finished. Waiting only for "a visible toggle" is satisfied before
-    the hide, when the handler is not yet bound and a click does nothing.
+    - at least two exist, so the clones are in place
+    - at least one is hidden, which is qabulkreview.js having run, and
+      therefore its change handler being bound
+    - index 0 is visible, so it is the one a caller can actually click
+
+    Both of the last two are required. jQuery.active is 0 throughout the
+    window between them, so an AJAX wait returns inside it. Waiting only for
+    "a visible toggle" is satisfied before the hide, when the handler is not
+    yet bound and a click does nothing.
 
     Returns the toggles so a caller can `.until(...)[0].click()`.
     """
@@ -1082,14 +1087,18 @@ class TestReviewQC(BaseQATests):
         consecutive runs never saw the gate block once. So waiting for the
         window to occur is not a test; constructing it is.
 
-        Each case sets the two toggles' visibility directly and asks the
-        predicate, which is the whole of its input.
+        Each case sets the first two toggles' visibility directly and asks the
+        predicate, which is the whole of its input. Any further clones are left
+        visible, which is what the settled page looks like anyway.
         """
         with transaction.atomic():
             self.login()
             self.open(self.url)
             self.wait.until(bulk_review_initialised, "the bulk review JS to initialise")
 
+            # Only the first two matter: the predicate keys off "not all
+            # visible" and "index 0 visible", so clones beyond index 1 stay as
+            # they are.
             def set_visibility(first, second):
                 self.driver.execute_script(
                     "var els = document.getElementsByClassName('test-selected-toggle');"

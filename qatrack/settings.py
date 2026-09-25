@@ -726,9 +726,12 @@ SELENIUM_BROWSER = os.environ.get('SELENIUM_BROWSER', 'firefox')
 # so most hosts need nothing installed by hand.
 #
 # The exception is a driver already on PATH that does not match the browser.
-# Selenium Manager prints an incompatibility warning and then uses it anyway,
-# and the run fails with SessionNotCreatedException. Set the matching path
-# below, or take the stale driver off PATH.
+# Selenium Manager prints an incompatibility warning and uses it anyway. That
+# is often survivable - chromedriver 152 against Chrome 153 warned and started
+# the session normally - but a wide enough gap does not start at all. How wide
+# is untested, so treat the warning as the thing to act on rather than waiting
+# for a failure. Set the matching path below, or take the stale driver off
+# PATH.
 SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver
 SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver
 
