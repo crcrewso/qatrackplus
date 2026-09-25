@@ -12,6 +12,58 @@ meet your clinics needs.  The most important settings are explained below.
 These settings should be defined in a `local_settings.py` file in the main
 directory (same directory as `settings.py`)
 
+.. _settings-report:
+
+Checking your settings, and asking for help with them
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+QATrack+ ships a script that reads your `local_settings.py` and summarises it:
+
+.. code-block:: console
+
+    python scripts/settings_report.py
+
+or, if you use the poe tasks:
+
+.. code-block:: console
+
+    poe settings-report
+
+It reports settings that were removed or renamed in a later release, settings
+whose meaning changed, placeholder values that were never edited, and probable
+typos such as ``TIMEZONE`` for ``TIME_ZONE``. The report is printed and written
+to ``settings-report.md``.
+
+Two things are worth knowing about how it works.
+
+**It never runs your settings file.** The file is parsed, not imported, so
+producing a report does not open your database, send mail or contact your
+directory server. It also means the script still works when your settings are
+too broken for QATrack+ to start - which is exactly when you are most likely to
+want it.
+
+**Values are hidden unless the setting name is on a short allowlist.** This is
+a default-deny: rather than hiding names that look sensitive, the script shows
+only names known to be safe - booleans, date formats, time zone, and similar.
+Everything else is reported as a type and a length, together with a short
+SHA-256 fingerprint. The fingerprint is enough to tell whether two settings
+hold the same value, or whether one is still an example value published in this
+repository, without disclosing it. Paths and email addresses are hidden too,
+since they carry account names and staff identities.
+
+If you are asking for help upgrading, attaching this report is usually enough
+to answer the question without sending your settings file.
+
+.. warning::
+
+    Read the report before you send it. It is designed to be safe to post in a
+    public issue tracker, but it is generated from a file you control, and the
+    allowlist cannot know about settings your site invented. If a row looks
+    sensitive, delete it and say that you did - the report is still useful.
+
+    Never paste a real ``local_settings.py`` into a public issue.
+
+
 .. _reload-config:
 
 After configuration changes

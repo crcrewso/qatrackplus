@@ -88,3 +88,11 @@ sequence = ["dev-clean", "dev-init"]
 [tasks.run]
 help = "Run the dev server"
 cmd = "python ./manage.py runserver"
+
+
+# Deliberately a plain `python`, not `uv run python`: the deployments most
+# likely to need this are the ones whose environment is already in doubt, and
+# the script only needs the standard library.
+[tasks.settings-report]
+help = "Summarise local_settings.py, redacted, for pasting into a support request"
+cmd = "python scripts/settings_report.py"

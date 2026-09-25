@@ -1,0 +1,97 @@
+name: Upgrade help
+description: Get help moving an existing QATrack+ deployment to a newer release
+title: "[Upgrade] "
+labels: ["upgrade"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most upgrade problems come down to a handful of settings, so the
+        fastest way to get an answer is to include a settings report.
+
+        **Do not paste your `local_settings.py`.** It holds your database
+        password, your `SECRET_KEY` and your server names. Run this instead:
+
+        ```
+        python scripts/settings_report.py
+        ```
+
+        It parses your settings file without running it, hides every value
+        whose name is not on a short safe list, and writes
+        `settings-report.md`. Read it before pasting - if a row looks
+        sensitive, delete it and say so.
+
+  - type: input
+    id: from-version
+    attributes:
+      label: Upgrading from
+      placeholder: "e.g. 3.1.1.2"
+    validations:
+      required: true
+
+  - type: input
+    id: to-version
+    attributes:
+      label: Upgrading to
+      placeholder: "e.g. 4.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - Windows
+        - Docker
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options:
+        - PostgreSQL
+        - MySQL / MariaDB
+        - MS SQL Server
+        - SQLite
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: report
+    attributes:
+      label: Settings report
+      description: The contents of settings-report.md. Check it before posting.
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error output
+      description: Any traceback or log output. Remove host names and passwords.
+      render: shell
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have read the settings report and removed anything sensitive
+          required: true
+        - label: This issue contains no patient or clinical data
+          required: true
