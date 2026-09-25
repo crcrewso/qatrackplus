@@ -66,3 +66,67 @@ def check_media_folder_permissions(app_configs, **kwargs):
                     )
                 )
     return errors
+
+
+# The two backends that call into python-ldap. django-auth-ldap's own backend
+# is listed too, for sites that use it directly rather than through ours.
+LDAP_DEPENDENT_BACKENDS = {
+    'qatrack.accounts.backends.ActiveDirectoryGroupMembershipSSLBackend',
+    'qatrack.accounts.backends.WindowsIntegratedAuthenticationBackend',
+    'django_auth_ldap.backend.LDAPBackend',
+}
+
+
+@register()
+def check_ldap_backend_dependencies(app_configs, **kwargs):
+    """Fail loudly when an LDAP backend is configured but python-ldap is absent.
+
+    `qatrack/accounts/backends.py` opens with
+
+        try:
+            import ldap
+        except ImportError:
+            pass
+
+    so a missing python-ldap is swallowed at import time. The backend class
+    still loads, Django still lists it in AUTHENTICATION_BACKENDS, and the
+    failure surfaces only when somebody tries to log in - as a NameError deep
+    in an authentication path, on a clinical system, to a user who cannot get
+    in and an administrator with no obvious cause.
+
+    It is reachable without anyone doing anything wrong. python-ldap is only
+    pulled in by the `mssql` extra, so a site following the Linux install guide
+    (`uv sync --extra postgres`) and then configuring Active Directory has no
+    ldap module and no indication of it.
+
+    An Error rather than a Warning: unlike the unique-constraint check, nothing
+    here is made worse by refusing to start. A deployment whose only
+    authentication path cannot work is not in a state where running is better
+    than stopping, and the fix is one install command away.
+    """
+    configured = set(getattr(settings, 'AUTHENTICATION_BACKENDS', None) or [])
+    needs_ldap = sorted(configured & LDAP_DEPENDENT_BACKENDS)
+    if not needs_ldap:
+        return []
+
+    try:
+        import ldap  # noqa: F401
+    except ImportError:
+        return [
+            Error(
+                "AUTHENTICATION_BACKENDS includes %s, which needs python-ldap, "
+                "but it is not installed." % ', '.join(needs_ldap),
+                hint=(
+                    "Install it with the extra that provides it:\n\n"
+                    "    uv sync --extra ldap\n\n"
+                    "or, on releases where it ships inside the SQL Server extra:\n\n"
+                    "    uv sync --extra mssql\n\n"
+                    "On Linux python-ldap builds from source and needs "
+                    "libldap2-dev and libsasl2-dev. Without it these backends "
+                    "load but fail at login, because the import error is "
+                    "swallowed in qatrack/accounts/backends.py."
+                ),
+                id='qatrack.E003',
+            )
+        ]
+    return []
