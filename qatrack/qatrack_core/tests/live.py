@@ -1,3 +1,4 @@
+import os
 import time
 from contextlib import contextmanager
 from functools import wraps
@@ -177,6 +178,31 @@ class SeleniumTests(StaticLiveServerTestCase):
 
         cls.browser_setting = browser_setting
 
+        # Selenium Manager reports usage to plausible.io on every invocation
+        # ("Sending stats to Plausible" in its logs), which means an outbound
+        # call each time it resolves a driver. QATrack+ is deployed inside
+        # hospital networks where traffic leaving a test run is a compliance
+        # question rather than a preference, and the person running the suite
+        # is not usually the person who would have to account for it - so it
+        # is off unless someone turns it back on. `setdefault`, not assignment,
+        # so SE_AVOID_STATS=false in the environment still wins.
+        os.environ.setdefault('SE_AVOID_STATS', 'true')
+
+        # Give the browser the same time zone as the test server.
+        #
+        # Without this the browser's "today" comes from the machine clock while
+        # the assertions compare against `timezone.localtime(now)` on the
+        # server. Whenever the two disagree - any machine not set to
+        # settings.TIME_ZONE, and every machine for the hours either side of
+        # midnight in one zone but not the other - a date picker fills in one
+        # date and the test expects another. On a UTC-6 workstation against a
+        # Toronto server that is 22:00-00:00 local, every night.
+        #
+        # TZ is read by both browsers at launch, so passing it through the
+        # driver's Service environment fixes the class of failure rather than
+        # the three tests that happened to expose it.
+        browser_env = {**os.environ, 'TZ': settings.TIME_ZONE}
+
         if browser_setting == 'chromium':
             from selenium.webdriver.chrome.options import Options as ChromeOptions
             from selenium.webdriver.chrome.service import Service as ChromeService
@@ -197,12 +223,14 @@ class SeleniumTests(StaticLiveServerTestCase):
                 # settings.py documents the TMPDIR caveat that comes with it.
                 chrome_options.binary_location = binary_path
 
-            driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '')
-            if driver_path:
-                cls.driver = webdriver.Chrome(service=ChromeService(executable_path=driver_path), options=chrome_options)
-            else:
-                # Selenium Manager resolves the driver itself.
-                cls.driver = webdriver.Chrome(options=chrome_options)
+            # A Service is always constructed, even with no explicit path, so
+            # browser_env applies either way; Selenium Manager still resolves
+            # the driver when executable_path is None.
+            driver_path = getattr(settings, 'SELENIUM_CHROMIUM_DRIVER_PATH', '') or None
+            cls.driver = webdriver.Chrome(
+                service=ChromeService(executable_path=driver_path, env=browser_env),
+                options=chrome_options,
+            )
         else:
             from selenium.webdriver.firefox.options import Options as FirefoxOptions
             from selenium.webdriver.firefox.service import Service as FirefoxService
@@ -225,14 +253,13 @@ class SeleniumTests(StaticLiveServerTestCase):
             # own - which is how a run drove a Firefox-derived fork instead of
             # Firefox and still reported a pass. Set SELENIUM_FIREFOX_DRIVER_PATH
             # to pin a specific driver.
-            driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '')
-            if driver_path:
-                cls.driver = webdriver.Firefox(service=FirefoxService(executable_path=driver_path), options=ff_options)
-            else:
-                # No explicit path and no system geckodriver on PATH -
-                # Selenium Manager auto-resolves one for the installed
-                # Firefox, same as the chromium branch above.
-                cls.driver = webdriver.Firefox(options=ff_options)
+            # As above: always a Service, so browser_env applies. Selenium
+            # Manager resolves geckodriver when executable_path is None.
+            driver_path = getattr(settings, 'SELENIUM_FIREFOX_DRIVER_PATH', '') or None
+            cls.driver = webdriver.Firefox(
+                service=FirefoxService(executable_path=driver_path, env=browser_env),
+                options=ff_options,
+            )
 
         # Chromium gets longer because it renders these JS-heavy pages less
         # predictably, not because it is slower overall - it finishes the

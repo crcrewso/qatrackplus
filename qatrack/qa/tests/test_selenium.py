@@ -1,6 +1,7 @@
 import time
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.db import transaction
 from django.test import TransactionTestCase
@@ -201,6 +202,36 @@ class LiveQATests(BaseQATests):
         # the viewport is 1920x1080 and a rendered page runs orders of
         # magnitude above an empty one.
         assert len(png) > 5000, len(png)
+
+    def test_browser_timezone_matches_server(self):
+        """The browser and the test server must agree on what day it is.
+
+        Several tests fill a date picker from the browser and then assert
+        against `timezone.localtime(now)` on the server. When the two zones
+        differ the picker chooses one date and the assertion expects another,
+        so the tests fail for the hours either side of midnight in one zone
+        but not the other - and pass the rest of the day, which is what makes
+        it look like flakiness. On a UTC-6 workstation against a Toronto
+        server that window is 22:00-00:00 local, every night.
+
+        setUpClass passes TZ to the driver's Service environment to remove the
+        difference. This asserts it took effect, because the failure it
+        prevents is invisible outside that window.
+        """
+        browser_tz = self.driver.execute_script(
+            "return Intl.DateTimeFormat().resolvedOptions().timeZone"
+        )
+        assert browser_tz == settings.TIME_ZONE, (
+            "browser is on %s, server on %s - date-sensitive tests will "
+            "disagree around midnight" % (browser_tz, settings.TIME_ZONE)
+        )
+
+        browser_date = self.driver.execute_script(
+            "var d = new Date();"
+            "return [d.getFullYear(), d.getMonth() + 1, d.getDate()];"
+        )
+        server_date = timezone.localtime(timezone.now()).date()
+        assert tuple(browser_date) == (server_date.year, server_date.month, server_date.day)
 
     def test_admin_category(self):
 
