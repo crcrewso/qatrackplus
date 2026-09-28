@@ -1,12 +1,31 @@
-
 import unittest
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 
-from qatrack.qatrack_core.utils import set_paper_size, weasyprint_to_pdf
+from qatrack.qatrack_core.utils import (
+    chrome_available,
+    set_paper_size,
+    weasyprint_available,
+    weasyprint_to_pdf,
+)
 from qatrack.reports.forms import ReportForm
 from qatrack.reports.models import SavedReport
+
+# WeasyPrint needs Pango, cairo and harfbuzz as system packages, and on Windows a
+# GTK runtime plus WEASYPRINT_DLL_DIRECTORIES.  CI's Windows job has none of that,
+# so the handful of tests that really render through it are skipped there rather
+# than reported as product failures.  Everything about engine *selection* is
+# mocked instead, and runs everywhere.
+needs_weasyprint = unittest.skipUnless(
+    weasyprint_available(), "WeasyPrint cannot load on this host"
+)
+
+# One test renders a whole report through whichever engine the host has.  It needs
+# at least one of them, so it says so rather than failing on a host with neither.
+needs_any_engine = unittest.skipUnless(
+    chrome_available() or weasyprint_available(), "No PDF engine is available on this host"
+)
 
 
 def _weasyprint_loads():
@@ -141,6 +160,94 @@ class TestCleanPaperSize(TestCase):
             clean_paper_size("letter; } body { display: none } @page {")
 
 
+class TestBothEnginesShareOnePaperSizeMechanism(TestCase):
+    """Chrome and WeasyPrint must not set page geometry different ways.
+
+    Margins live in reports/pdf.css and the size is injected by
+    set_paper_size(), which both engines call. Previously WeasyPrint passed
+    its own stylesheet declaring both, so the margin was stated twice and had
+    to be kept in step with pdf.css by hand.
+    """
+
+    @needs_weasyprint
+    def test_weasyprint_renders_a_pdf(self):
+        from qatrack.qatrack_core.utils import weasyprint_to_pdf
+
+        pdf = weasyprint_to_pdf("<html><body><h1>hi</h1></body></html>")
+        assert pdf[:4] == b"%PDF", pdf[:20]
+
+    @needs_weasyprint
+    def test_weasyprint_honours_the_injected_size(self):
+        from qatrack.qatrack_core.utils import weasyprint_to_pdf
+
+        html = "<html><head></head><body><h1>hi</h1></body></html>"
+        assert weasyprint_to_pdf(html, paper_size="letter") != weasyprint_to_pdf(html, paper_size="a4")
+
+    @needs_weasyprint
+    def test_a_full_document_goes_through_the_shared_mechanism(self):
+        """The same call Chrome makes, so the engines cannot disagree about size."""
+        from unittest import mock
+
+        from qatrack.qatrack_core import utils
+
+        html = "<html><head></head><body><h1>hi</h1></body></html>"
+        with mock.patch.object(utils, "set_paper_size", wraps=utils.set_paper_size) as shared:
+            utils.weasyprint_to_pdf(html, paper_size="a4")
+        shared.assert_called_once_with(html, "a4")
+
+    @needs_weasyprint
+    def test_a_fragment_uses_weasyprints_own_stylesheet_api(self):
+        """No head to inject into, so do not emit a `<style>` outside one.
+
+        `set_paper_size` has to prepend in that case, because Chrome takes CSS
+        only through the document. WeasyPrint accepts a stylesheet directly, so
+        it is not stuck with invalid HTML - and this asserts it takes that route
+        rather than merely that the output is a PDF.
+        """
+        from unittest import mock
+
+        from qatrack.qatrack_core import utils
+
+        fragment = "<h1>hi</h1>"
+        with mock.patch.object(utils, "set_paper_size") as shared:
+            pdf = utils.weasyprint_to_pdf(fragment, paper_size="a4")
+        shared.assert_not_called()
+        assert pdf[:4] == b"%PDF", pdf[:20]
+
+    @needs_weasyprint
+    def test_the_size_is_measurably_right_on_both_routes(self):
+        """Measure the page, rather than only that two renders differ.
+
+        `!=` passes on any difference at all, metadata included. These read the
+        page box back, so they fail if the rule were dropped on either route.
+        """
+        import io
+
+        import pypdf
+
+        def page_size(pdf_bytes):
+            box = pypdf.PdfReader(io.BytesIO(pdf_bytes)).pages[0].mediabox
+            return round(float(box.width)), round(float(box.height))
+
+        from qatrack.qatrack_core.utils import weasyprint_to_pdf
+
+        document = "<html><head></head><body><h1>hi</h1></body></html>"
+        fragment = "<h1>hi</h1>"
+
+        # Letter is 612x792pt, A4 595x842pt.
+        for html, where in ((document, "document"), (fragment, "fragment")):
+            assert page_size(weasyprint_to_pdf(html, paper_size="letter")) == (612, 792), where
+            assert page_size(weasyprint_to_pdf(html, paper_size="a4")) == (595, 842), where
+
+    def test_weasyprint_adds_no_margin_rule_of_its_own(self):
+        """pdf.css is the only place margins are declared."""
+        import inspect
+
+        from qatrack.qatrack_core import utils
+
+        assert "margin:" not in inspect.getsource(utils.weasyprint_to_pdf)
+
+
 class TestChromeFailureReporting(TestCase):
     """A failed report should say which thing failed.
 
@@ -230,6 +337,88 @@ class TestChromeFailureReporting(TestCase):
                 with self.assertRaises(utils.ChromePdfFailed) as caught:
                     utils.chrometopdf("<html><body>x</body></html>")
         assert "report-stderr.txt" in str(caught.exception)
+
+
+class TestEngineSelection(TestCase):
+    """Which engine renders a report is a decision, not an accident.
+
+    It used to be made by exception - try WeasyPrint, fall back to Chrome on
+    anything at all - so a WeasyPrint failure produced a differently rendered
+    report instead of an error, and on a host with no browser it produced
+    Chrome's error instead of WeasyPrint's.
+    """
+
+    def test_auto_prefers_chrome_when_available(self):
+        from unittest import mock
+
+        from qatrack.qatrack_core import utils
+
+        with override_settings(PDF_ENGINE="auto"):
+            with mock.patch.object(utils, "chrome_available", return_value=True), \
+                 mock.patch.object(utils, "chrometopdf", return_value=b"%PDF-chrome") as chrome:
+                assert utils.html_to_pdf("<html></html>") == b"%PDF-chrome"
+        assert chrome.called
+
+    def test_auto_falls_back_to_weasyprint_without_chrome(self):
+        from unittest import mock
+
+        from qatrack.qatrack_core import utils
+
+        with override_settings(PDF_ENGINE="auto"):
+            with mock.patch.object(utils, "chrome_available", return_value=False), \
+                 mock.patch.object(utils, "weasyprint_available", return_value=True), \
+                 mock.patch.object(utils, "weasyprint_to_pdf", return_value=b"%PDF-wp") as wp:
+                assert utils.html_to_pdf("<html></html>") == b"%PDF-wp"
+        assert wp.called
+
+    def test_neither_engine_is_an_error_not_a_silent_failure(self):
+        from unittest import mock
+
+        from qatrack.qatrack_core import utils
+
+        with override_settings(PDF_ENGINE="auto"):
+            with mock.patch.object(utils, "chrome_available", return_value=False), \
+                 mock.patch.object(utils, "weasyprint_available", return_value=False):
+                with self.assertRaises(utils.PdfGenerationError) as caught:
+                    utils.html_to_pdf("<html></html>")
+        assert "CHROME_PATH" in str(caught.exception)
+
+    def test_weasyprint_can_be_pinned(self):
+        """The #835 case: a site that cannot install a browser."""
+        from unittest import mock
+
+        from qatrack.qatrack_core import utils
+
+        with override_settings(PDF_ENGINE="weasyprint"):
+            with mock.patch.object(utils, "chrome_available", return_value=True), \
+                 mock.patch.object(utils, "weasyprint_import_error", return_value=None), \
+                 mock.patch.object(utils, "weasyprint_to_pdf", return_value=b"%PDF-wp") as wp:
+                assert utils.html_to_pdf("<html></html>") == b"%PDF-wp"
+        assert wp.called
+
+    def test_chrome_can_be_pinned(self):
+        from unittest import mock
+
+        from qatrack.qatrack_core import utils
+
+        with override_settings(PDF_ENGINE="chrome"):
+            with mock.patch.object(utils, "chrometopdf", return_value=b"%PDF-chrome") as chrome:
+                assert utils.html_to_pdf("<html></html>") == b"%PDF-chrome"
+        assert chrome.called
+
+    def test_unknown_engine_is_rejected(self):
+        from qatrack.qatrack_core import utils
+
+        with override_settings(PDF_ENGINE="prince"):
+            with self.assertRaises(utils.PdfGenerationError) as caught:
+                utils.html_to_pdf("<html></html>")
+        assert "prince" in str(caught.exception)
+
+    @needs_any_engine
+    def test_real_report_still_renders_end_to_end(self):
+        from qatrack.reports import reports
+
+        assert reports.BaseReport(report_opts={}).to_pdf()[:4] == b"%PDF"
 
 
 class TestChromeCommandQuoting(TestCase):
