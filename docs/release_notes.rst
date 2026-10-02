@@ -84,6 +84,12 @@ Bug Fixes
   so an item that came due this morning did not appear until the following day,
   on the one page whose purpose is to show what is due. The Due Dates report was
   never affected and has always used the end of the day; the page now matches it.
+* Test list memberships show the name of each test again. The name is fetched
+  over AJAX from an endpoint mounted beneath ``admin/``, and the admin site ends
+  its own URLs with a catch-all that claimed the request first, so the admin
+  answered its own endpoint with a 404. A test list's memberships listed an id
+  and a macro name and no test name. The view and change icons beside the field
+  now have a link as well; they were rendered without one and did nothing.
 
 Other Changes
 ^^^^^^^^^^^^^
