@@ -36,6 +36,14 @@ Bug Fixes
 Other Changes
 ^^^^^^^^^^^^^
 
+* Two uses of numpy names that numpy 2.0 removed have been replaced, and a test
+  now fails if another is added. ``np.NaN`` in the control chart's Gaussian fit
+  would have raised ``AttributeError`` instead of returning a value, and
+  ``np.float_`` in the JSON encoder was a redundant alias of ``np.float64``,
+  which the same tuple already listed. QATrack+ still pins ``numpy<2.0``, so
+  neither was reachable; they are cleared now so that a future move to numpy 2
+  is a change of pin rather than a change of pin plus a search for every
+  deprecation that accumulated behind it.
 * **Dates are now shown as ``YYYY-MM-DD`` by default**, in every language, and
   the date pickers write back the same format they display. Installations
   upgrading from 4.0 previously saw ``31 May 2012 14:30``; to keep that, set the
