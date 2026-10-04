@@ -280,9 +280,16 @@ both.
    change needs to move for it to happen.
 2. **The NumPy 2 / pandas 3 bump itself (#854).** A dependency change is not a
    patch-release item. This check is meant to ship *first*, so that sites can
-   scan before the pins move. The bump also needs the two QATrack+ uses that
-   NumPy 2 removed: `np.float_` in `qatrack/qatrack_core/serializers.py` and
-   `np.NaN` in `qatrack/qa/control_chart/leastsquaresfit.py`.
+   scan before the pins move.
+
+   **Update, 2026-10-04:** the two QATrack+ uses this item named have been fixed
+   for 4.0.2 on `fix/numpy-2-compatibility` - `np.float_` in
+   `qatrack/qatrack_core/serializers.py` and `np.NaN` in
+   `qatrack/qa/control_chart/leastsquaresfit.py` - with a static guard that fails
+   the suite if another removed name is added. **The pin itself stays at
+   `numpy<2.0`**; clearing the names early was deliberate, so that lifting the pin
+   one day is not also a search for everything that rotted behind it. So this item
+   is now the pin and pandas only, and this check still ships first.
 3. **The work list.** The check page should become something an admin can work
    through: each problematic test opening in its own window, and the list
    tracking what has been dealt with. Today each test links to its admin page in
@@ -311,3 +318,46 @@ both.
 9. **Windows verification.** `poe check-calculations` is a `cmd` task and needs
    no shell, but like the rest of the poe tasks it has only been run on Linux.
    It should be included when those are exercised on a real Windows host.
+10. **A `pyplot` rule in the scan.** Procedures that use `matplotlib.pyplot` are
+    not thread safe, and QATrack+ makes that worse: `clean_mpl` in
+    `qatrack/qa/views/perform.py` calls `plt.clf()` and `plt.close('all')`, which
+    destroy **every** figure in the process rather than this request's. Its own
+    docstring says pyplot is not threadsafe, and the `except KeyError` around it
+    is commented "Occasionaly this can fail ... when multiple uploads are being
+    analyzed at same time" - which is that race, already seen.
+
+    Linux and Docker are safe only because gunicorn is configured with sync
+    workers, one request per process. **The Windows deployment runs CherryPy's
+    default thread pool and is exposed today**, and any move to threads would
+    generalise it. The outcome is not a crash but a plot attached to the wrong
+    record.
+
+    The scan should flag `pyplot` use and point at `UTILS.get_figure()`, which
+    returns a figure with its own canvas and is the safe pattern.
+    **`docs/admin/qa/tests.rst` has to change with it** - its `write_file` example
+    currently teaches `plt.plot(...)` then `plt.gcf()`, so a site following the
+    documentation writes the unsafe form.
+
+11. **The scan half as a `manage.py check`.** The scan needs no data and takes
+    milliseconds, which is exactly the budget a system check has. It matters
+    because **a check is the only one of these that reaches a site unprompted**:
+    `migrate` runs system checks first, so an upgrading installation sees the
+    warnings without anyone telling it to run a command. The recalculation half
+    stays a command, being far too expensive for every `manage.py` invocation.
+
+    Guard it the way `qatrack.W011` is guarded: declare `databases`, return
+    nothing when the tables do not exist yet, and swallow a `DatabaseError` rather
+    than breaking the first `migrate` of a fresh install.
+
+    A poe task is not a substitute. poe is a developer dependency, so a guard that
+    lives only there is one no clinic will run; it is the right place to *call*
+    this and the wrong place for it to *be*.
+
+12. **If calculations ever move out of the request process.** There is a standing
+    question about running procedures in their own process - for a real timeout, so
+    one runaway procedure cannot hold a request slot, and so that an installation
+    could give calculations a different NumPy from the web process. If that
+    happens, this check becomes the gate for moving a site's interpreter, and
+    `library_versions()` has to report the versions of the **calculation** process
+    rather than the one it is called from. Worth knowing before that work starts,
+    because the two designs have to agree.
