@@ -15,6 +15,139 @@ Release Notes
 QATrack+ 4.0
 ~~~~~~~~~~~~~
 
+4.0.2
+-----
+
+**This release runs database migrations; 4.0.1 did not.** Nothing in them deletes
+data, but take a backup and confirm it opens before you upgrade - see
+:ref:`linux_upgrade_from_4_0_1`, :ref:`win_upgrade_from_4_0_1` or
+:ref:`docker_upgrade_from_4_0_1`.
+
+Bug Fixes
+^^^^^^^^^
+
+Ordered by consequence, most serious first.
+
+* **Forms no longer record the wrong date and time.** Where a date field arrives
+  already filled in - the fault form's *Date & Time fault occurred*, a QC session's
+  *Work Completed*, a service event's date - the server wrote that value in one
+  format and the date picker read it back in another. The picker then replaced it
+  with an unrelated date, usually months away and at midnight, before anyone had
+  touched the page.
+
+  Nothing indicated it had happened: the replacement was a well-formed date in the
+  expected format, sitting in a field the user had not edited. A record saved
+  without changing that field carried a time that was simply wrong. Date and time
+  formats are now derived from a single setting, so the value written to a form and
+  the value read back from it cannot disagree (:issues:`#826 <826>`).
+
+* **SQL Server installations have their lost unique constraints restored.** On
+  Microsoft SQL Server, ``mssql-django`` drops a unique index when an unrelated
+  field change retypes a table's primary key, and does not put it back - which the
+  4.0 migrations did to every table. The effect was silent: the database stopped
+  enforcing 16 of the uniqueness rules QATrack+ declares, so duplicates could be
+  created where the application intends one record, including
+  ``TestListInstance.user_key``, whose purpose is to keep API submissions unique.
+  This release puts them back.
+
+  No other database engine was ever affected, and on those engines this step does
+  nothing. If your database already contains duplicate rows, the affected index is
+  reported and skipped rather than failing the upgrade - run ``python manage.py
+  check_unique_constraints`` to list them, and the new ``qatrack.W011`` system check
+  reports any constraint still unenforced (:issues:`#899 <899>`).
+
+* **Users entitled to see every QC collection can see them again.** Seven querysets
+  narrowed ``UnitTestCollection`` by ``visible_to__in=user.groups.all()``, and
+  superuser status never entered the query - so a superuser belonging to no group
+  matched nothing and the QA/QC selection windows came up **empty**. Only some
+  windows went blank rather than all of them, which is what made it look like
+  configuration rather than a defect. A non-superuser holding
+  ``qa.can_review_non_visible_tli`` was in the same position, despite that
+  permission existing for exactly this purpose. The narrowing still narrows: a user
+  in the wrong group still sees nothing (:issues:`#883 <883>`).
+
+* **The QC trees show every collection again.** Both the "Due & Overdue" frequency
+  tree and the category tree collapsed repeated rows by the collection's *name*.
+  The query returns a collection once per test it contains, so some collapsing is
+  needed, but keying it on the name also removed a genuinely different collection
+  whose name happened to match. Two collections called the same thing on one unit
+  showed as one, with nothing to indicate the other existed. They are collapsed by
+  identity now. The fix above is what made this reachable - narrowed to one group,
+  two collections sharing a name rarely met (:issues:`#883 <883>`).
+
+* **Test list memberships show the name of each test again.** The admin fetches
+  each name over AJAX from an endpoint mounted beneath ``admin/``, and the admin
+  site ends its own URLs with a catch-all that claimed the request first, so the
+  admin answered its own endpoint with a 404 - for every user, including a
+  superuser. A test list's memberships listed an id and a macro name and no test
+  name, and a group permission could not fix it. The view and change icons beside
+  the field now have a link as well; they were rendered without one and did nothing.
+  A test saved with no name shows its id rather than nothing at all
+  (:issues:`#897 <897>`).
+
+* **``manage.py check`` reports calculation procedures that draw with
+  ``matplotlib.pyplot``.** ``pyplot`` keeps its figures in state shared by
+  everything in the same process, so two procedures plotting at the same time can
+  take each other's figures - and QATrack+ cleared every figure in the process
+  after a plot rather than only its own. The result was a plot saved against the
+  wrong test, or an empty one, with nothing to indicate it.
+
+  Whether a site can reach this depends on how it serves QATrack+: the Windows
+  deployment serves requests from a thread pool sharing one process and is exposed,
+  while the Linux and Docker deployments handle one request per process and are
+  not. The new ``qatrack.W012`` system check names any procedure written this way
+  and shows the ``UTILS.get_figure()`` form to replace it with, which returns a
+  figure nothing else can reach. The documentation's own plotting example has been
+  corrected - it previously showed the unsafe form.
+
+* **Six fixes that had been written and then stranded are in.** Four were left on
+  the unreleased 3.2.0 branch: a scheduled report to a group with no members raised
+  ``AttributeError`` and was never sent; serializing QATrack+'s own ``JSONField``
+  produced a Python repr rather than JSON, so a dumped ``AutoSave``,
+  ``TestInstance.json_value`` or ``ServiceEvent.extra_info`` did not load back as a
+  dictionary; AutoSave never loaded for Wrap Around tests, which ``set_value`` did
+  not recognise as numerical; and the report preview threw on every window resize
+  until its container had been laid out. The *Export Test Pack* and *Import Test
+  Pack* links are also back on the Test and Test List Cycle changelists, where they
+  had been left only on Test Lists, and string and date values in the QC history
+  popover no longer render in black on a coloured label.
+
+Other Changes
+^^^^^^^^^^^^^
+
+* **Dates are now shown as ``YYYY-MM-DD`` by default**, in every language, and the
+  date pickers write back the same format they display. Installations upgrading
+  from 4.0 previously saw ``31 May 2012 14:30``; to keep that, set the following in
+  ``local_settings.py``:
+
+  .. code-block:: python
+
+      QATRACK_DATETIME_FORMAT = "%d %b %Y %H:%M"
+      QATRACK_DATE_FORMAT = "%d %b %Y"
+
+  Every date format QATrack+ uses is now derived from those two settings, which is
+  what makes the fix above possible - see *Date and Time Format Settings* in the
+  configuration documentation. Dates typed in other formats are still accepted, and
+  the JSON API's format is unchanged.
+
+* **The outstanding migrations have been recorded.** ``makemigrations`` reported 195
+  pending field-state changes across seven apps on a clean checkout - all metadata,
+  almost all of it ``verbose_name`` labels that the localisation work added to
+  fields which had none without recording the resulting state. They are now one
+  migration per app. Every operation is a no-op on SQLite, PostgreSQL and SQL
+  Server, so applying them writes a row to ``django_migrations`` and changes no
+  schema and no data. The effect is that ``manage.py makemigrations --check`` is
+  meaningful again, having previously failed on every installation
+  (:issues:`#896 <896>`).
+
+* **The numpy names that numpy 2.0 removed are gone from the codebase**, and a test
+  fails if another is added. ``np.NaN`` in the control chart's Gaussian fit would
+  have raised ``AttributeError`` instead of returning a value, and ``np.float_`` in
+  the JSON encoder was a redundant alias of ``np.float64``. QATrack+ still pins
+  ``numpy<2.0``, so neither was reachable; clearing them now means a future move to
+  numpy 2 is a change of pin rather than a change of pin plus a search for
+  everything that accumulated behind it.
+
 4.0.1
 ------
 
