@@ -1,5 +1,7 @@
 import os
+import shutil
 import subprocess
+import tempfile
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -188,6 +190,12 @@ def chrometopdf(html, name="", paper_size="letter"):
         # with list2cmdline(), which is what it is for. Likely a second cause
         # of #835 - a service account's temp directory is not the one a
         # deployer tests from by hand.
+        # Each run gets its own user data directory, from #866: two reports
+        # rendering at once otherwise share Chrome's default profile, and the
+        # second finds the first's lock. It is removed after `subprocess.call`
+        # returns rather than around the call, so Chrome has finished with it.
+        profile_dir = tempfile.mkdtemp(prefix="qatrack-chrome-")
+
         command = [
             settings.CHROME_PATH,
             '--headless',
@@ -195,6 +203,7 @@ def chrometopdf(html, name="", paper_size="letter"):
             '--no-sandbox',
             '--print-to-pdf=%s' % out_path,
             '--print-to-pdf-no-header',
+            '--user-data-dir=%s' % profile_dir,
             "file://%s" % tmp_html.name,
         ]
 
@@ -211,6 +220,7 @@ def chrometopdf(html, name="", paper_size="letter"):
         finally:
             stdout.close()
             stderr.close()
+            shutil.rmtree(profile_dir, ignore_errors=True)
 
         # The exit status and the output file are checked separately: they
         # fail differently, and the difference is what tells a deployer
@@ -257,7 +267,6 @@ def chrometopdf(html, name="", paper_size="letter"):
             pass
 
     return pdf
-
 
 def end_of_day(dt):
     """Take datetime and move forward to last microsecond of date"""

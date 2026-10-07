@@ -1,14 +1,47 @@
-.git
-.venv
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-ENV/
-.env
-db.sqlite3
-qatrackplus31
-qatrack/local_settings.py
+# Ignore everything
+**
+
+# Re-include only what is needed for an editable install of the package
+# Nothing else is needed in the image.
+
+!pyproject.toml
+!uv.lock
+!README.md
+
+!qatrack/
+!qatrack/**
+
+!manage.py
+
+# Docker deployment files
+!deploy/
+!deploy/docker/
+!deploy/docker/**
+
+# Re-ignore sensitive files that could exist in an already-included path.
+
+# Environment files
+**/.env
+**/*.env
+**/*env.bak
+**/*env.old
+
+# Django secret key, user-data
+**/secret_key.txt
+**/user-data
+**/user_data
+
+# SSL certificates and private keys
+**/certs
+**/SSL
+**/ssl
+**/*.certificate
+**/*.crt
+**/*.pem
+**/*.key
+**/*.crt.key
+
+# potential DB backups
+**/backups
+**/*.tar
+**/*.tar.gz
