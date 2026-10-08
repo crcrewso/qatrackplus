@@ -94,6 +94,40 @@ Next, activate your new virtual environment:
 
 Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``.
 
+.. dropdown:: Can't install ``uv``? Use ``pip`` instead
+
+   A small number of sites can't install ``uv`` -- for example, due to a
+   restricted PowerShell execution policy that blocks the installer script
+   above, or no outbound internet access to ``astral.sh``. If that's you,
+   QATrack+ and its Windows/SQL Server dependencies can be installed with
+   plain ``pip``, which reads the project and its extras straight from
+   ``pyproject.toml``:
+
+   .. code-block:: console
+
+      >>  python -m venv .venv
+      >>  .\.venv\Scripts\Activate.ps1
+      >>  pip install ".[win,mssql]"
+
+   Two differences from the ``uv`` instructions above are worth knowing
+   before you start:
+
+   * **You need Python 3.12 installed yourself, and on your ``PATH``.** The
+     ``uv`` path does not -- ``uv venv --python 3.12`` downloads and manages
+     an interpreter for you -- so this is an extra prerequisite rather than
+     a substitution. Check it with ``python --version`` before creating the
+     virtual environment.
+   * **If you use Active Directory**, the ``python_ldap`` wheel step in
+     :ref:`auth_backends` is written as ``uv pip install``. Use plain
+     ``pip install C:\path\to\python_ldap-...whl`` instead, with the
+     virtual environment activated.
+
+   This is a minimally-supported fallback path. It resolves dependency
+   versions at install time rather than from ``uv.lock``, so two sites
+   installing a week apart can end up with different versions of the same
+   dependency, and ``uv`` remains the recommended and tested method for
+   everyone else. If you can use ``uv``, use it.
+
 .. dropdown:: Side note: ```C:\deploy```
 
    This folder is a convenient convention for storing the QATrack+ source code, virtual environment, and any other files related to your QATrack+ installation.  You can use a different folder if you prefer, but you will need to adjust the instructions accordingly.
