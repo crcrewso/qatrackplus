@@ -23,6 +23,11 @@ data, but take a backup and confirm it opens before you upgrade - see
 :ref:`linux_upgrade_from_4_0_1`, :ref:`win_upgrade_from_4_0_1` or
 :ref:`docker_upgrade_from_4_0_1`.
 
+**Confirming it opens is not a formality in this release.** If you have been
+relying on ``manage.py backup_site`` for your database backup, you may not have
+one - see *Backups taken with ``backup_site`` may contain no database* below,
+and check before you upgrade rather than after.
+
 Bug Fixes
 ^^^^^^^^^
 
@@ -40,6 +45,36 @@ Ordered by consequence, most serious first.
   without changing that field carried a time that was simply wrong. Date and time
   formats are now derived from a single setting, so the value written to a form and
   the value read back from it cannot disagree (:issues:`#826 <826>`).
+
+* **Backups taken with ``manage.py backup_site`` may contain no database.** Check
+  any backup set it produced, on any engine, before you rely on it. The command no
+  longer attempts the database at all: it names the engine it found, names the tool
+  to use, and backs up the uploaded media only.
+
+  **On SQL Server it reported success while writing nothing.** Measured on SQL
+  Server 2022: the command printed "Successfully backed up SQL Server database
+  to ..." and "Backup process completed.", exited zero, and left the dated folders
+  empty - no row in ``msdb.dbo.backupset``, and "Error: 3041 ... BACKUP failed to
+  complete the command" in the SQL Server error log at the same second. **This
+  corrects the 4.0.1 release note**, which said the command writes a database
+  backup on SQL Server and SQLite; for SQL Server that was not true.
+
+  **On SQLite it wrote the copy beside the live database**, not into the backup
+  directory, because the database name is an absolute path there and the join
+  discarded the destination. So the only copy sat on the same disk as the original,
+  outside ``BACKUP_DIR``, and was taken while QATrack+ may have been writing to it.
+
+  On MySQL, 4.0.1 stopped it skipping the database silently; a set taken before
+  that can contain media and settings and no database. On PostgreSQL it never
+  wrote one and always said so.
+
+  **The supported database backup is the Docker ``backup`` service**, which runs
+  ``pg_dump``. Every other deployment should back the database up with its own
+  engine's tooling, as part of the backup regime your IT department already runs -
+  ``pg_dump``, ``BACKUP DATABASE`` or SQL Server Management Studio, ``mysqldump``,
+  or for SQLite a copy taken while QATrack+ is stopped. :ref:`qatrack_backup` has
+  a table and the per-engine detail. Only the engine can promise a consistent
+  database backup; QATrack+ cannot, and no longer implies it can.
 
 * **SQL Server installations have their lost unique constraints restored.** On
   Microsoft SQL Server, ``mssql-django`` drops a unique index when an unrelated
