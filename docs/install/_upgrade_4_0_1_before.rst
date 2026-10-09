@@ -25,6 +25,47 @@ release runs migrations, which the previous patch release did not.
     set has to contain, and - if your production database is SQLite - how to take one
     that is actually readable, which a file copy of a live database is not.
 
+**What you will see, so you can tell it apart from a problem.** ``migrate`` prints
+one line per migration. Upgrading 4.0.1 to 4.0.2 applies **eight**, one for most
+applications plus one that creates the cache table:
+
+.. code-block:: text
+
+    Applying attachments.0011_v4_0_2_final... OK
+    Applying faults.0016_v4_0_2_final... OK
+    Applying parts.0019_v4_0_2_final... OK
+    Applying qa.0061_v4_0_2_final... OK
+    Applying qatrack_core.0002_cache_table... OK
+    Applying reports.0011_v4_0_2_final... OK
+    Applying service_log.0029_v4_0_2_final... OK
+    Applying units.0022_v4_0_2_final... OK
+
+Between them they carry **194 field alterations**, one model-options change and
+five data steps. The field alterations are the bulk of it and are the least
+interesting part: they bring the recorded schema into line with what the models
+have declared for several releases, so most make no change to your tables at all.
+The ``qa`` one is the largest at 132.
+
+Two of those lines are worth recognising:
+
+- **``qa.0061_v4_0_2_final``** is where the SQL Server unique-constraint repair
+  runs, so on SQL Server this is the line that matters. It is also the slowest.
+- **``qatrack_core.0002_cache_table``** creates the cache table. Until 4.0.2 that
+  table was created by ``manage.py createcachetable`` and by nothing else, so a
+  database that had been migrated but never had that command run would fail at
+  runtime. This migration removes that gap; if you have already run
+  ``createcachetable``, it finds the table and does nothing.
+
+If ``migrate`` prints more than these eight, or names a migration that is not in
+this list, stop and ask before continuing - it means the database is not at the
+version you think it is.
+
+.. note::
+
+    These eight are the whole 4.0.1 to 4.0.2 step. A **fresh** installation runs
+    the full history instead, which is 227 migrations and takes several minutes -
+    that is normal, and not what an upgrading site sees.
+
 .. dropdown:: If you are on SQL Server, read this one
     :color: warning
     :icon: alert
