@@ -39,7 +39,7 @@
 #   2. Boolean naming. QATrack+'s own flags are USE_ADFS, USE_ISSUES and
 #      USE_SQL_REPORTS, against a single EMAIL_ENABLED. USE_* is the majority,
 #      so EMAIL_ENABLED is the outlier - but it appears in five deploy examples
-#      and two documentation pages, and W001 above already steers deployers
+#      and two documentation pages, and W004 above already steers deployers
 #      toward it. Renaming it is a 5.0 job; renaming the USE_* settings to
 #      match it would be moving three names to suit one.
 
@@ -127,7 +127,7 @@ def check_deprecated_email_notification_settings(app_configs, **kwargs):
             Warning(
                 "EMAIL_NOTIFICATION_USER/EMAIL_NOTIFICATION_PWD are deprecated.",
                 hint="Rename these to EMAIL_HOST_USER/EMAIL_HOST_PASSWORD in your local_settings.py.",
-                id='qatrack.W001',
+                id='qatrack.W004',
             )
         )
     return warnings
@@ -161,7 +161,7 @@ def check_unedited_placeholders(app_configs, **kwargs):
                     "deploy template: %s" % (name, ', '.join(repr(s) for s in stale)),
                     hint="Replace them with your server's host name or IP address "
                          "in qatrack/local_settings.py.",
-                    id='qatrack.E002',
+                    id='qatrack.E005',
                 )
             )
 

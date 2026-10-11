@@ -3,6 +3,7 @@ from django.conf import global_settings
 from django.test import TestCase, override_settings
 
 from qatrack import settings as qatrack_settings
+from qatrack.qatrack_core import checks
 from qatrack.qatrack_core.checks import (
     _suspect_setting_names,
     check_unedited_placeholders,
@@ -23,14 +24,14 @@ class TestUneditedPlaceholders(TestCase):
     @override_settings(ALLOWED_HOSTS=['XX.XXX.XXX.XX'], EMAIL_ENABLED=False)
     def test_allowed_hosts_placeholder_is_an_error(self):
         problems = check_unedited_placeholders(None)
-        assert [p.id for p in problems] == ['qatrack.E002']
+        assert [p.id for p in problems] == ['qatrack.E005']
         assert 'ALLOWED_HOSTS' in problems[0].msg
 
     @override_settings(CSRF_TRUSTED_ORIGINS=['http://YOUR_HOST_NAME_HERE'],
                        EMAIL_ENABLED=False)
     def test_csrf_trusted_origins_placeholder_is_an_error(self):
         problems = check_unedited_placeholders(None)
-        assert [p.id for p in problems] == ['qatrack.E002']
+        assert [p.id for p in problems] == ['qatrack.E005']
         assert 'CSRF_TRUSTED_ORIGINS' in problems[0].msg
 
     @override_settings(ALLOWED_HOSTS=['qatrack.example.org'],
@@ -144,3 +145,39 @@ class TestMediaFolderPermissions(TestCase):
         and its uploads/tmp children exist and are writable -> no errors.
         Worth having explicitly, so a regression that makes the check noisy
         for everyone is caught rather than tolerated."""
+
+
+class TestCheckIdsAreUnique(TestCase):
+    """No two checks may share an id.
+
+    `qatrack.E002` was used by both `check_media_folder_permissions` (the
+    server cannot create a file) and `check_unedited_placeholders` (a deploy
+    template was never edited) until 2026-10-11. Two unrelated errors on one id
+    cannot be silenced independently: a deployer who silenced the placeholder
+    warning would have silenced the media-permission error with it.
+
+    Read from the source rather than the registry, because a check's id only
+    appears in the Error or Warning it returns - so a registry walk cannot see
+    an id until something makes that check fail.
+    """
+
+    def test_no_id_is_used_by_two_different_checks(self):
+        import ast
+        import pathlib
+
+        source = pathlib.Path(checks.__file__).read_text(encoding='utf-8')
+        tree = ast.parse(source)
+
+        owners = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            for inner in ast.walk(node):
+                if not isinstance(inner, ast.keyword) or inner.arg != 'id':
+                    continue
+                if isinstance(inner.value, ast.Constant) and isinstance(inner.value.value, str):
+                    owners.setdefault(inner.value.value, set()).add(node.name)
+
+        assert owners, 'no check ids found - has checks.py moved?'
+        shared = {i: sorted(fns) for i, fns in owners.items() if len(fns) > 1}
+        assert not shared, 'check ids used by more than one check: %r' % shared
