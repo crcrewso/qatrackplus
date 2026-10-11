@@ -54,14 +54,32 @@ jobs:
         run: uv pip check
 
   linux-tests:
-    name: Linux Tests
-    runs-on: ubuntu-latest
+    # The install guide promises specific Ubuntu releases, so test those and not
+    # only whatever ubuntu-latest happens to be. The difference is not academic:
+    # the media-permission checks reason about the invoking user, www-data and
+    # directory modes, and that is exactly the kind of behaviour that moves
+    # between releases.
+    #
+    # The pinned rows run sqlite only. Running the full engine matrix on three
+    # operating systems would triple the service containers for no new
+    # information - the database engines are already covered on ubuntu-latest,
+    # and what the extra rows are there to vary is the OS.
+    name: Linux Tests (${{ matrix.os }}, ${{ matrix.db }})
+    runs-on: ${{ matrix.os }}
     needs: [lint, requirements]
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.12"]
         db: [sqlite, postgres, mysql]
+        include:
+          - os: ubuntu-24.04
+            python-version: "3.12"
+            db: sqlite
+          - os: ubuntu-22.04
+            python-version: "3.12"
+            db: sqlite
     
     services:
       postgres:
