@@ -417,7 +417,23 @@ our database and install the default data:
 .. code-block:: bash
 
     python manage.py migrate
+    python manage.py createcachetable
     python manage.py loaddata fixtures/defaults/*/*
+
+.. important::
+
+    ``createcachetable`` must run **before** ``loaddata``, which is why it appears
+    here rather than later with the other one-off commands.
+
+    Loading the default fixtures saves records that fire cache-invalidation
+    signals, and those signals write to the cache table. If the table does not
+    exist yet, the fixture load stops part-way with::
+
+        Could not load service_log.ServiceEventStatus(pk=1):
+        relation "qatrack_cache_table" does not exist
+
+    If you hit that, run ``python manage.py createcachetable`` and then repeat the
+    ``loaddata`` command - nothing is lost, the fixtures are idempotent.
 
 
 After that completes, we can grant privileges to our readonly database user as
@@ -450,7 +466,8 @@ your Test Lists:
 
     python manage.py createsuperuser
 
-and to create a cachetable in the database:
+The cache table was already created above, before ``loaddata``. If you skipped
+that step you can run it now - it is safe to run twice:
 
 .. code-block:: bash
 
