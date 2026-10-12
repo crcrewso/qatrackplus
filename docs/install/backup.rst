@@ -132,16 +132,24 @@ The exclusions matter. ``contenttypes`` and ``auth.permission`` are rebuilt by
 
 .. danger::
 
-    **Do not add ``--natural-foreign`` or ``--natural-primary``.** They produce a file
-    that QATrack+ **cannot load back**. Not every model implements the natural-key
-    lookup the deserializer then needs, so a foreign key is written as a list and the
-    import stops with::
+    **On 4.0.x, do not add ``--natural-foreign`` or ``--natural-primary``.** They produce
+    a file that QATrack+ **cannot load back**. Three models - test list sublists, service
+    areas and service types - define a natural key without the matching lookup the
+    deserializer then needs, so a foreign key is written as a list and the import stops
+    with::
 
         DeserializationError: Problem installing fixture ...
         ["“['Accelerator']” value must be an integer."]: (service_log.unitservicearea:pk=1)
 
     This was measured, not inferred - the restore failed at that line and left an empty
-    database. The plain integer-primary-key form above restores correctly.
+    database. Note where that leaves you: ``loaddata`` empties the tables it is loading
+    into before it reaches the row it cannot resolve, so the attempt does not fail
+    harmlessly. The plain integer-primary-key form above restores correctly.
+
+    **This restriction is specific to the 4.0.x series.** The three missing lookups are
+    fixed from 4.1 onwards, where the same export restores correctly. An export taken on
+    4.1 with natural keys will still not load into a 4.0.x installation, which does not
+    have those lookups.
 
 **Restoring**
 
@@ -164,8 +172,8 @@ types.
 .. note::
 
     Verify a dump by restoring it, not by looking at it. A JSON file that was written
-    without error can still be one your site cannot read back - which is exactly what
-    ``--natural-foreign`` produces.
+    without error can still be one your site cannot read back - which on 4.0.x is exactly
+    what ``--natural-foreign`` produces.
 
 Restoring from Backups
 ----------------------
