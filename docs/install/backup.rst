@@ -80,6 +80,64 @@ Using Django to Dump The Database To JSON
     **Do NOT use this method for your regular database backups.**
     Dumping to JSON is slow, memory-intensive, and is not a reliable backup strategy for a production database. Always use the native backup tools provided by your database engine (e.g. ``pg_dump`` for PostgreSQL, or SQL Server Management Studio for MS SQL) for your regular backups.
 
+It is, however, the only backup format that does not care which database engine you
+are running, so it is the right tool for two jobs: **moving a site between engines**
+(SQL Server to PostgreSQL, say) and **seeding a test or demonstration instance** from
+a known state.
+
+The commands below were tested end to end on QATrack+ 4.0.1 with PostgreSQL 16: a
+site of 3,460 objects was dumped, its database dropped, and the site rebuilt from the
+dump alone. Every object count matched the original.
+
+**Exporting**
+
+.. code-block:: bash
+
+    python manage.py dumpdata --indent 1 \
+        -e contenttypes -e auth.permission -e sessions -e admin.logentry -e django_q \
+        > qatrack-export.json
+
+The exclusions matter. ``contenttypes`` and ``auth.permission`` are rebuilt by
+``migrate`` and clash on import if they are in the file; ``sessions``,
+``admin.logentry`` and ``django_q`` are transient and only make the file larger.
+
+.. danger::
+
+    **Do not add ``--natural-foreign`` or ``--natural-primary``.** They produce a file
+    that QATrack+ **cannot load back**. Not every model implements the natural-key
+    lookup the deserializer then needs, so a foreign key is written as a list and the
+    import stops with::
+
+        DeserializationError: Problem installing fixture ...
+        ["“['Accelerator']” value must be an integer."]: (service_log.unitservicearea:pk=1)
+
+    This was measured, not inferred - the restore failed at that line and left an empty
+    database. The plain integer-primary-key form above restores correctly.
+
+**Restoring**
+
+.. code-block:: bash
+
+    # 1. an empty database, owned by your QATrack+ database user
+    # 2. then:
+    python manage.py migrate
+    python manage.py createcachetable
+    python manage.py loaddata qatrack-export.json
+
+``createcachetable`` must come **before** ``loaddata``, for the same reason it does
+during a fresh install: loading records fires cache-invalidation signals, and they
+need the cache table to exist.
+
+Do **not** run ``loaddata fixtures/defaults/*/*`` first. The export already contains
+those rows, and loading them twice gives you duplicate categories, statuses and unit
+types.
+
+.. note::
+
+    Verify a dump by restoring it, not by looking at it. A JSON file that was written
+    without error can still be one your site cannot read back - which is exactly what
+    ``--natural-foreign`` produces.
+
 Restoring from Backups
 ----------------------
 
