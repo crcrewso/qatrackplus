@@ -48,9 +48,9 @@ def on_service_event_deleted(*args, **kwargs):
 @receiver(post_save, sender=models.ReturnToServiceQA, dispatch_uid="sl_update_rts_cache_post_save")
 @receiver(post_delete, sender=models.ReturnToServiceQA, dispatch_uid="sl_update_rts_cache_post_delete")
 def update_rts_cache(sender, **kwargs):
+    """When a RTS is completed invalidate the unreviewed counts"""
     if loaded_from_fixture(kwargs):
         return
-    """When a RTS is completed invalidate the unreviewed counts"""
     cache.delete(settings.CACHE_RTS_QA_COUNT)
     cache.delete(settings.CACHE_RTS_INCOMPLETE_QA_COUNT)
     cache.delete(settings.CACHE_SL_NOTIFICATION_TOTAL)

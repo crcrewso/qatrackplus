@@ -12,7 +12,7 @@ from qatrack.qa.signals import loaded_from_fixture
 @receiver(post_save, sender=FaultReviewInstance, dispatch_uid="faults_update_faults_cache_review_post_save")
 @receiver(post_delete, sender=FaultReviewInstance, dispatch_uid="faults_update_faults_cache_review_post_delete")
 def update_faults_cache(sender, **kwargs):
+    """When a fault is changed invalidate the default and review count"""
     if loaded_from_fixture(kwargs):
         return
-    """When a fault is changed invalidate the default and review count"""
     cache.delete(settings.CACHE_UNREVIEWED_FAULT_COUNT)
