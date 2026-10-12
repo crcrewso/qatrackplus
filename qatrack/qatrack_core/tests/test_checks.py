@@ -242,6 +242,16 @@ class TestRealFilesystemPermissions(SimpleTestCase):
     """
 
     def setUp(self):
+        # POSIX only, for two independent reasons. Windows has no os.geteuid at
+        # all - which is why the check itself guards with hasattr(os, 'geteuid') -
+        # and NTFS does not honour the mode bits these tests set, so chmod(0o555)
+        # would not deny writing and the condition under test could not be
+        # created even if the uid call existed.
+        if not hasattr(os, 'geteuid'):
+            self.skipTest(
+                'POSIX only: no os.geteuid on this platform, and its filesystem does '
+                'not honour the mode bits these tests rely on'
+            )
         if os.geteuid() == 0:
             self.skipTest(
                 'running as root, which bypasses directory modes - a 0o555 directory '
