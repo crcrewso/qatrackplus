@@ -39,8 +39,30 @@ Prerequisites
 .. warning::
 
     These install steps should be done using a regular user account. They will not
-    work if you are currently logged in as 'root'. If you don't have a
-    regular user account, you should set one up before continuing.
+    work if you are currently logged in as 'root'.
+
+.. dropdown:: Starting from a fresh cloud server, where root is all you have
+    :color: warning
+
+    A new server from a cloud provider commonly gives you **root and nothing
+    else**, so there is no regular account to use yet. Create one before you begin:
+
+    .. code-block:: bash
+
+        adduser qatrack
+        usermod -aG sudo qatrack
+
+    If you reach the server by SSH key rather than by password, copy your key over
+    to the new account as well, or you will not be able to log in as it:
+
+    .. code-block:: bash
+
+        install -d -m 700 -o qatrack -g qatrack /home/qatrack/.ssh
+        install -m 600 -o qatrack -g qatrack /root/.ssh/authorized_keys \
+            /home/qatrack/.ssh/authorized_keys
+
+    Then log out and back in as ``qatrack`` before continuing. The rest of this
+    guide assumes you are that user and that ``sudo`` works.
 
 Make sure your existing packages are up to date:
 
@@ -138,10 +160,19 @@ And then create a readonly user for the SQL query tool:
     sudo -u postgres psql < deploy/postgres/create_ro_role.sql
 
 
-Now edit /etc/postgresql/18/main/pg_hba.conf (use your favourite editor, e.g.
-`sudo nano /etc/postgresql/18/main/pg_hba.conf` (note, if you have a different
-version of Postgres installed, then you would need to change the 18 in that
-path e.g. /etc/postgresql/16/main/pg_hba.conf) and scroll down to the bottom
+Now edit ``pg_hba.conf``. The path contains the major version of PostgreSQL you
+just installed, which depends on your distribution rather than on QATrack+ —
+**Ubuntu 24.04 installs PostgreSQL 16**, so the path there is
+``/etc/postgresql/16/main/pg_hba.conf``. Check which you have rather than
+assuming:
+
+.. code-block:: bash
+
+    ls /etc/postgresql/
+    # then, substituting the version it printed:
+    sudo nano /etc/postgresql/16/main/pg_hba.conf
+
+Scroll down to the bottom and scroll down to the bottom
 and change `peer` to `md5` for the `local all all` entry so it looks like:
 
 .. code-block:: bash
@@ -285,16 +316,19 @@ At this point you can run the QATrack+ test suite to ensure your environment is 
     cp deploy/sqlite/local_settings.py qatrack/local_settings.py
     make test_simple
 
-This should take a few minutes to run and should exit with output that looks
-similar to the following:
+This takes a couple of minutes and should end with a line like this:
 
 .. code-block:: bash
 
-    Results (88.45s):
+    1354 passed, 3 skipped, 34 deselected, 219 warnings in 152.63s (0:02:32)
 
-        975 passed
-        5 skipped
-        32 deselected
+Measured on a 1 vCPU / 1 GB server running Ubuntu 24.04 against 4.0.1. **Do not
+treat the exact numbers as a target** - they move with every release, and the
+count differs by platform and by which optional dependencies you installed. What
+matters is that nothing *failed*.
+
+The three skips are expected on a standard install: they are the Active Directory
+tests, which need the optional ``python-ldap`` package.
 
 
 Configuration of QATrack+
