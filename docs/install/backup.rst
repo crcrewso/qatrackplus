@@ -85,9 +85,38 @@ are running, so it is the right tool for two jobs: **moving a site between engin
 (SQL Server to PostgreSQL, say) and **seeding a test or demonstration instance** from
 a known state.
 
-The commands below were tested end to end on QATrack+ 4.0.1 with PostgreSQL 16: a
-site of 3,460 objects was dumped, its database dropped, and the site rebuilt from the
-dump alone. Every object count matched the original.
+**What has actually been tested, and what has not.** The commands below were tested
+end to end in exactly one configuration:
+
+.. list-table::
+    :header-rows: 1
+    :widths: 40 60
+
+    * - Tested
+      - Not tested
+    * - QATrack+ 4.0.1 → 4.0.1
+      - any version change, e.g. 4.0.1 → 4.0.2
+    * - PostgreSQL 16.15 → PostgreSQL 16.15
+      - **any change of engine**, in either direction
+    * - Ubuntu 24.04 → the same server
+      - a different server, or Linux ↔ Windows
+    * - 3,460 objects
+      - a site of clinical size
+
+A site of 3,460 objects was dumped, its database dropped, and the site rebuilt from
+the dump alone; every object count matched the original.
+
+.. warning::
+
+    **Engine migration is the use this format exists for, and it is the case that has
+    not been tested.** Nothing below has been exercised across SQL Server, MySQL or
+    SQLite, nor between two different engines. Treat a cross-engine move as something
+    to rehearse on a copy first, verify by restoring, and compare object counts
+    against the source - not as a procedure known to work.
+
+    The same applies to a version change. ``loaddata`` writes rows directly, so a dump
+    taken on one QATrack+ version carries that version's schema expectations; restore
+    it onto the same version unless you have tested otherwise.
 
 **Exporting**
 
