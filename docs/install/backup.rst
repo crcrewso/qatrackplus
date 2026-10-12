@@ -171,21 +171,26 @@ sites run it in production anyway. This appendix is for them. **It describes one
 hazard that will not announce itself**, and it is a documentation note rather than a
 change to the command.
 
-.. danger::
+.. note::
 
-    **``manage.py backup_site`` copies the SQLite file while QATrack+ may be writing
-    to it, and the copy is usually unusable.** It calls ``shutil.copy2`` on the live
-    database. It does not use SQLite's online backup, and the copy carries no
-    journal, so a copy taken while a transaction is open is a torn file.
+    **``manage.py backup_site`` no longer copies the SQLite database at all**, as of
+    4.0.2. It backs up uploaded media and reports, per engine, that it has not taken
+    a database backup. So there is nothing to distrust in its output any more - but
+    equally, nothing is backing your database up unless you do it yourself, with
+    ``VACUUM INTO`` below.
 
-    **Measured, five runs out of five:** with one thread writing continuously, every
-    ``shutil.copy2`` copy failed ``PRAGMA integrity_check``, and one could not be
-    opened at all - *"database disk image is malformed"*. Over the same runs,
-    ``VACUUM INTO`` produced a consistent copy every time.
+    **Why it was removed rather than fixed.** The command called ``shutil.copy2`` on
+    the live database: no online backup, no journal, so a copy taken mid-transaction
+    was a torn file. **Measured, five runs out of five:** with one thread writing
+    continuously, every ``shutil.copy2`` copy failed ``PRAGMA integrity_check``, and
+    one could not be opened at all - *"database disk image is malformed"*. Over the
+    same runs, ``VACUUM INTO`` produced a consistent copy every time. The command
+    printed ``Copied SQLite database to ...`` and exited zero either way, so a site
+    could hold a year of unopenable backups and never be told.
 
-    The command prints ``Copied SQLite database to ...`` and **exits zero** in both
-    cases, so nothing tells you which you have. A site can hold a year of backups
-    that are all unopenable and have been told nothing was wrong.
+    **If you are upgrading from 4.0.1 or earlier, any SQLite backup this command
+    produced should be treated as unverified** until you have opened it and run
+    ``PRAGMA integrity_check``.
 
 **Back up SQLite with ``VACUUM INTO``**
 

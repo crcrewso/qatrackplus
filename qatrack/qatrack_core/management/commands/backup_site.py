@@ -8,7 +8,10 @@ from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
-    help = 'Backup QATrack+ database and media uploads'
+    help = (
+        'Backup QATrack+ media uploads. This command does not back up the '
+        'database on any engine - use your engine\'s own tooling.'
+    )
 
     def get_setting(self, name, default):
         return getattr(settings, name, default)
@@ -74,9 +77,17 @@ class Command(BaseCommand):
         else:
             tool = "the backup tooling for that engine"
 
+        # The Docker `backup` service runs pg_dump against the postgres
+        # container, so it is only an alternative for a PostgreSQL deployment.
+        # Offering it to a SQL Server or SQLite operator would send them to a
+        # tool that cannot read their database.
+        docker_note = (
+            "\nOn a Docker deployment the bundled backup service covers this.\n"
+            if 'postgresql' in engine else "\n"
+        )
         self.stdout.write(self.style.WARNING(
             f"Database backup is not performed by this command (engine: {engine}).\n"
-            f"Use {tool}, or the Docker backup service, which is the supported path.\n"
+            f"Use {tool}.{docker_note}"
             "See the Backup and Restore section of the documentation. Uploaded media "
             "is backed up below."
         ))
