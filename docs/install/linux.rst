@@ -517,6 +517,15 @@ In order for Django Q to run properly and for Nginx to serve uploaded files, we 
     sudo chown -R www-data:www-data logs qatrack/media
     sudo chmod ug+rwxs logs qatrack/media
 
+.. note::
+
+    ``exec sg`` replaces your shell, so it works when you are typing at a terminal
+    and **cannot work inside a script**: everything after it in the same file is
+    never reached. If you are automating this install, drop that line and either log
+    out and back in, or run the remaining commands with ``sg www-data -c '...'``. The
+    line is only a convenience to avoid logging out - nothing later depends on it
+    having run in the same shell.
+
 
 and then set up the Django Q configuration:
 
@@ -583,6 +592,73 @@ and finally restart Nginx:
 
 
 You should now be able to log into your server at http://yourserver/!
+
+
+Serving over HTTPS
+------------------
+
+The configuration written by ``make nginx.conf`` serves plain HTTP. For anything
+reachable beyond a trusted network you want TLS, and `Let's Encrypt
+<https://letsencrypt.org>`__ issues free certificates that browsers trust.
+
+.. important::
+
+    **First give nginx a real server name.** ``make nginx.conf`` writes
+    ``server_name _;`` - a catch-all - and certbot's nginx plugin cannot match a
+    catch-all to a certificate, so it will not know which block to edit. Replace it
+    with the host name people will use:
+
+    .. code-block:: bash
+
+        sudo sed -i 's/server_name  *_;/server_name qatrack.example.com;/' \
+            /etc/nginx/sites-available/qatrack.conf
+        sudo nginx -t && sudo systemctl reload nginx
+
+Then obtain and install the certificate. The DNS name must already resolve to this
+server, and port 80 must be reachable from the internet:
+
+.. code-block:: bash
+
+    sudo apt install certbot python3-certbot-nginx
+    sudo certbot --nginx -d qatrack.example.com --agree-tos -m you@example.com --redirect
+
+``--redirect`` adds the HTTP-to-HTTPS redirect. certbot installs a renewal timer at
+the same time; confirm it with ``systemctl is-active certbot.timer`` and check the
+certificate with ``sudo certbot certificates``.
+
+.. note::
+
+    The QATrack+ nginx configuration redirects *everything* on port 80 to HTTPS,
+    including ``/.well-known/acme-challenge/``. Let's Encrypt follows that redirect
+    and does not validate the certificate while doing so, so renewal still works -
+    but if you replace the configuration with one that blocks the path outright,
+    renewal will start failing silently.
+
+Tested on Ubuntu 24.04 with nginx 1.24.0 and certbot 2.9.0.
+
+.. warning::
+
+    **Set the site's domain, then restart the application.** QATrack+ builds the links
+    in emailed reports and notifications from Django's ``Site`` record, which ships as
+    ``example.com``. Set it under *Sites* in the admin, or:
+
+    .. code-block:: bash
+
+        python manage.py shell -c "
+        from django.contrib.sites.models import Site
+        s = Site.objects.get_current()
+        s.domain = 'qatrack.example.com'; s.name = 'QATrack+'; s.save()"
+
+    **Changing it in the database is not enough on its own.** Django caches the
+    current site per process, so running gunicorn keeps serving the old value and the
+    change appears to have done nothing:
+
+    .. code-block:: bash
+
+        sudo supervisorctl restart gunicorn
+
+    Note also that rebuilding the database re-loads the default fixtures, which set
+    the domain back to ``example.com``. Re-apply it after any rebuild.
 
 
 Next Steps
