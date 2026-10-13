@@ -698,6 +698,24 @@ def EXPLORER_PERMISSION_VIEW(request):
 
 
 
+# Which engine renders report PDFs.
+#
+#   "auto"        Chrome/Chromium if CHROME_PATH points at one, else WeasyPrint
+#   "chrome"      Chrome/Chromium only
+#   "weasyprint"  WeasyPrint only - needs no browser, but does need Pango,
+#                 cairo and harfbuzz installed as *system* packages
+#
+# Chrome leads in "auto", and on a site with both engines that **changes which
+# engine renders your reports** - see the release notes. The reason is that
+# WeasyPrint cannot fragment a flex container or a float across pages, which
+# silently truncated reports when v4 switched to it; reports/pdf.css fixes that
+# but nothing yet tests for its return. Chrome has no such failure mode.
+#
+# WeasyPrint is where QATrack+ is heading - it needs no browser at all - and
+# the default moves to it once both engines are covered by truncation tests.
+# Set "weasyprint" now if you cannot install a browser.
+PDF_ENGINE = "auto"
+
 CHROME_PATH = ""
 if os.name.lower() == "nt":
     user = os.getlogin()
