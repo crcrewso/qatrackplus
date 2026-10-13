@@ -113,15 +113,21 @@ def html_to_pdf(html, name="", paper_size="letter"):
 
     settings.PDF_ENGINE selects:
 
-      "auto"        Chrome if available, otherwise WeasyPrint (default)
+      "auto"        WeasyPrint if it loads, otherwise Chrome (default)
       "chrome"      Chrome only
       "weasyprint"  WeasyPrint only
 
-    Chrome leads in "auto" because it is what the install documentation has
-    always required, what deployments already have, and what the report
-    stylesheets were tuned against - so an upgrade does not silently change
-    how every report looks. WeasyPrint needs no browser, which is what makes
-    it the right answer for a deployment that cannot install one (#835).
+    WeasyPrint leads in "auto" because it is the direction QATrack+ is moving
+    for 4.1 and the better-tested of the two here: it needs no browser, so it
+    cannot be broken by a Chrome upgrade, a snap-confined chromium, or a
+    headless sandbox. Chrome remains the fallback so a deployment without
+    Pango, cairo and harfbuzz still produces reports (#835).
+
+    This is also the order QATrack+ used before 4.0.2. An earlier version of
+    this function inverted it to put Chrome first; that inversion was reverted
+    rather than documented, because it changed the renderer for every site that
+    had both engines installed - which is most of them, since CHROME_PATH is
+    probed automatically.
 
     Neither engine available is an error rather than a silent fallback: a
     report that cannot be produced should say so, not arrive wrong.
@@ -145,11 +151,11 @@ def html_to_pdf(html, name="", paper_size="letter"):
             "Unknown PDF_ENGINE %r - expected 'auto', 'chrome' or 'weasyprint'." % engine
         )
 
-    if chrome_available():
-        return chrometopdf(html, name=name, paper_size=paper_size)
-
     if weasyprint_available():
         return weasyprint_to_pdf(html, name=name, paper_size=paper_size)
+
+    if chrome_available():
+        return chrometopdf(html, name=name, paper_size=paper_size)
 
     raise PdfGenerationError(
         "No PDF engine is available. Either set CHROME_PATH to a browser, or make "
