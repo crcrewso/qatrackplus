@@ -381,19 +381,31 @@ Which renderer produces report PDFs.
 
 .. code-block:: python
 
-    PDF_ENGINE = "auto"        # WeasyPrint if it loads, else Chrome via CHROME_PATH
+    PDF_ENGINE = "auto"        # Chrome if CHROME_PATH is valid, else WeasyPrint
     PDF_ENGINE = "chrome"      # Chrome/Chromium only
     PDF_ENGINE = "weasyprint"  # WeasyPrint only - no browser required
 
-The default, ``auto``, prefers WeasyPrint and falls back to Chrome. That is the
-order QATrack+ already used, so **upgrading does not change which engine renders
-your reports.** WeasyPrint leads because it needs no browser: it cannot be broken
-by a Chrome upgrade, a snap-confined chromium, or a headless sandbox, and it is
-the direction QATrack+ is taking for 4.1.
+The default, ``auto``, prefers Chrome and falls back to WeasyPrint.
 
-Set ``chrome`` to require the browser. Set ``weasyprint`` to fail loudly instead
-of falling back - useful if you want to know immediately that the system
-libraries are missing rather than silently getting Chrome's output. WeasyPrint
+.. warning::
+
+    On a site that has **both** engines installed this changes which one renders
+    your reports, because v4 preferred WeasyPrint. Expect pagination and layout
+    to differ. Set ``PDF_ENGINE = "weasyprint"`` to keep v4's renderer.
+
+The reason for preferring Chrome is specific and temporary. WeasyPrint cannot
+fragment a flex container or a float across pages, and Bootstrap floats every
+grid column, so when v4 switched to WeasyPrint reports were **silently cut off
+after the first few pages** - and the on-screen preview still looked right.
+``reports/pdf.css`` pins those layouts back to plain blocks, but until there are
+tests that would catch the truncation returning, the engine without that failure
+mode is the safer default for a QC record.
+
+WeasyPrint is where QATrack+ is heading: it needs no browser, so it cannot be
+broken by a Chrome upgrade, a snap-confined chromium or a headless sandbox. The
+default moves once both engines are covered by those tests.
+
+Set ``weasyprint`` if you cannot install a browser on the server. WeasyPrint
 needs no browser, but it does need **Pango, cairo and harfbuzz installed as
 system packages** - the Python package alone is not enough, and where they are
 missing the import fails with an ``OSError`` rather than an ``ImportError``.
