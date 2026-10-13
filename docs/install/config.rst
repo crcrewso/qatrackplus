@@ -381,16 +381,19 @@ Which renderer produces report PDFs.
 
 .. code-block:: python
 
-    PDF_ENGINE = "auto"        # Chrome if CHROME_PATH is valid, else WeasyPrint
+    PDF_ENGINE = "auto"        # WeasyPrint if it loads, else Chrome via CHROME_PATH
     PDF_ENGINE = "chrome"      # Chrome/Chromium only
     PDF_ENGINE = "weasyprint"  # WeasyPrint only - no browser required
 
-The default, ``auto``, prefers Chrome. Chrome is what the installation guides
-have always required, what existing deployments already have, and what the
-report stylesheets were tuned against, so upgrading does not quietly change
-how every report looks.
+The default, ``auto``, prefers WeasyPrint and falls back to Chrome. That is the
+order QATrack+ already used, so **upgrading does not change which engine renders
+your reports.** WeasyPrint leads because it needs no browser: it cannot be broken
+by a Chrome upgrade, a snap-confined chromium, or a headless sandbox, and it is
+the direction QATrack+ is taking for 4.1.
 
-Set ``weasyprint`` if you cannot install a browser on the server. WeasyPrint
+Set ``chrome`` to require the browser. Set ``weasyprint`` to fail loudly instead
+of falling back - useful if you want to know immediately that the system
+libraries are missing rather than silently getting Chrome's output. WeasyPrint
 needs no browser, but it does need **Pango, cairo and harfbuzz installed as
 system packages** - the Python package alone is not enough, and where they are
 missing the import fails with an ``OSError`` rather than an ``ImportError``.
