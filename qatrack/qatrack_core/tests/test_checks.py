@@ -1,0 +1,325 @@
+import os
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+from django.test import SimpleTestCase, override_settings
+
+from qatrack.qatrack_core.checks import check_media_folder_permissions
+
+
+class TestCheckMediaFolderPermissions(SimpleTestCase):
+    def setUp(self):
+        # Pin a non-root euid so qatrack.W001 does not appear when the suite runs as root
+        # (Docker, CI containers). Tests that need root patch os.geteuid again.
+        patcher = patch('os.geteuid', return_value=1000, create=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_media_folder_configured_and_writable(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir)
+            (media_path / 'uploads').mkdir()
+            (media_path / 'uploads' / 'tmp').mkdir()
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                errors = check_media_folder_permissions(None)
+                assert errors == []
+
+    def test_writable_parent_with_no_uploads_directory(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir) / 'media'
+            media_path.mkdir()
+            # media exists and is writable, but 'uploads' does not exist
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                errors = check_media_folder_permissions(None)
+                assert errors == []
+
+    def test_media_root_is_file_not_directory(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / 'file.txt'
+            file_path.write_text('not a directory')
+            with override_settings(MEDIA_ROOT=str(file_path)):
+                errors = check_media_folder_permissions(None)
+                assert len(errors) >= 1
+                assert errors[0].id == 'qatrack.E001'
+                assert 'does not have write permissions' in errors[0].msg
+
+    def test_root_user_warning(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir)
+            (media_path / 'uploads').mkdir()
+            (media_path / 'uploads' / 'tmp').mkdir()
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                with patch('os.geteuid', return_value=0, create=True):
+                    errors = check_media_folder_permissions(None)
+                    assert any(
+                        e.id == 'qatrack.W001' and 'local OS user for QATrack+ services' in e.hint for e in errors
+                    )
+
+    def test_media_root_not_configured(self):
+        with override_settings(MEDIA_ROOT=None):
+            errors = check_media_folder_permissions(None)
+            assert len(errors) == 1
+            assert errors[0].id == 'qatrack.E003'
+            assert errors[0].msg == 'The Media folder is not configured'
+
+    def test_media_root_does_not_exist(self):
+        non_existent_path = '/non/existent/path/to/media'
+        with override_settings(MEDIA_ROOT=non_existent_path):
+            errors = check_media_folder_permissions(None)
+            assert len(errors) == 1
+            assert errors[0].id == 'qatrack.E004'
+            assert f"The Media folder '{non_existent_path}' does not exist" in errors[0].msg
+
+    def test_media_root_not_writable(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir)
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                with patch('os.access', return_value=False):
+                    errors = check_media_folder_permissions(None)
+                    assert len(errors) >= 1
+                    assert errors[0].id == 'qatrack.E001'
+                    assert ':www-data' in errors[0].hint
+                    assert 'chmod 2775' in errors[0].hint
+                    assert 'chmod 664' in errors[0].hint
+
+    def test_dynamic_hint_with_pwd(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir)
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                mock_pwd = Mock()
+                mock_pwd.getpwuid.return_value.pw_name = 'custom_user'
+                with (
+                    patch.dict('sys.modules', {'pwd': mock_pwd}),
+                    patch('os.geteuid', return_value=1000, create=True),
+                    patch('os.access', return_value=False),
+                ):
+                    errors = check_media_folder_permissions(None)
+                    assert any(
+                        'custom_user:www-data' in e.hint
+                        and 'chmod 2775' in e.hint
+                        and 'chmod 664' in e.hint
+                        for e in errors
+                    )
+
+    def test_dynamic_hint_with_getpass_fallback(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir)
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                with (
+                    patch.dict('sys.modules', {'pwd': None}),
+                    patch('getpass.getuser', return_value='fallback_user'),
+                    patch('os.access', return_value=False),
+                ):
+                    errors = check_media_folder_permissions(None)
+                    assert any(
+                        'fallback_user:www-data' in e.hint and 'chmod 2775' in e.hint and 'chmod 664' in e.hint
+                        for e in errors
+                    )
+
+    def test_hint_quotes_media_root_containing_spaces(self):
+        """A MEDIA_ROOT with a space must stay a single shell argument in the hint.
+
+        Unquoted, `find /srv/QATrack media -type d ...` splits into two paths and the
+        remediation the operator pastes silently does the wrong thing.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir) / 'QATrack media'
+            media_path.mkdir()
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                with patch('os.access', return_value=False):
+                    errors = check_media_folder_permissions(None)
+                    hints = [e.hint for e in errors if e.id == 'qatrack.E001']
+                    assert hints
+                    assert all(f"'{media_path}'" in h for h in hints)
+                    assert not any(f' {media_path} ' in h for h in hints)
+
+    def test_root_hint_uses_non_expandable_placeholder(self):
+        """The root fallback must not be a shell-expandable variable.
+
+        `$USER` expands to `root` in a root shell, so pasting the hint would chown the
+        media tree to root and make the original failure worse.
+
+        Both user-resolution paths are pinned to `root`: `pwd` is unavailable on
+        Windows, where the check falls back to `getpass.getuser()` and never reads
+        the patched `os.geteuid`.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir)
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                with (
+                    patch('os.geteuid', return_value=0, create=True),
+                    patch('getpass.getuser', return_value='root'),
+                    patch('os.access', return_value=False),
+                ):
+                    errors = check_media_folder_permissions(None)
+                    hints = [e.hint for e in errors if e.id == 'qatrack.E001']
+                    assert hints
+                    assert all('<qatrack-os-user>:www-data' in h for h in hints)
+                    assert not any('$USER' in h for h in hints)
+
+    def test_file_creation_error(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir)
+            (media_path / 'uploads').mkdir()
+            (media_path / 'uploads' / 'tmp').mkdir()
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                with patch('tempfile.mkstemp', side_effect=OSError('Disk full')):
+                    errors = check_media_folder_permissions(None)
+                    assert len(errors) >= 1
+                    assert errors[0].id == 'qatrack.E002'
+                    assert 'Disk full' in errors[0].msg
+
+    def test_parent_not_writable_for_missing_dir(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = Path(temp_dir) / 'media'
+            media_path.mkdir()
+            # media exists, but uploads does not exist
+            with override_settings(MEDIA_ROOT=str(media_path)):
+                original_access = __import__('os').access
+
+                def mock_access(path, mode):
+                    if Path(path) == media_path:
+                        return False
+                    return original_access(path, mode)
+
+                with patch('os.access', side_effect=mock_access):
+                    errors = check_media_folder_permissions(None)
+                    assert any(
+                        e.id == 'qatrack.E001'
+                        and f"to '{media_path}' to create" in e.msg
+                        and ':www-data' in e.hint
+                        and 'chmod 2775' in e.hint
+                        and 'chmod 664' in e.hint
+                        for e in errors
+                    )
+
+
+class TestRealFilesystemPermissions(SimpleTestCase):
+    """The permission checks, against real modes rather than a mocked os.access.
+
+    Every other test in this file mocks the two things that make this check
+    OS-dependent: `os.geteuid` is pinned to 1000 in `setUp`, and the unwritable
+    case patches `os.access` to return False. That keeps those tests
+    deterministic, which is right - but it means nothing exercises the kernel,
+    and two claims go unverified:
+
+    1. that a genuinely unwritable directory is reported at all, rather than only
+       a directory that `os.access` has been told to lie about; and
+    2. that the hint is *correct* - the check tells an administrator to run
+       `chown`, `chmod 2775` and `chmod 664`, and the existing tests assert that
+       text appears, never that following it fixes anything.
+
+    The second is the one that matters to a deployer: the hint is the part they
+    will act on, and advice that does not work is worse than no advice.
+
+    These skip when running as root, rather than mocking the uid, because root
+    bypasses mode-based denial entirely: a 0o555 directory is still writable by
+    root, so the condition under test cannot be created. That is also why the
+    other tests pin a non-root euid - under Docker or a CI container the real one
+    is 0.
+    """
+
+    def setUp(self):
+        # POSIX only, for two independent reasons. Windows has no os.geteuid at
+        # all - which is why the check itself guards with hasattr(os, 'geteuid') -
+        # and NTFS does not honour the mode bits these tests set, so chmod(0o555)
+        # would not deny writing and the condition under test could not be
+        # created even if the uid call existed.
+        if not hasattr(os, 'geteuid'):
+            self.skipTest(
+                'POSIX only: no os.geteuid on this platform, and its filesystem does '
+                'not honour the mode bits these tests rely on'
+            )
+        if os.geteuid() == 0:
+            self.skipTest(
+                'running as root, which bypasses directory modes - a 0o555 directory '
+                'is still writable, so an unwritable directory cannot be created'
+            )
+
+    def _media_tree(self, temp_dir):
+        """MEDIA_ROOT with the uploads/tmp tree the check looks for."""
+        media_path = Path(temp_dir) / 'media'
+        (media_path / 'uploads' / 'tmp').mkdir(parents=True)
+        return media_path
+
+    def test_a_really_unwritable_media_root_is_reported(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = self._media_tree(temp_dir)
+            media_path.chmod(0o555)
+            try:
+                with override_settings(MEDIA_ROOT=str(media_path)):
+                    errors = check_media_folder_permissions(None)
+            finally:
+                # Always restore write permission, or TemporaryDirectory cannot
+                # clean up and the failure is reported against the wrong thing.
+                media_path.chmod(0o755)
+
+        assert any(e.id == 'qatrack.E001' for e in errors), (
+            'a directory with mode 0o555 was not reported: %r' % [(e.id, e.msg) for e in errors]
+        )
+
+    def test_following_the_hint_makes_the_check_pass(self):
+        """The advice the check prints must actually fix the condition.
+
+        Applies exactly what the hint says - 2775 on directories, 664 on files -
+        and asserts the check falls silent. Without this, the hint is only ever
+        checked as a string.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_path = self._media_tree(temp_dir)
+            a_file = media_path / 'uploads' / 'existing.txt'
+            a_file.write_text('x', encoding='utf-8')
+
+            # Break it the way a bad deployment does.
+            for directory in (media_path / 'uploads' / 'tmp', media_path / 'uploads', media_path):
+                directory.chmod(0o555)
+
+            try:
+                with override_settings(MEDIA_ROOT=str(media_path)):
+                    before = check_media_folder_permissions(None)
+                assert any(e.id == 'qatrack.E001' for e in before), (
+                    'the broken state was not detected, so this test proves nothing: %r'
+                    % [(e.id, e.msg) for e in before]
+                )
+
+                # Now do what the hint tells an administrator to do.
+                for directory in (media_path, media_path / 'uploads', media_path / 'uploads' / 'tmp'):
+                    directory.chmod(0o2775)
+                a_file.chmod(0o664)
+
+                with override_settings(MEDIA_ROOT=str(media_path)):
+                    after = check_media_folder_permissions(None)
+            finally:
+                for directory in (media_path, media_path / 'uploads', media_path / 'uploads' / 'tmp'):
+                    directory.chmod(0o755)
+
+        assert after == [], (
+            'the check still reports a problem after its own advice was followed: %r'
+            % [(e.id, e.msg) for e in after]
+        )
