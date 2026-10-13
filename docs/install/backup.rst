@@ -133,6 +133,101 @@ Using Django to Dump The Database To JSON
     **Do NOT use this method for your regular database backups.**
     Dumping to JSON is slow, memory-intensive, and is not a reliable backup strategy for a production database. Always use the native backup tools provided by your database engine (e.g. ``pg_dump`` for PostgreSQL, or SQL Server Management Studio for MS SQL) for your regular backups.
 
+It is, however, the only backup format that does not care which database engine you
+are running, so it is the right tool for two jobs: **moving a site between engines**
+(SQL Server to PostgreSQL, say) and **seeding a test or demonstration instance** from
+a known state.
+
+**What has actually been tested, and what has not.** The commands below were tested
+end to end in exactly one configuration:
+
+.. list-table::
+    :header-rows: 1
+    :widths: 40 60
+
+    * - Tested
+      - Not tested
+    * - QATrack+ 4.0.1 → 4.0.1
+      - any version change, e.g. 4.0.1 → 4.0.2
+    * - PostgreSQL 16.15 → PostgreSQL 16.15
+      - **any change of engine**, in either direction
+    * - Ubuntu 24.04 → the same server
+      - a different server, or Linux ↔ Windows
+    * - 3,460 objects
+      - a site of clinical size
+
+A site of 3,460 objects was dumped, its database dropped, and the site rebuilt from
+the dump alone; every object count matched the original.
+
+.. warning::
+
+    **Engine migration is the use this format exists for, and it is the case that has
+    not been tested.** Nothing below has been exercised across SQL Server, MySQL or
+    SQLite, nor between two different engines. Treat a cross-engine move as something
+    to rehearse on a copy first, verify by restoring, and compare object counts
+    against the source - not as a procedure known to work.
+
+    The same applies to a version change. ``loaddata`` writes rows directly, so a dump
+    taken on one QATrack+ version carries that version's schema expectations; restore
+    it onto the same version unless you have tested otherwise.
+
+**Exporting**
+
+.. code-block:: bash
+
+    python manage.py dumpdata --indent 1 \
+        -e contenttypes -e auth.permission -e sessions -e admin.logentry -e django_q \
+        > qatrack-export.json
+
+The exclusions matter. ``contenttypes`` and ``auth.permission`` are rebuilt by
+``migrate`` and clash on import if they are in the file; ``sessions``,
+``admin.logentry`` and ``django_q`` are transient and only make the file larger.
+
+.. danger::
+
+    **On 4.0.x, do not add ``--natural-foreign`` or ``--natural-primary``.** They produce
+    a file that QATrack+ **cannot load back**. Three models - test list sublists, service
+    areas and service types - define a natural key without the matching lookup the
+    deserializer then needs, so a foreign key is written as a list and the import stops
+    with::
+
+        DeserializationError: Problem installing fixture ...
+        ["“['Accelerator']” value must be an integer."]: (service_log.unitservicearea:pk=1)
+
+    This was measured, not inferred - the restore failed at that line and left an empty
+    database. Note where that leaves you: ``loaddata`` empties the tables it is loading
+    into before it reaches the row it cannot resolve, so the attempt does not fail
+    harmlessly. The plain integer-primary-key form above restores correctly.
+
+    **This restriction is specific to the 4.0.x series.** The three missing lookups are
+    fixed from 4.1 onwards, where the same export restores correctly. An export taken on
+    4.1 with natural keys will still not load into a 4.0.x installation, which does not
+    have those lookups.
+
+**Restoring**
+
+.. code-block:: bash
+
+    # 1. an empty database, owned by your QATrack+ database user
+    # 2. then:
+    python manage.py migrate
+    python manage.py createcachetable
+    python manage.py loaddata qatrack-export.json
+
+``createcachetable`` must come **before** ``loaddata``, for the same reason it does
+during a fresh install: loading records fires cache-invalidation signals, and they
+need the cache table to exist.
+
+Do **not** run ``loaddata fixtures/defaults/*/*`` first. The export already contains
+those rows, and loading them twice gives you duplicate categories, statuses and unit
+types.
+
+.. note::
+
+    Verify a dump by restoring it, not by looking at it. A JSON file that was written
+    without error can still be one your site cannot read back - which on 4.0.x is exactly
+    what ``--natural-foreign`` produces.
+
 Restoring from Backups
 ----------------------
 
