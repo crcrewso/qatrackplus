@@ -124,8 +124,10 @@ class TestPaperSizeDefaults(TestCase):
 class TestCleanPaperSize(TestCase):
     """The value is interpolated into a CSS declaration, so it is validated.
 
-    An unexpected string does not fail loudly - it changes the rendered
-    document - which is the wrong failure mode for a QC record.
+    Without that validation an unexpected string would not fail loudly - it
+    would silently change the rendered document instead, which is the wrong
+    failure mode for a QC record. That is what these tests pin: a valid size
+    normalises, and anything else raises rather than reaching the stylesheet.
     """
 
     def test_valid_sizes_pass_through_normalised(self):
