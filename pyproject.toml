@@ -166,6 +166,11 @@ dev = [
     "coverage>=6.0,<8.0",
     "django-coverage>=1.2.4,<2.0",
     "freezegun>=1.0.0,<3.0",
+    # Reads back a rendered PDF so a report test can count pages and find its
+    # last line. Needed because the silent-truncation failure mode is only
+    # visible in the output: WeasyPrint has a render API that exposes pages,
+    # Chrome has nothing but the file it writes. Test-only, pure Python.
+    "pypdf>=4.0,<7.0",
     # >=4.38 for BiDi emulation.setTimezoneOverride, which the GUI tests use to
     # put the browser in settings.TIME_ZONE. BrowsingContext.set_viewport needs
     # >=4.33. Below those the calls degrade to a warning rather than failing, so
