@@ -1,7 +1,6 @@
 import datetime
 import io
 import json
-import time
 from unittest import mock
 
 from django.contrib.admin.sites import AdminSite
@@ -1031,9 +1030,10 @@ class TestReportInterface(BaseQATests):
         self.click('report-id-%s' % sr.pk)
 
         self.click('report-id-%s-schedule' % sr.pk)
+        self.wait_for_modal('schedule-modal')
 
         self.select_by_index('id_schedule-time', 1)
-        self.driver.find_element(By.ID, "id_schedule-emails").send_keys("a@b.com")
+        self.send_keys("id_schedule-emails", "a@b.com")
 
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'add-date')))
         self.driver.find_element(By.CLASS_NAME, "add-date").click()
@@ -1069,7 +1069,21 @@ class TestReportInterface(BaseQATests):
         self.wait.until(e_c.presence_of_element_located((By.ID, 'report-id-%s' % sr.pk)))
 
         self.click("report-id-%s-schedule" % sr.pk)
-        time.sleep(1)
+        # Wait for the dialog instead of sleeping a second and hoping.
+        #
+        # "Clear Schedule" lives in the dialog's footer and is in the DOM from
+        # the start, while the dialog's form arrives by AJAX and the dialog is
+        # only shown in that GET's success callback. If the GET has not returned
+        # within the second, the click lands on a hidden button, click() falls
+        # back to a JavaScript click, and the form posts with no
+        # `schedule-report` - so `get(pk=None)` raises an uncaught
+        # SavedReport.DoesNotExist and the server answers 500. The test then
+        # waits for `alert-success` that will never arrive, and presents as a
+        # timeout with a server error buried in the log.
+        #
+        # Diagnosed by crane on Windows, 2026-10-09: develop's harness, visible
+        # Chromium, this test alone failed 1 of 5 runs with exactly that 500.
+        self.wait_for_modal('schedule-modal')
 
         self.click("clear-schedule")
         self.wait.until(e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')))
