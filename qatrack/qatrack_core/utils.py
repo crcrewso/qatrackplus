@@ -113,21 +113,26 @@ def html_to_pdf(html, name="", paper_size="letter"):
 
     settings.PDF_ENGINE selects:
 
-      "auto"        WeasyPrint if it loads, otherwise Chrome (default)
+      "auto"        Chrome if available, otherwise WeasyPrint (default)
       "chrome"      Chrome only
       "weasyprint"  WeasyPrint only
 
-    WeasyPrint leads in "auto" because it is the direction QATrack+ is moving
-    for 4.1 and the better-tested of the two here: it needs no browser, so it
-    cannot be broken by a Chrome upgrade, a snap-confined chromium, or a
-    headless sandbox. Chrome remains the fallback so a deployment without
-    Pango, cairo and harfbuzz still produces reports (#835).
+    Chrome leads in "auto", and this **does** change the renderer for a site
+    that has both engines - which is most of them, since CHROME_PATH is probed
+    automatically. That is deliberate and temporary.
 
-    This is also the order QATrack+ used before 4.0.2. An earlier version of
-    this function inverted it to put Chrome first; that inversion was reverted
-    rather than documented, because it changed the renderer for every site that
-    had both engines installed - which is most of them, since CHROME_PATH is
-    probed automatically.
+    The reason is the report templates. v4 moved rendering from Chrome to
+    WeasyPrint and reports were then silently cut off after the first few
+    pages: WeasyPrint cannot fragment a flex container or a float across
+    pages, and Bootstrap floats every grid column. reports/pdf.css pins `.row`
+    and `.col-xs-12` back to plain blocks to fix that, but **no test yet
+    catches a return of the truncation**, and a truncated QC report looks
+    complete. Chrome fragments those layouts natively and has no such mode.
+
+    WeasyPrint needs no browser, so it cannot be broken by a Chrome upgrade, a
+    snap-confined chromium or a headless sandbox (#835), and it is where
+    QATrack+ is heading. The default moves to it once both engines are covered
+    by tests that would catch truncation - not before.
 
     Neither engine available is an error rather than a silent fallback: a
     report that cannot be produced should say so, not arrive wrong.
@@ -151,11 +156,11 @@ def html_to_pdf(html, name="", paper_size="letter"):
             "Unknown PDF_ENGINE %r - expected 'auto', 'chrome' or 'weasyprint'." % engine
         )
 
-    if weasyprint_available():
-        return weasyprint_to_pdf(html, name=name, paper_size=paper_size)
-
     if chrome_available():
         return chrometopdf(html, name=name, paper_size=paper_size)
+
+    if weasyprint_available():
+        return weasyprint_to_pdf(html, name=name, paper_size=paper_size)
 
     raise PdfGenerationError(
         "No PDF engine is available. Either set CHROME_PATH to a browser, or make "

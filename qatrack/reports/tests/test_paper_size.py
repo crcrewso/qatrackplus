@@ -350,8 +350,8 @@ class TestEngineSelection(TestCase):
     Chrome's error instead of WeasyPrint's.
     """
 
-    def test_auto_prefers_weasyprint_when_it_loads(self):
-        """Even with Chrome present: a site with both gets WeasyPrint."""
+    def test_auto_prefers_chrome_when_available(self):
+        """A site with both engines gets Chrome, which is the documented change."""
         from unittest import mock
 
         from qatrack.qatrack_core import utils
@@ -361,22 +361,22 @@ class TestEngineSelection(TestCase):
                  mock.patch.object(utils, "weasyprint_available", return_value=True), \
                  mock.patch.object(utils, "chrometopdf", return_value=b"%PDF-chrome") as chrome, \
                  mock.patch.object(utils, "weasyprint_to_pdf", return_value=b"%PDF-wp") as wp:
-                assert utils.html_to_pdf("<html></html>") == b"%PDF-wp"
-        assert wp.called
-        assert not chrome.called
+                assert utils.html_to_pdf("<html></html>") == b"%PDF-chrome"
+        assert chrome.called
+        assert not wp.called, "both engines available must resolve to Chrome, not merely reach it"
 
-    def test_auto_falls_back_to_chrome_without_weasyprint(self):
-        """A server with no Pango/cairo/harfbuzz still produces reports."""
+    def test_auto_falls_back_to_weasyprint_without_chrome(self):
+        """The #835 case: no browser on the server, reports still produced."""
         from unittest import mock
 
         from qatrack.qatrack_core import utils
 
         with override_settings(PDF_ENGINE="auto"):
-            with mock.patch.object(utils, "weasyprint_available", return_value=False), \
-                 mock.patch.object(utils, "chrome_available", return_value=True), \
-                 mock.patch.object(utils, "chrometopdf", return_value=b"%PDF-chrome") as chrome:
-                assert utils.html_to_pdf("<html></html>") == b"%PDF-chrome"
-        assert chrome.called
+            with mock.patch.object(utils, "chrome_available", return_value=False), \
+                 mock.patch.object(utils, "weasyprint_available", return_value=True), \
+                 mock.patch.object(utils, "weasyprint_to_pdf", return_value=b"%PDF-wp") as wp:
+                assert utils.html_to_pdf("<html></html>") == b"%PDF-wp"
+        assert wp.called
 
     def test_neither_engine_is_an_error_not_a_silent_failure(self):
         from unittest import mock
