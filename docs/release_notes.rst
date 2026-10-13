@@ -493,6 +493,21 @@ Ordered by consequence, most serious first.
   preview was unaffected, so the download appeared to be at fault rather than the
   report itself.
 
+* **Reports are rendered with Chrome where it is available, and the engine can now be
+  chosen.** 4.0 tried WeasyPrint first and fell back to Chrome, so **an installation
+  with both may see reports paginate and lay out differently after upgrading.** Set
+  ``PDF_ENGINE`` in ``local_settings.py`` to ``"weasyprint"`` to keep 4.0's renderer or
+  ``"chrome"`` to require the browser; the default, ``"auto"``, prefers Chrome and uses
+  WeasyPrint when no browser is configured.
+
+  Chrome leads because WeasyPrint cannot fragment a float across pages - measured
+  against WeasyPrint 65.1 - which is what silently truncated reports when 4.0 switched
+  to it. Flex containers it can fragment; that was fixed upstream. The stylesheet no
+  longer relies on either, and the truncation is now covered by tests that are checked
+  against a deliberately broken render, so the guard cannot pass by doing nothing.
+  WeasyPrint needs no browser on the server and remains the direction for a later
+  release.
+
 * **Service areas show their own names.** Every service area rendered as the words
   "service area" - in the admin, in every dropdown listing them, and anywhere a
   template showed one - so with more than one configured there was no way to tell
