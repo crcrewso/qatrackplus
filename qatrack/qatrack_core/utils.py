@@ -229,13 +229,18 @@ def weasyprint_to_pdf(html, name="", paper_size="letter"):
     # documented way to supply extra CSS and does not care about the document's
     # shape. Same validated rule either way - only the delivery differs - so this
     # is a fallback rather than a second mechanism.
+    # Validated before the engine is touched, and before either route is chosen:
+    # a bad paper size is refused the same way whichever route it would have taken,
+    # and without a document being parsed first. Hoisting this out of the fragment
+    # branch is what TestBothEnginesValidatePaperSize asserts - it replaces the
+    # engine with a stub that records whether it was reached.
+    rule = paper_size_rule(paper_size)
+
     pdf = BytesIO()
     if has_head(html):
         HTML(string=set_paper_size(html, paper_size)).write_pdf(pdf)
     else:
-        HTML(string=html).write_pdf(
-            pdf, stylesheets=[CSS(string=paper_size_rule(paper_size))]
-        )
+        HTML(string=html).write_pdf(pdf, stylesheets=[CSS(string=rule)])
     return pdf.getvalue()
 
 
