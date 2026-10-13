@@ -1,7 +1,7 @@
 import getpass
 import os
-import shlex
 import re
+import shlex
 import tempfile
 from pathlib import Path
 
