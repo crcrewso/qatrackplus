@@ -172,8 +172,8 @@ assuming:
     # then, substituting the version it printed:
     sudo nano /etc/postgresql/16/main/pg_hba.conf
 
-Scroll down to the bottom and scroll down to the bottom
-and change `peer` to `md5` for the `local all all` entry so it looks like:
+Scroll down to the bottom and change ``peer`` to ``md5`` for the ``local all all``
+entry so it looks like:
 
 .. code-block:: bash
 
