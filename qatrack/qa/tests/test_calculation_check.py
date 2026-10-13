@@ -288,12 +288,21 @@ class TestRecalculation(CalculationCheckTestCase):
         when = self.make_test('when', models.DATETIME)
         gap = self.make_test('gap', models.COMPOSITE, 'result = (when.date() - day).days')
         now = timezone.now()
+        # The DATE has to be three days before the *local* date, not the UTC one.
+        # The check formats a DATETIME the way the Perform QC page's inputs do,
+        # which means localtime - see _as_input - so `when.date()` inside the
+        # procedure is the local date. Deriving `day` from the UTC date instead
+        # made this pass through the local working day and fail every evening
+        # once UTC rolled past midnight: on a -0600 offset at 21:41 local, UTC is
+        # already tomorrow, the gap recalculates to 2 rather than 3, and the
+        # check correctly reports CHANGED.
+        local_today = timezone.localtime(now).date()
         self.perform(
             {
                 self.a: 1,
                 self.b: 2,
                 self.total: 3,
-                day: {'date_value': (now - timezone.timedelta(days=3)).date()},
+                day: {'date_value': local_today - timezone.timedelta(days=3)},
                 when: {'datetime_value': now},
                 gap: 3,
             }
