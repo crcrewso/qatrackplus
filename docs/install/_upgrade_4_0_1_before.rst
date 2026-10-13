@@ -40,8 +40,8 @@ applications plus one that creates the cache table:
     Applying service_log.0029_v4_0_2_final... OK
     Applying units.0022_v4_0_2_final... OK
 
-Between them they carry **194 field alterations**, one model-options change and
-five data steps. The field alterations are the bulk of it and are the least
+Between them they carry **194 field alterations**, two model-options changes and
+six data steps. The field alterations are the bulk of it and are the least
 interesting part: they bring the recorded schema into line with what the models
 have declared for several releases, so most make no change to your tables at all.
 The ``qa`` one is the largest at 132.
@@ -55,6 +55,20 @@ Two of those lines are worth recognising:
   database that had been migrated but never had that command run would fail at
   runtime. This migration removes that gap; if you have already run
   ``createcachetable``, it finds the table and does nothing.
+- **``service_log.0029_v4_0_2_final``** renames one permission. In 4.0.x both
+  "can view service event" and "can review service event" were labelled *Can
+  review service event*, so the admin's permission list showed the same words
+  twice for two different rights and there was no way to tell them apart when
+  assigning them. The view permission now reads **Can view service event**.
+
+  This is the one change in the upgrade an administrator will *see*. If you had
+  already corrected the wording yourself, the migration leaves your version
+  alone - it only replaces the exact 4.0.x text.
+
+  **Check your groups after upgrading** if you assigned either permission by
+  picking it from that list, because until now the two were indistinguishable
+  there. ``review_serviceevent`` is the one that also allows changing a service
+  event's status.
 
 If ``migrate`` prints more than these eight, or names a migration that is not in
 this list, stop and ask before continuing - it means the database is not at the

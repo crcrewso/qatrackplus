@@ -292,7 +292,13 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
 .. code-block:: bash
 
     cd ~/web/qatrackplus
-    uv sync --extra postgres
+    uv sync --extra postgres --no-dev
+
+``--no-dev`` keeps the test and documentation tooling out of a deployment.
+Without it ``uv`` installs the ``dev`` dependency group as well - around 220
+packages including pytest, selenium, sphinx and **django-debug-toolbar** - none
+of which a server needs in order to run QATrack+. Leave it off only if you
+intend to run the test suite on this machine; see :ref:`linux_upgrade_from_4_0_1`.
 
 .. dropdown:: For MySQL: Install Requirements
     :color: warning
