@@ -41,14 +41,35 @@ class TestRawSavesSkipTheCache(TestCase):
     return early: a fixture load should not be invalidating per-request badges,
     and on a database whose cache table is absent it aborted the load outright."""
 
+    def sentinel(self, *keys):
+        """Put a recognisable non-count in real cache keys, and take it out again.
+
+        These are the keys the application reads, and the value is a **string** where
+        the application expects a count. `get_sl_notification_total` sums three of
+        them from a context processor, so a leaked sentinel raises `int + str` on
+        every page for the rest of the run - which is what happened during a
+        full-suite run on the demo server on 2026-10-13, three tests failing with a
+        traceback that pointed nowhere near their own subject.
+
+        A `TestCase` rolls back the database, and the cache here *is* the database,
+        so the write usually disappears on its own. "Usually" is the problem: the
+        same test on a locmem or Redis cache leaks, and nothing in the file said the
+        cleanup was being relied on. So it is explicit.
+        """
+        for key in keys:
+            cache.set(key, "kept")
+            self.addCleanup(cache.delete, key)
+
     def test_receivers_return_early_for_raw_saves(self):
         from qatrack.faults.signals import update_faults_cache
         from qatrack.qa.signals import update_unreviewed_cache
         from qatrack.service_log.signals import update_colours, update_se_cache
 
-        cache.set(settings.CACHE_UNREVIEWED_COUNT, "kept")
-        cache.set(settings.CACHE_UNREVIEWED_FAULT_COUNT, "kept")
-        cache.set(settings.CACHE_SE_NEEDING_REVIEW_COUNT, "kept")
+        self.sentinel(
+            settings.CACHE_UNREVIEWED_COUNT,
+            settings.CACHE_UNREVIEWED_FAULT_COUNT,
+            settings.CACHE_SE_NEEDING_REVIEW_COUNT,
+        )
 
         update_unreviewed_cache(sender=User, raw=True)
         update_faults_cache(sender=User, raw=True)
@@ -61,6 +82,7 @@ class TestRawSavesSkipTheCache(TestCase):
 
     def test_a_real_save_still_invalidates(self):
         """The guard is specific to raw, not a blanket early return."""
+        self.addCleanup(cache.delete, settings.CACHE_UNREVIEWED_COUNT)
         cache.set(settings.CACHE_UNREVIEWED_COUNT, "stale")
         update = __import__("qatrack.qa.signals", fromlist=["update_unreviewed_cache"])
         update.update_unreviewed_cache(sender=User)
