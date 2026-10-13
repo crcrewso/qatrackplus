@@ -79,9 +79,42 @@ def remove_restored_unique_constraints(apps, schema_editor):
     remove_repaired_constraints(apps, schema_editor, UNIQUE_REPAIRS)
 
 
+APP_LABEL = "service_log"
+CODENAME = "view_serviceevent"
+OLD = "Can review service event"
+NEW = "Can view service event"
+
+
+def _rename(apps, frm, to):
+    """Update an existing permission's label.
+
+    `AlterModelOptions` above records the corrected model state, and that is not
+    enough on its own: `django.contrib.auth`'s `create_permissions` compares
+    existing rows on (content_type, codename) and only bulk_creates the ones that
+    are missing, so it never renames one that already exists. A site upgrading
+    from 4.0.x already has this row, with the old text.
+
+    Scoped to the stale text, so a site that corrected the wording by hand keeps
+    its own.
+    """
+    Permission = apps.get_model("auth", "Permission")
+    Permission.objects.filter(
+        content_type__app_label=APP_LABEL, codename=CODENAME, name=frm
+    ).update(name=to)
+
+
+def rename_view_serviceevent(apps, schema_editor):
+    _rename(apps, OLD, NEW)
+
+
+def restore_view_serviceevent_label(apps, schema_editor):
+    _rename(apps, NEW, OLD)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
+        ("auth", "0012_alter_user_first_name_max_length"),
         ("qa", "0061_v4_0_2_final"),
         ("auth", "0012_alter_user_first_name_max_length"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
@@ -89,6 +122,20 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AlterModelOptions(
+            name="serviceevent",
+            options={
+                "default_permissions": ("add", "change", "delete"),
+                "get_latest_by": "datetime_service",
+                "ordering": ["-datetime_service"],
+                "permissions": (
+                    ("review_serviceevent", "Can review service event"),
+                    ("view_serviceevent", "Can view service event"),
+                ),
+                "verbose_name": "Service Event",
+                "verbose_name_plural": "Service Events",
+            },
+        ),
         migrations.AlterModelOptions(
             name="returntoserviceqa",
             options={
@@ -192,5 +239,9 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             restore_unique_constraints,
             remove_restored_unique_constraints,
+        ),
+    
+        migrations.RunPython(
+            rename_view_serviceevent, restore_view_serviceevent_label
         ),
     ]
