@@ -29,7 +29,7 @@ def _ids_by_check(source):
     """Map each check id to the set of function names that return it."""
     owners = {}
     for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         for inner in ast.walk(node):
             if not isinstance(inner, ast.keyword) or inner.arg != 'id':
