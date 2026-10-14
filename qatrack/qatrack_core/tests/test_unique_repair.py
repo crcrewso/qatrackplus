@@ -86,14 +86,73 @@ class TestRepairDecisions(TransactionTestCase):
 
     `tearDown` undoes any constraint the repair created, because on an engine that is
     genuinely missing them the repair issues real DDL - and the first version of this
-    class leaked a constraint from one test into the next on SQL Server. Removal is by
-    generated name, so a constraint the database owns is never touched.
+    class leaked a constraint from one test into the next on SQL Server.
+
+    **Removal is by generated name, and that is not enough on its own.** The repair
+    migrations generate the *same* names, so once they have run during test-database
+    setup those constraints are indistinguishable by name from ones a test created -
+    and a blanket removal in `tearDown` would delete real migrated schema, leaving
+    every later test running against a database that no longer enforces it. Both
+    reviewers caught this on c#5.
+
+    So `setUp` records which of the generated names are already present, and `tearDown`
+    removes only the ones that were not. A constraint the database or a migration owns
+    is left alone whether or not it shares our naming.
     """
 
+    def _generated_names_present(self):
+        """Which of SPECS' generated constraint names exist right now."""
+        present = set()
+        for app_label, model_name, fields, _nullable in SPECS:
+            model = apps.get_model(app_label, model_name)
+            name = constraint_name(model, fields)
+            with connection.cursor() as cursor:
+                existing = connection.introspection.get_constraints(
+                    cursor, model._meta.db_table
+                )
+            if name in existing:
+                present.add(name)
+        return present
+
+    def setUp(self):
+        super().setUp()
+        self.preexisting_constraint_names = self._generated_names_present()
+
     def tearDown(self):
-        with connection.schema_editor() as editor:
-            remove_repaired_constraints(apps, editor, SPECS)
+        ours = [
+            spec for spec in SPECS
+            if constraint_name(apps.get_model(spec[0], spec[1]), spec[2])
+            not in self.preexisting_constraint_names
+        ]
+        if ours:
+            with connection.schema_editor() as editor:
+                remove_repaired_constraints(apps, editor, ours)
         super().tearDown()
+
+    def test_teardown_leaves_a_constraint_that_was_there_at_setup(self):
+        """The guard itself, asserted rather than assumed.
+
+        Creates a constraint under a generated name *before* `setUp`'s snapshot would
+        have seen it, by snapshotting again afterwards, and checks `tearDown`'s filter
+        would exclude it. Without the snapshot this class deletes migrated schema.
+        """
+        model = apps.get_model('parts', 'Room')
+        name = constraint_name(model, ('name', 'site'))
+        with connection.schema_editor() as editor:
+            editor.add_constraint(model, _build(model, ('name', 'site'), ('site',)))
+        try:
+            assert name in self._generated_names_present()
+            self.preexisting_constraint_names = self._generated_names_present()
+            survivors = [
+                spec for spec in SPECS
+                if constraint_name(apps.get_model(spec[0], spec[1]), spec[2])
+                not in self.preexisting_constraint_names
+            ]
+            assert all(constraint_name(apps.get_model(s[0], s[1]), s[2]) != name
+                       for s in survivors), survivors
+        finally:
+            with connection.schema_editor() as editor:
+                editor.remove_constraint(model, _build(model, ('name', 'site'), ('site',)))
 
 
     def test_it_does_nothing_where_the_database_already_enforces(self):
@@ -118,17 +177,35 @@ class TestRepairDecisions(TransactionTestCase):
             assert total == len(SPECS), result
 
     def test_a_partial_index_is_refused_where_unsupported_rather_than_emitted(self):
-        """MySQL cannot express one, and must be told rather than left looking repaired."""
-        if connection.features.supports_partial_indexes:
-            self.skipTest("this engine supports partial indexes")
+        """MySQL cannot express one, and must be told rather than left looking repaired.
 
-        with connection.schema_editor() as editor:
-            result = repair_unique_constraints(apps, editor, SPECS)
+        **This used to prove nothing.** It skipped on every engine that supports partial
+        indexes - which is the one the suite normally runs on - and where it did run it
+        accepted `already_enforced` *or* `unsupported`, so a database that already
+        enforced everything passed it without the branch under test ever executing.
+        Caught by @coderabbitai on c#5.
+
+        Both conditions are now forced, so it runs everywhere and can only pass by
+        reaching the branch: the engine is told it has no partial index support, and the
+        constraints are reported as not enforced.
+        """
+        from unittest import mock
 
         nullable_specs = [s for s in SPECS if s[3]]
+        assert nullable_specs, "SPECS no longer has a nullable spec to exercise"
+
+        with mock.patch.object(
+            type(connection.features), 'supports_partial_indexes', False
+        ), mock.patch(
+            'qatrack.qatrack_core.unique_repair._is_enforced', return_value=False
+        ):
+            with connection.schema_editor() as editor:
+                result = repair_unique_constraints(apps, editor, nullable_specs)
+
         for spec in nullable_specs:
             label = "%s.%s %s" % (spec[0], spec[1], list(spec[2]))
-            assert label in result['already_enforced'] + result['unsupported'], result
+            assert label in result['unsupported'], (label, result)
+        assert not result['created'], result
 
     def test_reversal_leaves_constraints_it_did_not_create(self):
         """It removes by generated name, so the database's own indexes are untouched.
