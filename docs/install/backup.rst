@@ -197,6 +197,19 @@ change to the command.
 ``VACUUM INTO`` is SQLite's own online backup. It takes a read lock, so it is safe
 while the site is in use, and it writes a compacted, consistent database:
 
+.. important::
+
+    **``VACUUM INTO`` needs SQLite 3.27.0 or newer** (February 2019). Check with
+    ``sqlite3 --version``, or ``python -c "import sqlite3; print(sqlite3.sqlite_version)"``
+    for the one Python will use - they are often different builds, and it is Python's
+    that matters for the second recipe below.
+
+    Any supported QATrack+ install has a newer SQLite than that. **The exception is
+    the rehearsal case described at the end of this appendix**: replaying the v3.1.1.4
+    migrations needs a SQLite no newer than 3.26, which is precisely the range where
+    this command does not exist. On such a host, stop the application and copy the
+    file instead - with nothing writing, a plain copy is consistent.
+
 .. code-block:: shell
 
     DB=/path/to/your/qatrack.db

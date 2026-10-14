@@ -81,8 +81,18 @@ class Command(BaseCommand):
         # container, so it is only an alternative for a PostgreSQL deployment.
         # Offering it to a SQL Server or SQLite operator would send them to a
         # tool that cannot read their database.
+        #
+        # Conditional wording, not a promise. `backup` is a default service in
+        # deploy/docker/compose.yaml with no profile guarding it, so a stock
+        # deployment does run it - but a site may have removed it, scaled it to
+        # zero, or be running an older compose file, and **this command cannot
+        # see any of that**. It knows the engine and nothing else. Telling such a
+        # site that its database is covered is the same failure this whole change
+        # exists to remove, one level up.
         docker_note = (
-            "\nOn a Docker deployment the bundled backup service covers this.\n"
+            "\nOn a Docker deployment the bundled `backup` service covers this - "
+            "if it is running. This command cannot tell whether it is, so check "
+            "that it has written a recent dump; if it is not running, use pg_dump.\n"
             if 'postgresql' in engine else "\n"
         )
         self.stdout.write(self.style.WARNING(
