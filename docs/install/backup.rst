@@ -24,29 +24,82 @@ you will still have access to your backups.
     installation is backed up correctly**.
 
 
+Which backup method is supported
+--------------------------------
+
+**The Docker ``backup`` service is the supported database backup.** It runs
+``pg_dump`` against the PostgreSQL container on a schedule, and the next section
+describes it.
+
+**Every other deployment backs up its database with its own engine's tooling**,
+as part of the backup regime your IT department already runs for the rest of the
+server. QATrack+ does not wrap those tools, and does not try to:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Engine
+     - Use
+   * - PostgreSQL
+     - ``pg_dump`` - or the Docker service below, which is this
+   * - MS SQL Server
+     - ``BACKUP DATABASE``, SQL Server Management Studio, or your existing SQL
+       Server maintenance plan
+   * - MySQL / MariaDB
+     - ``mysqldump``
+   * - SQLite
+     - a file copy taken while QATrack+ is **stopped**, or ``sqlite3 .backup``
+
+A database backup taken with the engine's own tooling is also the only kind the
+engine can promise is consistent. A file copy taken while the application is
+writing is not a backup, whatever its size suggests.
+
 The ``backup_site`` Management Command
 --------------------------------------
 
-``manage.py backup_site`` writes the database and the uploaded media files to a
-timestamped directory.
+``manage.py backup_site`` backs up the **uploaded media files** to a timestamped
+directory. It does **not** back up the database on any engine.
+
+.. important::
+
+    **It reports, per engine, that it is not backing up the database**, and names
+    the tool you should use instead. It does not attempt the database on any
+    engine, so it cannot appear to have taken one.
+
+    **The command exits zero.** There is no non-zero exit path in it, so a
+    scheduled task that checks only the exit status records a success - for the
+    media backup, which is all it claims. Read the output.
 
 .. warning::
 
-    **It can only back up the database on SQL Server and SQLite.** On PostgreSQL,
-    MySQL, or any other engine it reports that it cannot, and skips the database.
+    **Check any backup set taken before 4.0.2 - on any engine.**
 
-    **The command exits zero either way.** There is no non-zero exit path in it, so
-    a scheduled task that checks only the exit status will record a success. Check
-    the output, or check that a database file is in the backup directory.
+    Earlier versions attempted the database on SQL Server and SQLite, and both
+    could mislead you:
 
-    **On MySQL, check any backup set produced before 4.0.1.** Earlier versions
-    skipped the database silently on MySQL and still reported success, so a backup
-    set can contain media and settings and no database at all. Use ``mysqldump``.
+    - **On SQL Server it reported success while writing nothing.** Measured on
+      SQL Server 2022: the command printed *"Successfully backed up SQL Server
+      database to ..."*, exited zero, and left the dated folders **empty**, with
+      no row in ``msdb.dbo.backupset`` and *"Error: 3041 ... BACKUP failed to
+      complete the command"* in the SQL Server error log at the same second. If
+      you have been relying on it, **you do not have a database backup.**
 
-    **On PostgreSQL this command has never written a database backup.** It has
-    always said so rather than failing quietly, but if you have been relying on it,
-    you do not have one. Use ``pg_dump``, or the Docker script below, which does
-    exactly that.
+    - **On SQLite it wrote the copy beside the live database**, not into your
+      backup directory - on the same disk as the original, so it survived nothing
+      the original did not - and took the copy while QATrack+ may have been
+      writing.
+
+    - **On MySQL, before 4.0.1**, the database was skipped silently while the
+      command still reported success, so a backup set can contain media and
+      settings and no database at all.
+
+    - **On PostgreSQL it has never written a database backup.** It always said so
+      rather than failing quietly, but if you were relying on it, you do not have
+      one.
+
+    In every case the remedy is the same: take a database backup now with the
+    tooling in the table above, and confirm it opens.
 
 Backups in Docker
 -----------------
@@ -118,26 +171,44 @@ sites run it in production anyway. This appendix is for them. **It describes one
 hazard that will not announce itself**, and it is a documentation note rather than a
 change to the command.
 
-.. danger::
+.. note::
 
-    **``manage.py backup_site`` copies the SQLite file while QATrack+ may be writing
-    to it, and the copy is usually unusable.** It calls ``shutil.copy2`` on the live
-    database. It does not use SQLite's online backup, and the copy carries no
-    journal, so a copy taken while a transaction is open is a torn file.
+    **``manage.py backup_site`` no longer copies the SQLite database at all**, as of
+    4.0.2. It backs up uploaded media and reports, per engine, that it has not taken
+    a database backup. So there is nothing to distrust in its output any more - but
+    equally, nothing is backing your database up unless you do it yourself, with
+    ``VACUUM INTO`` below.
 
-    **Measured, five runs out of five:** with one thread writing continuously, every
-    ``shutil.copy2`` copy failed ``PRAGMA integrity_check``, and one could not be
-    opened at all - *"database disk image is malformed"*. Over the same runs,
-    ``VACUUM INTO`` produced a consistent copy every time.
+    **Why it was removed rather than fixed.** The command called ``shutil.copy2`` on
+    the live database: no online backup, no journal, so a copy taken mid-transaction
+    was a torn file. **Measured, five runs out of five:** with one thread writing
+    continuously, every ``shutil.copy2`` copy failed ``PRAGMA integrity_check``, and
+    one could not be opened at all - *"database disk image is malformed"*. Over the
+    same runs, ``VACUUM INTO`` produced a consistent copy every time. The command
+    printed ``Copied SQLite database to ...`` and exited zero either way, so a site
+    could hold a year of unopenable backups and never be told.
 
-    The command prints ``Copied SQLite database to ...`` and **exits zero** in both
-    cases, so nothing tells you which you have. A site can hold a year of backups
-    that are all unopenable and have been told nothing was wrong.
+    **If you are upgrading from 4.0.1 or earlier, any SQLite backup this command
+    produced should be treated as unverified** until you have opened it and run
+    ``PRAGMA integrity_check``.
 
 **Back up SQLite with ``VACUUM INTO``**
 
 ``VACUUM INTO`` is SQLite's own online backup. It takes a read lock, so it is safe
 while the site is in use, and it writes a compacted, consistent database:
+
+.. important::
+
+    **``VACUUM INTO`` needs SQLite 3.27.0 or newer** (February 2019). Check with
+    ``sqlite3 --version``, or ``python -c "import sqlite3; print(sqlite3.sqlite_version)"``
+    for the one Python will use - they are often different builds, and it is Python's
+    that matters for the second recipe below.
+
+    Any supported QATrack+ install has a newer SQLite than that. **The exception is
+    the rehearsal case described at the end of this appendix**: replaying the v3.1.1.4
+    migrations needs a SQLite no newer than 3.26, which is precisely the range where
+    this command does not exist. On such a host, stop the application and copy the
+    file instead - with nothing writing, a plain copy is consistent.
 
 .. code-block:: shell
 
