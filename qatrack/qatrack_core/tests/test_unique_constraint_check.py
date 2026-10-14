@@ -162,9 +162,18 @@ class TestCheckBehaviour(TestCase):
         # crane watched an upgrade print 16 "recreate it by hand" instructions and then
         # watched the same `migrate` create them - system checks run before migrations,
         # so an admin reads the warning and the fix in the wrong order.
-        assert any('4.0.2 migrations re-create these' in h for h in hints)
+        assert any('4.0.2 migrations re-create' in h for h in hints)
         assert any('check_unique_constraints' in h for h in hints)
         assert any('IS NOT NULL' in h for h in hints), "SQL Server treats NULLs as equal"
+
+        # ...but it must not over-promise, which is the other half. This check reports
+        # *any* unenforced declared set, while the migration repairs only the ones the
+        # 4.0 SQL Server retype dropped. @copilot-pull-request-reviewer pointed out that
+        # "there is nothing to do" therefore leaves a manually-dropped constraint
+        # unenforced while reading as handled, so the hint scopes its promise and tells
+        # the reader to confirm the warning is gone afterwards.
+        assert any('retype dropped' in h for h in hints), hints
+        assert any('confirm the warning is gone' in h for h in hints), hints
 
     def test_an_unreachable_database_is_not_this_checks_problem(self):
         from django.db.utils import DatabaseError

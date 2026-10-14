@@ -72,6 +72,27 @@ def _columns(model, fields):
 
 
 def _is_enforced(connection, model, fields):
+    """Whether some unique index already covers exactly these columns.
+
+    **It cannot tell a full index from a filtered one, and Django will not help.**
+    `get_constraints()` returns the same dict for
+    `CREATE UNIQUE INDEX ... (b)` and `CREATE UNIQUE INDEX ... (b) WHERE b IS NOT NULL` -
+    measured: identical keys, `unique=True`, no predicate anywhere. So an index that
+    excludes some rows reads as enforcing, and the repair skips a column set that is
+    still open to duplicates among the excluded rows.
+
+    That matters less than it sounds for the case this repair exists for - the filtered
+    indexes in play are the ones *this* code creates for nullable columns, and matching
+    them is correct - but it is a real gap for an index somebody else filtered, and it
+    is not closable here: comparing predicates needs backend-specific SQL
+    (`sqlite_master.sql`, `pg_index.indpred`, `sys.indexes.filter_definition`).
+
+    What closes it instead is evidence rather than introspection:
+    `manage.py check_unique_constraints --verify-enforced` looks for duplicate rows in
+    the column sets this reports as enforced, which is the symptom a filtered index
+    would produce. Raised by @coderabbitai on c#5 as a heavy lift; this is the part that
+    is not.
+    """
     with connection.cursor() as cursor:
         constraints = connection.introspection.get_constraints(
             cursor, model._meta.db_table
