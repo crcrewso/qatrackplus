@@ -270,3 +270,96 @@ def check_unique_constraints_enforced(app_configs=None, databases=None, **kwargs
                 )
 
     return problems
+
+
+def configured_cache_tables():
+    """(alias, table) for every configured database cache, by backend type.
+
+    Type, not dotted path: a subclass of Django's database cache under another
+    module name is still a database cache, and a `BACKEND.endswith(...)` test
+    misses it. Mirrors `createcachetable`.
+    """
+    from django.core.cache import caches
+    from django.core.cache.backends.db import BaseDatabaseCache
+
+    found = []
+    for alias in getattr(settings, 'CACHES', {}):
+        try:
+            cache = caches[alias]
+        except Exception:  # noqa: BLE001 - a broken backend is W014's problem, not this one
+            continue
+        if isinstance(cache, BaseDatabaseCache):
+            table = getattr(cache, '_table', None)
+            if table:
+                found.append((alias, table))
+    return found
+
+
+@register(Tags.caches, Tags.database, deploy=False)
+def check_cache_tables_exist(app_configs=None, databases=None, **kwargs):
+    """Every configured database cache must have its table.
+
+    `qatrack_core.0002_cache_table` creates them during `migrate`, and there are
+    three situations it cannot cover:
+
+    - **A routed cache.** `createcachetable` consults
+      `router.allow_migrate_model`. A router that puts the cache table on a
+      dedicated cache database while denying `qatrack_core` there leaves the
+      migration running only where the table is unwanted. A migration runs where
+      its own app is migrated; it cannot reach the other database.
+    - **A backend the migration did not recognise**, on an installation that
+      migrated before this check existed.
+    - **A site that never ran `createcachetable` and never re-migrated.**
+
+    The symptom without this is not subtle but it is badly timed: every write
+    that invalidates a cached count issues a DELETE against the table from a
+    `post_save` receiver, so creating a user raises `OperationalError: no such
+    table`. `manage.py check` passed on such a database until now, which is what
+    made it a surprise during an upgrade rather than before one.
+
+    A warning, not an error: the site runs until something writes, and failing
+    `migrate` outright over a cache table would be worse than saying so.
+    """
+    if not databases:
+        return []
+
+    # Imported here, as the other database checks in this module do, so importing
+    # checks.py does not pull the database layer in at settings-load time.
+    from django.core.cache.backends.db import BaseDatabaseCache
+    from django.db import connections, router
+    from django.db.utils import DatabaseError
+
+    problems = []
+    for alias in databases:
+        connection = connections[alias]
+        try:
+            with connection.cursor() as cursor:
+                existing = set(connection.introspection.table_names(cursor))
+        except (DatabaseError, OSError):
+            # Unreachable or un-migrated is not this check's business, exactly as
+            # for W011 and W012.
+            continue
+
+        for cache_alias, table in configured_cache_tables():
+            if table in existing:
+                continue
+            if not router.allow_migrate_model(alias, BaseDatabaseCache(table, {}).cache_model_class):
+                # The router says this table does not belong on this database.
+                continue
+            problems.append(
+                Warning(
+                    "The cache table %r for CACHES[%r] is missing from the %r database."
+                    % (table, cache_alias, alias),
+                    hint=(
+                        "Run `manage.py migrate` - qatrack_core.0002_cache_table "
+                        "creates it - or `manage.py createcachetable %s --database %s` "
+                        "if a database router keeps that table off the application "
+                        "database.\n\n"
+                        "Until it exists, any write that invalidates a cached count "
+                        "fails: creating a user raises `no such table`." % (table, alias)
+                    ),
+                    id='qatrack.W013',
+                )
+            )
+    return problems
+
