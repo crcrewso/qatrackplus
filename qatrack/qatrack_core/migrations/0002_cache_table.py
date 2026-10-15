@@ -30,14 +30,35 @@ from django.db import migrations
 
 
 def cache_table_names(settings):
-    """The LOCATIONs of every configured DatabaseCache, in definition order."""
+    """The table of every configured database cache, in definition order.
+
+    Decided by the backend's **type**, not by its dotted path. A suffix check on
+    `BACKEND` - `endswith("db.DatabaseCache")` - misses a subclass living under
+    another module path, and `migrate` would then finish while leaving that
+    cache's table uncreated and the cache unusable, which is the exact failure
+    this migration exists to remove. Django's own `createcachetable` discovers
+    them this way, with `isinstance(cache, BaseDatabaseCache)`.
+
+    `cache._table` rather than `LOCATION`, for the same reason: it is the table
+    name the backend resolved, whatever the config said.
+
+    A backend that cannot even be constructed is skipped rather than raising. A
+    migration is the wrong place to fail on an unrelated misconfigured cache,
+    and `qatrack.W013` reports a missing cache table afterwards.
+    """
+    from django.core.cache import caches
+    from django.core.cache.backends.db import BaseDatabaseCache
+
     names = []
-    for alias, config in getattr(settings, "CACHES", {}).items():
-        backend = config.get("BACKEND", "")
-        if backend.endswith("db.DatabaseCache"):
-            location = config.get("LOCATION")
-            if location and location not in names:
-                names.append(location)
+    for alias in getattr(settings, "CACHES", {}):
+        try:
+            cache = caches[alias]
+        except Exception:  # noqa: BLE001 - see docstring
+            continue
+        if isinstance(cache, BaseDatabaseCache):
+            table = getattr(cache, "_table", None)
+            if table and table not in names:
+                names.append(table)
     return names
 
 
@@ -47,6 +68,18 @@ def create_cache_tables(apps, schema_editor):
     names = cache_table_names(settings)
     if not names:
         return
+    # `createcachetable` consults the router itself
+    # (`router.allow_migrate_model`), so on a multi-database site it may
+    # legitimately decline: a router that places the cache table on a dedicated
+    # cache database, while denying `qatrack_core` migrations there, leaves this
+    # RunPython running only where the table is not wanted and declining where
+    # it is. A migration cannot reach across that - it runs where its own app is
+    # migrated and nowhere else.
+    #
+    # So this does the common case and does not pretend to do the other.
+    # `qatrack.W013` checks that each configured cache table actually exists and
+    # reports the ones that do not, which covers the routed case, a subclassed
+    # backend this missed, and a site that simply never ran anything.
     call_command(
         "createcachetable",
         *names,

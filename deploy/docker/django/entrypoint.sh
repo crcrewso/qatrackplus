@@ -19,13 +19,13 @@ while ! pg_isready -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME"; do
   sleep 1
 done
 echo "PostgreSQL started"
-echo "PostgreSQL started"
 
 export USE_DOCKER=true
 
-echo "Creating cache table..."
-python manage.py createcachetable
-
+# The cache table used to be created here, before migrate. It is now created by
+# qatrack_core.0002_cache_table, so migrate covers it and running the command
+# first is redundant. qatrack.W013 reports a cache table that is still missing -
+# a router that keeps it off the application database, for instance.
 echo "Running migrations..."
 python manage.py migrate --noinput
 
