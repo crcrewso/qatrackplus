@@ -27,12 +27,27 @@ USER_FACING_KWARGS = {
     'verbose_name', 'verbose_name_plural', 'help_text', 'label', 'empty_label',
 }
 
-# Calls whose positional string argument is rendered to a user.
-USER_FACING_CALLS = {
-    'ValidationError',
-    # django.contrib.messages
-    'success', 'error', 'info', 'warning', 'debug', 'add_message',
+# Calls whose string argument is rendered to a user, and *which* argument that
+# is. Iterating every positional argument instead would report the ones that
+# are not messages: `ValidationError(message, code)` would flag the code, and
+# `messages.success(request, "Saved", "notice")` would flag the extra_tags.
+#
+#   ValidationError(message, code=None, params=None)
+#   messages.<level>(request, message, extra_tags='', fail_silently=False)
+#   messages.add_message(request, level, message, extra_tags='', ...)
+MESSAGE_ARGUMENT = {
+    'ValidationError': 0,
+    'success': 1,
+    'error': 1,
+    'info': 1,
+    'warning': 1,
+    'debug': 1,
+    'add_message': 2,
 }
+USER_FACING_CALLS = set(MESSAGE_ARGUMENT)
+
+# `messages.success(request, message="Saved")` passes the message by keyword.
+MESSAGE_KWARGS = {'message'}
 
 # `messages.warning(request, "...")` is user facing. `logger.warning("...")` is
 # not: a log line is read by an administrator in the server's log, and
@@ -64,22 +79,84 @@ def _is_translated(node):
 def _receiver(func):
     """What a method is called on: 'logger' in `logger.warning(...)`.
 
-    Handles `self.logger.warning(...)` too, by taking the last attribute name.
+    Handles `self.logger.warning(...)` too, by taking the last attribute name,
+    and `logging.getLogger(__name__).warning(...)`, where the receiver is a
+    call and so has no name to match - without which that line reads as a
+    user-facing message and fails the build.
     """
     value = getattr(func, 'value', None)
     if isinstance(value, ast.Name):
         return value.id
     if isinstance(value, ast.Attribute):
         return value.attr
+    if isinstance(value, ast.Call):
+        factory = value.func
+        name = getattr(factory, 'attr', None) or getattr(factory, 'id', None)
+        if name in {'getLogger', 'get_logger'}:
+            return 'logger'
     return ''
 
 
+def _template(node):
+    """The literal a user actually reads, out of an interpolated expression.
+
+    `"Error with %s" % name` and `"Error with {}".format(name)` both present a
+    literal template, and that template is the string needing translation.
+    Returns the node to examine, which may be the one passed in.
+    """
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+        return _template(node.left)
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == 'format'
+    ):
+        return _template(node.func.value)
+    return node
+
+
 def _literal_string(node):
+    if isinstance(node, ast.JoinedStr):
+        # an f-string: its literal parts are user-facing, and an f-string
+        # cannot be translated at all, so finding one here is the point.
+        #
+        # Interpolations are rendered as {} rather than dropped. Joining only
+        # the literal parts would report f'Service event {id} deleted' as
+        # 'Service event  deleted', which reads as a stray double space in the
+        # source and sends whoever fixes it looking for one.
+        text = ''.join(
+            part.value if isinstance(part, ast.Constant) and isinstance(part.value, str) else '{}'
+            for part in node.values
+        ).strip()
+        if text and text not in IGNORED_VALUES:
+            return text
+        return None
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         text = node.value.strip()
         if text and text not in IGNORED_VALUES:
             return text
     return None
+
+
+def _message_literals(node):
+    """Every untranslated user-facing literal a message argument can hold.
+
+    Django accepts a dict or a list of messages as well as a single one, so
+    `ValidationError({"name": "Enter a name"})` has to be looked into rather
+    than skipped for not being a string. Dictionary *keys* are field names, not
+    text, so only the values are examined.
+    """
+    node = _template(node)
+
+    if isinstance(node, ast.Dict):
+        return [text for value in node.values for text in _message_literals(value)]
+    if isinstance(node, ast.List | ast.Tuple):
+        return [text for element in node.elts for text in _message_literals(element)]
+
+    if _is_translated(node):
+        return []
+    text = _literal_string(node)
+    return [text] if text else []
 
 
 def find_untranslated():
@@ -108,23 +185,39 @@ def find_untranslated():
         except (SyntaxError, UnicodeDecodeError):
             continue
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
+        found |= untranslated_in_tree(tree, key)
 
-            for keyword in node.keywords:
-                if keyword.arg in USER_FACING_KWARGS and not _is_translated(keyword.value):
-                    text = _literal_string(keyword.value)
-                    if text:
-                        found.add((key, keyword.arg, text))
+    return found
 
-            name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, 'id', '')
-            if name in USER_FACING_CALLS and _receiver(node.func) not in LOGGING_RECEIVERS:
-                for argument in node.args:
-                    if not _is_translated(argument):
-                        text = _literal_string(argument)
-                        if text:
-                            found.add((key, name, text))
+
+def untranslated_in_tree(tree, key=''):
+    """The findings in one parsed module.
+
+    Split out from `find_untranslated` so the detection can be tested against
+    a snippet rather than only against the repository, which is the difference
+    between knowing the rules work and knowing today's tree happens to pass.
+    """
+    found = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+
+        for keyword in node.keywords:
+            if keyword.arg in USER_FACING_KWARGS and not _is_translated(keyword.value):
+                text = _literal_string(keyword.value)
+                if text:
+                    found.add((key, keyword.arg, text))
+
+        name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, 'id', '')
+        if name in USER_FACING_CALLS and _receiver(node.func) not in LOGGING_RECEIVERS:
+            index = MESSAGE_ARGUMENT[name]
+            arguments = []
+            if len(node.args) > index:
+                arguments.append(node.args[index])
+            arguments.extend(k.value for k in node.keywords if k.arg in MESSAGE_KWARGS)
+            for argument in arguments:
+                for text in _message_literals(argument):
+                    found.add((key, name, text))
 
     return found
 
@@ -238,3 +331,99 @@ def test_logging_calls_are_not_user_facing():
                     flagged.add(text)
 
     assert flagged == {"a message to a person"}, flagged
+
+
+def scan(code):
+    """What the scanner finds in a snippet, as a set of (kind, text)."""
+    return {(kind, text) for _key, kind, text in untranslated_in_tree(ast.parse(textwrap.dedent(code)))}
+
+
+class TestDetection:
+    """The rules themselves, against snippets.
+
+    The two tests above only say that today's tree passes, which it would also
+    do if the rules caught nothing. These say what the rules actually catch.
+    """
+
+    def test_a_plain_literal(self):
+        assert scan('ValidationError("Enter a name")') == {('ValidationError', 'Enter a name')}
+
+    def test_a_translated_literal_is_left_alone(self):
+        assert scan('ValidationError(_("Enter a name"))') == set()
+
+    # interpolated messages: the template is the thing needing translation
+
+    def test_percent_interpolation(self):
+        assert scan('ValidationError("Error with %s test" % slug)') == {
+            ('ValidationError', 'Error with %s test')
+        }
+
+    def test_str_format(self):
+        assert scan('ValidationError("Error with {} test".format(slug))') == {
+            ('ValidationError', 'Error with {} test')
+        }
+
+    def test_an_f_string(self):
+        """An f-string cannot be translated at all, so finding one is the point."""
+        assert scan('messages.success(request, f"Deleted event {pk} now")') == {
+            ('success', 'Deleted event {} now')
+        }
+
+    def test_a_translated_template_is_left_alone(self):
+        """`_("a %s") % x` is the correct idiom and must not be reported."""
+        assert scan('ValidationError(_("Error with %s test") % slug)') == set()
+        assert scan('ValidationError(_("Error with {} test").format(slug))') == set()
+
+    # only the argument that carries the message
+
+    def test_validation_error_code_is_not_a_message(self):
+        assert scan('ValidationError(_("Bad"), "invalid_choice")') == set()
+
+    def test_extra_tags_is_not_a_message(self):
+        assert scan('messages.success(request, _("Saved"), "notice")') == set()
+
+    def test_the_request_is_not_a_message(self):
+        assert scan('messages.success(request, "Saved")') == {('success', 'Saved')}
+
+    def test_add_message_takes_the_third_argument(self):
+        assert scan('messages.add_message(request, messages.INFO, "Saved")') == {
+            ('add_message', 'Saved')
+        }
+
+    def test_a_message_passed_by_keyword(self):
+        assert scan('messages.success(request, message="Saved")') == {('success', 'Saved')}
+
+    # Django accepts containers of messages
+
+    def test_a_dict_of_messages(self):
+        """The keys are field names, not text, so only the values are examined."""
+        assert scan('ValidationError({"name": "Enter a name"})') == {
+            ('ValidationError', 'Enter a name')
+        }
+
+    def test_a_list_of_messages(self):
+        assert scan('ValidationError(["Enter a name", _("Already taken")])') == {
+            ('ValidationError', 'Enter a name')
+        }
+
+    # logging is not user facing
+
+    def test_a_named_logger(self):
+        assert scan('logger.warning("Retry failed")') == set()
+
+    def test_a_logger_on_self(self):
+        assert scan('self.logger.warning("Retry failed")') == set()
+
+    def test_a_logger_created_inline(self):
+        """`logging.getLogger(__name__).warning(...)` has no receiver *name*."""
+        assert scan('logging.getLogger(__name__).warning("Retry failed")') == set()
+
+    # keyword arguments rendered to a user
+
+    def test_help_text(self):
+        assert scan('models.CharField(help_text="Current status")') == {
+            ('help_text', 'Current status')
+        }
+
+    def test_translated_help_text_is_left_alone(self):
+        assert scan('models.CharField(help_text=_l("Current status"))') == set()

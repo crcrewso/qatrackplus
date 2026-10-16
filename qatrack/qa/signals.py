@@ -12,6 +12,7 @@ from django.db.models.signals import (
 )
 from django.dispatch import Signal, receiver
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django_comments.models import Comment
 from django_comments.signals import comment_was_posted
 
@@ -182,8 +183,10 @@ def on_test_save(*args, **kwargs):
                 1.,
             ):
                 raise ValidationError(
-                    "Can't change test type to %s while this test is still assigned to "
-                    "%s with a non-boolean reference" % (test.type, ua.unit.name)
+                    _(
+                        "Can't change test type to %s while this test is still assigned to "
+                        "%s with a non-boolean reference"
+                    ) % (test.type, ua.unit.name)
                 )
 
 

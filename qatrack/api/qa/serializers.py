@@ -424,8 +424,10 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
             min_day, max_day = 0, len(self.utc.tests_object) - 1
             if not (min_day <= self.day <= max_day):
                 raise serializers.ValidationError(
-                    "'%s' is not a valid day for this Test Collection.  "
-                    "Day must be between %s & %s" % (self.day, min_day, max_day)
+                    _(
+                        "'%s' is not a valid day for this Test Collection.  "
+                        "Day must be between %s & %s"
+                    ) % (self.day, min_day, max_day)
                 )
 
             self.day, self.tl = self.utc.get_list(day=self.day)
@@ -442,7 +444,7 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
                 d = validated_data['tests'].get(slug, {})
                 v = d.get("value")
                 if v not in ("", None) and v != cv:
-                    raise serializers.ValidationError("Incorrect constant value passed for %s" % slug)
+                    raise serializers.ValidationError(_("Incorrect constant value passed for %s") % slug)
                 d['value'] = cv
                 validated_data['tests'][slug] = d
             elif type_ == models.UPLOAD:
@@ -468,7 +470,7 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
                 try:
                     fname = d['filename']
                 except KeyError:
-                    raise serializers.ValidationError("%s is missing the filename field" % slug)
+                    raise serializers.ValidationError(_("%s is missing the filename field") % slug)
 
                 content = d['value']
 
@@ -482,7 +484,9 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
                 f = ContentFile(content, fname)
                 test_data = UploadHandler(user, comp_calc_data, f).process()
                 if test_data['errors']:
-                    raise serializers.ValidationError("Error with %s test: %s" % (slug, '\n'.join(test_data['errors'])))
+                    raise serializers.ValidationError(
+                        _("Error with %s test: %s") % (slug, '\n'.join(test_data['errors']))
+                    )
 
                 self.ti_attachments[slug].append(test_data['attachment_id'])
                 self.ti_attachments[slug].extend([a['attachment_id'] for a in test_data['user_attached']])
@@ -501,7 +505,9 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
 
                 for slug, test_data in results['results'].items():
                     if test_data['error']:
-                        raise serializers.ValidationError("Error with %s test: %s" % (slug, test_data['error']))
+                        raise serializers.ValidationError(
+                            _("Error with %s test: %s") % (slug, test_data['error'])
+                        )
 
                     data = validated_data['tests'].get(slug, {})
                     data['comment'] = '\n'.join(c for c in [data.get("comment", ""), test_data.get("comment")] if c)

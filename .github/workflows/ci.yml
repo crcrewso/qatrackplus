@@ -79,12 +79,43 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Strings this change adds
         run: |
+          mkdir -p /tmp/po-before
+          for po in qatrack/locale/*/LC_MESSAGES/django.po; do
+            locale=$(basename "$(dirname "$(dirname "$po")")")
+            git show "HEAD:$po" > "/tmp/po-before/$locale.po"
+          done
+
           # No --no-location: the committed catalogues carry source references,
           # and stripping 3000+ of them would bury the real diff.
-          uv run python manage.py makemessages --all --no-obsolete >/dev/null 2>&1 || true
-          # Count each string once, not once per locale.
-          added=$(git diff -U0 -- 'qatrack/locale/**/django.po' \
-                  | grep -E '^\+msgid "' | grep -v '^\+msgid ""$' | sort -u | wc -l)
+          #
+          # This command's own failure has to be visible. Discarding it and
+          # carrying on left the catalogues unchanged, which the step then
+          # reported as "No new translatable strings" - a clean result meaning
+          # only that nothing had been looked at. Translation debt stays
+          # non-blocking, so the job still passes; it just says what happened.
+          if ! uv run python manage.py makemessages --all --no-obsolete >/tmp/makemessages.log 2>&1; then
+            {
+              echo
+              echo "### Could not work out which strings this change adds"
+              echo
+              echo '`makemessages` failed, so there is no report below. This does not fail'
+              echo 'the build - translation debt is not blocking - but do **not** read it as'
+              echo '"no new strings".'
+              echo
+              echo '```'
+              tail -30 /tmp/makemessages.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Compares catalogues as catalogues. Grepping '^+msgid "' out of the
+          # diff could only see short messages: gettext writes a long one as
+          # `msgid ""` plus continuation lines, so every real validation message
+          # was missing from the count. See the script's own docstring.
+          uv run --with polib python .github/scripts/new_translatable_strings.py \
+            qatrack/locale /tmp/po-before > /tmp/new-strings.txt
+          added=$(head -1 /tmp/new-strings.txt)
           {
             echo
             if [ "${added:-0}" -eq 0 ]; then
@@ -97,8 +128,7 @@ jobs:
               echo "translator can pick it up."
               echo
               echo '```'
-              git diff -U0 -- 'qatrack/locale/**/django.po' \
-                | grep -E '^\+msgid "' | grep -v '^\+msgid ""$' | sort -u | head -40
+              tail -n +2 /tmp/new-strings.txt | head -40
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
