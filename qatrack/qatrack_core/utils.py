@@ -185,14 +185,22 @@ def chrometopdf(html, name="", paper_size="letter"):
             # otherwise share the default user-data-dir and can collide.
             #
             # Passed as a sequence on every platform. On Windows this was
-            # collapsed with ' '.join() first, which quotes nothing: every Chrome
-            # location settings.py probes is under "C:\Program Files (x86)", and
-            # TMP_REPORT_ROOT can sit under a profile directory with a space in
-            # it, so both the executable and --print-to-pdf= were split on their
-            # spaces before Chrome saw them. subprocess quotes a sequence itself
-            # with list2cmdline(), which is what it is for. Likely a second cause
-            # of #835 - a service account's temp directory is not the one a
-            # deployer tests from by hand.
+            # collapsed with ' '.join() first, which quotes nothing.
+            #
+            # What that broke is the *output* path, not the browser's. Measured
+            # on Windows by crane, 2026-10-18: CreateProcess resolves an
+            # unquoted "C:\Program Files (x86)\...\chrome.exe" by trying each
+            # space-separated prefix in turn, so Chrome still started. It was
+            # --print-to-pdf= and the file:// argument that were split at the
+            # space, so Chrome wrote nowhere and the old handler then blamed the
+            # executable - the #835 symptom, "chrome ... executable not found"
+            # for a browser that had run. Reproduced against this code's
+            # predecessor: a report folder with a space fails, without one
+            # succeeds.
+            #
+            # subprocess quotes a sequence itself with list2cmdline(), which is
+            # what it is for. It also closes the C:\Program.exe hijack that an
+            # unquoted path invites.
             command = [
                 settings.CHROME_PATH,
                 '--headless',
