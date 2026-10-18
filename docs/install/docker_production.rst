@@ -121,3 +121,17 @@ host is rebooted.
 .. code-block:: console
 
     $ docker compose up -d
+
+
+Create Your First User
+^^^^^^^^^^^^^^^^^^^^^^
+
+No user account is created for you, so create one before your first login.
+The ``django`` service runs the application, so run ``createsuperuser`` there
+and answer its prompts:
+
+.. code-block:: console
+
+    $ docker compose exec django python manage.py createsuperuser
+
+You can then sign in with the credentials you just chose.
