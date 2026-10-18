@@ -944,11 +944,18 @@ if use_docker:
 
     CSRF_TRUSTED_ORIGINS = override_from_env("CSRF_TRUSTED_ORIGINS", converter=env_csv)
     if not CSRF_TRUSTED_ORIGINS:
+        # Only the scheme this deployment actually serves. Trusting both meant
+        # an https site also accepted http origins, which is what
+        # qatrackplus/qatrackplus#784 asks to stop doing - and what the TODO
+        # that used to sit on this loop was asking about.
+        #
+        # Note what this does *not* carry: the port. A deployment published on
+        # anything other than 80 or 443 has to set CSRF_TRUSTED_ORIGINS itself,
+        # because a browser's Origin header includes the port and these values
+        # do not. The container cannot know which host port it was published
+        # on. See the note in .env.example.
         CSRF_TRUSTED_ORIGINS = [
-            scheme + host
-            for host in ALLOWED_HOSTS
-            for scheme in ('http://', 'https://')  # TODO: limit this to protocol set in HTTP_OR_HTTPS?
-            if host != '*'
+            '%s://%s' % (HTTP_OR_HTTPS, host) for host in ALLOWED_HOSTS if host != '*'
         ]
 
     override_from_env("SESSION_COOKIE_SECURE", converter=env_bool)
