@@ -137,6 +137,12 @@ jobs:
           docker exec -i ${{ job.services.mysql.id }} mysql -u root -proot -e "CREATE USER 'qatrack'@'%' IDENTIFIED WITH mysql_native_password BY 'qatrackpass'; CREATE USER 'qatrack_reports'@'%' IDENTIFIED WITH mysql_native_password BY 'qatrackpass'; CREATE DATABASE qatrackplus CHARACTER SET utf8mb4; GRANT ALL ON qatrackplus.* TO 'qatrack'@'%'; GRANT ALL ON test_qatrackplus.* TO 'qatrack'@'%'; GRANT SELECT ON qatrackplus.* TO 'qatrack_reports'@'%'; FLUSH PRIVILEGES;"
           docker exec -i ${{ job.services.mysql.id }} sh -c "mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root -proot mysql"
 
+      - name: Point the tests at the job's database
+        if: matrix.db != 'sqlite'
+        # test_settings.py pins in-memory SQLite unless local_test_settings.py says otherwise;
+        # without this step the postgres and mysql jobs test SQLite. Fails if they still would.
+        run: uv run python scripts/ci_test_database.py
+
       - name: Run Tests
         run: uv run pytest -x -m "not selenium"
 
@@ -210,6 +216,7 @@ jobs:
           "@
           $code | Out-File -FilePath generate_settings.py -Encoding utf8
           python generate_settings.py
+
       - name: Run Tests
         run: uv run pytest -x -m "not selenium"
 
