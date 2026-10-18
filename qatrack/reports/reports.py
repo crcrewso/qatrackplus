@@ -273,18 +273,29 @@ class BaseReport(metaclass=ReportMeta):
         content = template.render(context)
         paper_size = context.get('paper_size', 'letter')
         
-        # Use WeasyPrint for paper size support
+        # WeasyPrint first: it honours the paper size, needs no browser, and is
+        # a declared dependency. Chrome is the fallback.
         try:
             return weasyprint_to_pdf(content, name=fname, paper_size=paper_size)
-        except ImportError:
-            # WeasyPrint not available, fall back to Chrome
-            logger.warning("WeasyPrint not available, falling back to Chrome")
+        except (ImportError, OSError) as e:
+            # Unavailable, rather than broken. WeasyPrint is pure Python but
+            # renders through pango, cairo and gdk-pixbuf, and when those are
+            # missing - a stock Windows install without GTK, for instance - the
+            # *import* raises OSError, not ImportError. Catching only
+            # ImportError sent that case to the branch below, which logged a
+            # full ERROR traceback for every report on a machine where falling
+            # back to Chrome is simply the normal path. Measured by crane on
+            # Windows, 2026-10-18.
+            #
+            # A warning naming the reason, once per report, is the honest
+            # amount of noise: it is not an error, and it is not nothing.
+            logger.warning("WeasyPrint is unavailable (%s), using Chrome instead: %s", type(e).__name__, e)
             return chrometopdf(content, name=fname, paper_size=paper_size)
         except Exception:
-            # WeasyPrint failed for some other reason, fall back to Chrome.
-            # Log the traceback: falling back silently makes a broken report
-            # look like a rendering bug rather than a PDF engine failure.
-            logger.exception("WeasyPrint failed, falling back to Chrome")
+            # Available but failed on this document. That is a real fault and
+            # keeps its traceback: falling back silently would make a broken
+            # report look like a rendering bug rather than an engine failure.
+            logger.exception("WeasyPrint failed on this report, falling back to Chrome")
             return chrometopdf(content, name=fname, paper_size=paper_size)
 
     def to_csv(self):
