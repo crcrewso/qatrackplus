@@ -293,6 +293,56 @@ jobs:
             echo "PASS: valid db dump + media archive produced"
           '
 
+      - name: HTTP smoke test
+        # The checks above prove the containers start and stay healthy, and
+        # that the backup service produces a real archive. They do not prove
+        # the deployment is wired together: nginx could be serving nothing, or
+        # serving it from the wrong place, with every container still "Up".
+        # This hits it the way a client does - through nginx on its published
+        # port, not an internal healthcheck.
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+
+          # nginx serves only its configured server_name, which
+          # 10-set-env-var-defaults.envsh derives from ALLOWED_HOSTS, so every
+          # request has to carry a matching Host header. Read it from .env
+          # rather than hard-coding, so this keeps working if the example file
+          # changes its hostname.
+          host=$(grep -E '^ALLOWED_HOSTS=' .env | cut -d= -f2- | cut -d, -f1)
+          echo "testing against Host: $host"
+
+          # The app answers through nginx at all. An unauthenticated / is a
+          # redirect to the login page, so anything under 500 is a pass here -
+          # what this rules out is nginx 502/504, which is what a broken
+          # upstream or an unstarted django looks like.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $host" http://localhost/)
+          [ "$code" -lt 500 ] || { echo "FAIL: / returned $code"; exit 1; }
+          echo "PASS: / answered $code"
+
+          # The media and static locations reach their mounted volumes. Not
+          # looking for a particular file - a fresh install has none - only
+          # that nginx resolves the alias, which it answers 403 for because
+          # directory listing is off. A 502/504 here means the volume is not
+          # mounted or the alias is wrong.
+          for path in /media/ /static/; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $host" "http://localhost$path")
+            [ "$code" -lt 500 ] || { echo "FAIL: $path returned $code"; exit 1; }
+            echo "PASS: $path answered $code"
+          done
+
+          # An unknown Host is not served. nginx refuses it with its 444,
+          # closing the connection without a response, so curl exits non-zero
+          # and reports no status at all - hence testing the exit code rather
+          # than comparing a number. Django's own ALLOWED_HOSTS check would
+          # answer 400, but nginx never lets the request that far, which is
+          # the defence worth asserting here.
+          if curl -sS -o /dev/null --max-time 10 -H 'Host: evil.example.com' http://localhost/ 2>/dev/null; then
+            echo "FAIL: an unknown Host header was served"
+            exit 1
+          fi
+          echo "PASS: an unknown Host header is refused by nginx"
+
       - name: Tear Down
         if: always()
         working-directory: deploy/docker
