@@ -757,6 +757,19 @@ def env_csv(value, value_type=str):
     return [value_type(_.strip()) for _ in value.split(",") if _.strip()]
 
 
+def env_int(name, default):
+    """An integer setting from the environment, saying which one is wrong."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid value for environment setting {name}: {raw!r} is not a whole number"
+        ) from exc
+
+
 def required_env(name):
     """
     Checks that a required env variable is provided and non-empty.
@@ -824,11 +837,27 @@ if use_docker:
             # Fall back to generating it automatically.
             # It will be persisted in the user-data-volume or user-data bind mount.
             import secrets
-            secret_filepath.parent.mkdir(parents=True, exist_ok=True)
+            secret_filepath.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             SECRET_KEY = secrets.token_urlsafe(64)
-            with open(secret_filepath, 'w', encoding="utf-8") as f:
-                f.write(SECRET_KEY)
-            secret_filepath.chmod(0o600)
+            # Created 0600 by os.open rather than written and then chmod'ed:
+            # the latter leaves the key readable at the process umask for the
+            # moment in between, and this is the one file whose contents
+            # compromise every session and password-reset token in the install.
+            try:
+                descriptor = os.open(
+                    secret_filepath, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
+                )
+            except FileExistsError:
+                # Another process got there first - django and django-q start
+                # together, and gunicorn starts several workers. O_EXCL is what
+                # makes that detectable; whoever loses adopts the key that won,
+                # because two processes generating different keys is worse than
+                # either of them losing the race.
+                with open(secret_filepath, encoding="utf-8") as f:
+                    SECRET_KEY = f.read().strip()
+            else:
+                with os.fdopen(descriptor, 'w', encoding="utf-8") as f:
+                    f.write(SECRET_KEY)
 
     # Database settings
     POSTGRES_DB = required_env("POSTGRES_DB")
@@ -842,7 +871,10 @@ if use_docker:
             'USER': POSTGRES_USER,
             'PASSWORD': POSTGRES_PASSWORD,
             'HOST': os.getenv("POSTGRES_HOST", "postgres"),
-            'PORT': int(os.getenv("POSTGRES_PORT", "5432"))
+            # env_int, not int(): a bad value raised a bare ValueError during
+            # import, naming neither the setting nor the value, while every
+            # setting handled by override_from_env below reports both.
+            'PORT': env_int("POSTGRES_PORT", 5432)
         }
     }
 
