@@ -532,8 +532,17 @@ Group...` button and in the `Enter the object name to select` box put
    QCluster Task
 
 On the `Triggers` tab, click
-`New...` and in the `Begin the task:` dropdown select `At startup` and then
-click `OK`.
+`New...` and in the `Begin the task:` dropdown select `At startup`. Under
+`Advanced settings`, tick `Delay task for:` and choose `5 minutes`, then click
+`OK`.
+
+.. warning::
+
+    Do not skip the delay when SQL Server runs on the same machine. SQL Server
+    starts a couple of minutes after Windows does, and a Django Q cluster that
+    starts first never connects — scheduled reports and notices then stop
+    silently until somebody restarts the task by hand. Measured on Windows
+    Server, 2026-10-18.
 
 .. figure:: images/win/qcluster_trigger.png
    :alt: QCluster Trigger

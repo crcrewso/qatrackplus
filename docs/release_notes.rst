@@ -36,6 +36,14 @@ Settings
   ``manage.py check`` reports an unusable value (``qatrack.E003``), and a
   WeasyPrint that was selected but cannot be imported (``qatrack.W011``).
 
+Documentation
+^^^^^^^^^^^^^
+
+* The Windows guide's Django Q scheduled task now sets a five minute startup
+  delay. Without it, on a server where SQL Server runs locally, the cluster
+  starts before the database is accepting connections, never reconnects, and
+  scheduled reports and notices stop silently until somebody restarts the task.
+
 4.0.1
 ------
 
