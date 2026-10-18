@@ -710,6 +710,27 @@ def EXPLORER_PERMISSION_VIEW(request):
     return request.user.has_perm("reports.can_run_sql_reports")
 
 
+# Which engine renders report PDFs: "auto", "weasyprint" or "chrome".
+#
+# "auto" means WeasyPrint everywhere except Windows, and Chrome on Windows.
+# WeasyPrint is pure Python but lays out through pango, cairo and
+# gdk-pixbuf. A Linux install gets those from its package manager, and the
+# Docker image declares them; Windows has no such libraries, and supplying
+# them means installing MSYS2 and its mingw-w64 pango package - a second
+# software stack on the server, with its own update path and its own
+# permissions to think about (see docs/install/win.rst).
+#
+# That is a decision for an administrator to make deliberately, so Windows
+# defaults to Chrome, which the Windows install guide already requires. It
+# also stops a stock Windows install logging a failed WeasyPrint import for
+# every report it renders, on a machine where Chrome is not a fallback but
+# the normal path.
+#
+# Set this to "weasyprint" on Windows after installing pango to opt in, or to
+# "chrome" anywhere to pin Chrome regardless of platform. Whichever is chosen,
+# Chrome remains the fallback if the preferred engine is unavailable.
+PDF_RENDERER = "auto"
+
 CHROME_PATH = ""
 if os.name.lower() == "nt":
     user = os.getlogin()

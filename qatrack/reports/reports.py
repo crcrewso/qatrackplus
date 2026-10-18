@@ -20,6 +20,7 @@ from django.utils.translation import gettext_lazy as _l
 from qatrack.qatrack_core.dates import format_as_date, format_datetime
 from qatrack.qatrack_core.utils import (
     chrometopdf,
+    pdf_renderer,
     relative_dates,
     site_base_url,
     weasyprint_to_pdf,
@@ -273,8 +274,16 @@ class BaseReport(metaclass=ReportMeta):
         content = template.render(context)
         paper_size = context.get('paper_size', 'letter')
         
-        # WeasyPrint first: it honours the paper size, needs no browser, and is
-        # a declared dependency. Chrome is the fallback.
+        if pdf_renderer() == "chrome":
+            # Chosen, not fallen back to. Nothing is attempted and nothing is
+            # logged: on a platform where WeasyPrint's libraries are not part
+            # of the install (Windows, by default), an import failure per
+            # report is noise about a decision that has already been made.
+            return chrometopdf(content, name=fname, paper_size=paper_size)
+
+        # WeasyPrint preferred: it honours the paper size, needs no browser, and
+        # is a declared dependency. Chrome remains the fallback below, so an
+        # installation that opts in and then loses pango still gets its reports.
         try:
             return weasyprint_to_pdf(content, name=fname, paper_size=paper_size)
         except (ImportError, OSError) as e:

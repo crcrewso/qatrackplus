@@ -15,6 +15,27 @@ Release Notes
 QATrack+ 4.0
 ~~~~~~~~~~~~~
 
+4.0.2
+------
+
+Settings
+^^^^^^^^
+
+* **New setting:** ``PDF_RENDERER`` chooses the engine that renders report PDFs -
+  ``'auto'`` (the default), ``'weasyprint'`` or ``'chrome'``. ``'auto'`` means
+  WeasyPrint on Linux and in the Docker deployment, and Chrome on Windows.
+
+  This is a change of behaviour on Windows, where WeasyPrint was preferred and
+  then failed on every report, because its layout libraries (Pango, cairo,
+  gdk-pixbuf) are not part of a Windows installation. The report was produced by
+  Chrome either way; what you lose is a failed import and an error traceback in
+  ``debug.log`` for every PDF. Windows sites that want WeasyPrint can install
+  Pango through MSYS2 and set ``PDF_RENDERER = 'weasyprint'`` - see
+  :ref:`install_weasyprint_win`. Linux and Docker installations are unaffected.
+
+  ``manage.py check`` reports an unusable value (``qatrack.E003``), and a
+  WeasyPrint that was selected but cannot be imported (``qatrack.W011``).
+
 4.0.1
 ------
 

@@ -43,7 +43,7 @@ Prerequisites
 
 Before we can begin installing the core site we need to ensure ensure the following software is installed on your server:
 
-* **Google Chrome**: `Required to generate or schedule PDF reports. <https://www.google.com/chrome/index.html>`_
+* **Google Chrome**: `Required to generate or schedule PDF reports. <https://www.google.com/chrome/index.html>`_ On Windows, Chrome is what renders every PDF report unless you install Pango and opt in to WeasyPrint (:ref:`install_weasyprint_win`); keep Chrome installed either way, since it remains the fallback.
 * **Microsoft Visual C++ Redistributable**: `The ODBC Driver for SQL Server requires this. <https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-supported-redistributable-version>`_
 * **ODBC Driver 17 for SQL Server**: `Required for QATrack+ to communicate with the database. <https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver17>`_
 * **SQL Server Management Studio (SSMS)**: `Required for setting up the database. <https://learn.microsoft.com/en-us/ssms/install/install>`_
@@ -61,6 +61,95 @@ Managing python dependencies and virtual environments can be a bit tricky on Win
    >>  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
    >>  uv --version # this should print the version of uv installed, e.g. 0.11.20
    # Close this PowerShell window we won't need it anymore, and open a new PowerShell window (without Administrator privileges) to continue with the installation.
+
+.. _`install_weasyprint_win`:
+
+Optional: installing Pango so PDF reports use WeasyPrint
+--------------------------------------------------------
+
+QATrack+ can render PDF reports with `WeasyPrint <https://weasyprint.org/>`__
+instead of Chrome. WeasyPrint renders in-process, with no browser to launch,
+no temporary profile directory and no second executable to keep up to date,
+which makes it the better fit for a server that generates reports on a
+schedule. It is the default on Linux and in the Docker deployment.
+
+It is **not** the default on Windows, because WeasyPrint lays text out through
+the Pango libraries and Windows does not have them. Supplying them means
+installing MSYS2 — a second package manager and software stack on your
+server. That is worth doing deliberately, not by default, so a Windows
+installation renders with Chrome until you follow the steps below. **If you
+are happy with Chrome, skip this section**; nothing is missing from your
+installation and no reports are degraded.
+
+1. Download the MSYS2 installer from `msys2.org <https://www.msys2.org/>`__ and run
+   it as an Administrator, keeping the default options. It installs to ``C:\msys64``;
+   keep that location (see the note below).
+2. In the MSYS2 window that opens at the end of the installation (any MSYS2 shortcut
+   in the Start menu works too), run:
+
+   .. code-block:: bash
+
+      pacman -Syu
+
+   If it says it has to close the window to finish, let it, open an MSYS2 window from
+   the Start menu again and run ``pacman -Syu`` once more. Then install Pango:
+
+   .. code-block:: bash
+
+      pacman -S mingw-w64-x86_64-pango
+
+   Use exactly that package name — the ``mingw-w64-x86_64-`` one, not
+   ``mingw-w64-ucrt-x86_64-``: it is the one WeasyPrint looks for in
+   ``C:\msys64\mingw64\bin``.
+3. So that only administrators can add files to the folder the QATrack+ service now
+   loads libraries from, run this once in an Administrator PowerShell window:
+
+   .. code-block:: powershell
+
+      icacls C:\msys64 /inheritance:r /grant:r "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-545:(OI)(CI)RX"
+
+   Administrators and SYSTEM keep full control; everyone else can read and run but
+   can no longer create files there. ``C:\msys64`` otherwise inherits the permissions
+   of ``C:\``, which let any user write to it — and the QATrack+ service runs as
+   SYSTEM.
+4. Tell QATrack+ to use it, by adding this to ``qatrack\local_settings.py``:
+
+   .. code-block:: python
+
+      PDF_RENDERER = 'weasyprint'
+
+5. Restart the **QATrack+ Web Service** and the **QATrack+ Django Q Cluster**
+   scheduled task. No reboot and no environment variable are needed.
+
+To confirm it worked, run this in your QATrack+ folder:
+
+.. code-block:: powershell
+
+   >> .venv\Scripts\python.exe -m weasyprint --info
+   >> .venv\Scripts\python.exe manage.py check
+
+``--info`` should print a ``WeasyPrint version`` and a ``Pango version`` line, and
+``check`` should report no issues. An ``OSError: cannot load library
+'libgobject-2.0-0'`` from ``--info``, or a ``qatrack.W011`` from ``check``, means Pango
+was not found and your reports are still being rendered by Chrome.
+
+To see which engine made a particular report, open the PDF's properties: **PDF
+Producer** reads ``WeasyPrint 65.x`` for WeasyPrint and ``Skia/PDF ...`` for Chrome.
+
+.. note::
+
+   **Installing MSYS2 somewhere else.** WeasyPrint only looks in
+   ``C:\msys64\mingw64\bin`` (and the folder of the older "GTK3 Runtime" installer)
+   on its own. If MSYS2 is elsewhere, or you installed the UCRT64 package instead,
+   create a *system* environment variable ``WEASYPRINT_DLL_DIRECTORIES`` holding the
+   folder that contains ``libgobject-2.0-0.dll`` (for example
+   ``D:\msys64\mingw64\bin``), then restart the QATrack+ Web Service and the Django Q
+   Cluster task. Separate several folders with ``;``.
+
+   This variable *replaces* WeasyPrint's own list rather than adding to it: if it names
+   a folder without Pango in it, WeasyPrint cannot load and every report goes back to
+   Chrome. Don't set it when MSYS2 is in ``C:\msys64``.
+
 
 .. _`install_application_win`:
 

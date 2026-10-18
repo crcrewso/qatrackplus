@@ -130,14 +130,18 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt \
     # for LDAP support
     libldap2 \
     libsasl2-2 \
-    # for converting HTML to PDF: WeasyPrint is the engine QATrack+ tries
-    # first, and chromium is the fallback when it is unavailable.
+    # for converting HTML to PDF: settings.PDF_RENDERER defaults to "auto",
+    # which means WeasyPrint on Linux, with chromium as the fallback.
     #
     # WeasyPrint is pure Python but renders through these libraries, and it
     # raises OSError - not ImportError - when they are missing. They happen to
     # arrive with chromium today, which is a dependency nobody declared: drop
     # or change chromium and PDF generation would break for a reason that has
     # nothing to do with chromium. Named here so that cannot happen.
+    #
+    # Measured 2026-10-18: a 4.0.1 image, which declares none of these, still
+    # rendered with WeasyPrint 65.1 - the undeclared dependency was real and
+    # was load-bearing.
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libcairo2 \

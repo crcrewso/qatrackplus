@@ -101,3 +101,57 @@ def check_translation_catalogues(app_configs, **kwargs):
         )
         for problem in problems
     ]
+
+
+@register()
+def check_pdf_renderer(app_configs, **kwargs):
+    """Report an unusable PDF_RENDERER, and an opt-in that did not take.
+
+    Both are configuration problems that otherwise surface one report at a
+    time, in `logs/debug.log`, on the day somebody needs a PDF.
+    """
+    from qatrack.qatrack_core.utils import PDF_RENDERERS, pdf_renderer
+
+    configured = str(getattr(settings, 'PDF_RENDERER', 'auto') or 'auto').strip().lower()
+    allowed = ('auto',) + PDF_RENDERERS
+
+    if configured not in allowed:
+        return [
+            Error(
+                "PDF_RENDERER is %r, which is not one of %s." % (
+                    getattr(settings, 'PDF_RENDERER', None),
+                    ", ".join(repr(value) for value in allowed),
+                ),
+                hint=(
+                    "Reports will be rendered as though it were 'auto'. Set it in "
+                    "qatrack/local_settings.py to one of the values above, or remove it."
+                ),
+                id='qatrack.E003',
+            )
+        ]
+
+    if pdf_renderer() != 'weasyprint':
+        return []
+
+    try:
+        import weasyprint  # noqa: F401
+    except Exception as e:  # noqa: BLE001
+        # Deliberately broad, and the reason this check earns its place: a
+        # missing pango raises OSError from the import, not ImportError, so
+        # the usual narrow catch would miss the case an administrator most
+        # needs told about - they installed the libraries, and it did not take.
+        return [
+            Warning(
+                "PDF_RENDERER selects WeasyPrint, but importing it fails: %s: %s" % (
+                    type(e).__name__, e,
+                ),
+                hint=(
+                    "Every report will be rendered by Chrome instead. On Windows, "
+                    "WeasyPrint needs the pango libraries from MSYS2 - see the Windows "
+                    "install guide. Check with `python -m weasyprint --info`."
+                ),
+                id='qatrack.W011',
+            )
+        ]
+
+    return []
