@@ -6,6 +6,31 @@ from django.conf import settings
 from django.core.checks import Error, Warning, register
 
 
+def _permissions_hint(media_root):
+    """How to fix an unwritable media tree, in terms of the deployment in use.
+
+    The generic advice names a web server user, which is right for a Linux or
+    Windows install and wrong inside a container: there the process is
+    `uid 999` and the directory is a docker volume, so the fix is applied from
+    the host to the volume, not with `chown www-data` inside the container.
+    Upgrading a pre-existing Docker installation lands on exactly this error,
+    with everything in the volume still owned by the root the old image ran
+    as, so the hint is worth getting right.
+    """
+    if os.getenv('USE_DOCKER', '0').strip().lower() in ('1', 'true', 'yes', 'on'):
+        return (
+            "This is a container, so fix the volume from the host: stop the stack and run "
+            "`docker run --rm -v <project>_media-volume:/media alpine chown -R %s:%s /media` "
+            "(or `sudo chown -R %s:%s <dir>` if you use a bind mount). The upgrade guide "
+            "covers this." % (os.getuid(), os.getgid(), os.getuid(), os.getgid())
+        )
+    return (
+        "Check folder permissions. You may need to run `sudo chown -R www-data:www-data "
+        "%s` and `sudo chmod -R 775 %s` (replace www-data with your web server user)."
+        % (media_root, media_root)
+    )
+
+
 @register()
 def check_media_folder_permissions(app_configs, **kwargs):
     errors = []
@@ -38,7 +63,7 @@ def check_media_folder_permissions(app_configs, **kwargs):
                 errors.append(
                     Error(
                         f"The Django server process does not have write permissions to '{directory}'.",
-                        hint=f"Check folder permissions. You may need to run `sudo chown -R www-data:www-data {media_root}` and `sudo chmod -R 775 {media_root}` (replace www-data with your web server user).",
+                        hint=_permissions_hint(media_root),
                         id='qatrack.E001',
                     )
                 )
@@ -61,7 +86,7 @@ def check_media_folder_permissions(app_configs, **kwargs):
                 errors.append(
                     Error(
                         f"The Django server process does not have write permissions to '{parent}' to create '{directory}'.",
-                        hint=f"Check folder permissions. You may need to run `sudo chown -R www-data:www-data {media_root}`.",
+                        hint=_permissions_hint(media_root),
                         id='qatrack.E001',
                     )
                 )
