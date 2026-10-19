@@ -3,13 +3,20 @@
 Upgrading an existing Docker 4.0.x installation
 ===============================================
 
-This release reorganises the Docker deployment. There are **no database
-migrations**, and your data is untouched, but two things will stop the upgrade
-part-way if you are not expecting them: a file that used to be tracked in git,
-and the fact that the container no longer runs as root.
+This release reorganises the Docker deployment, and **it does carry database
+migrations** - eight of them, holding 195 schema operations. They are field-state
+changes that 4.0 never recorded, so they alter no data, and they have been run
+against a real site's database (1.6 million test instances, 14 seconds) as well
+as a small one. But the upgrade is not the pure code change the 4.0.0 → 4.0.1 one
+was.
 
-Read this page before you start. Both steps below were measured on an upgrade
-of a working 4.0.1 Docker installation, 2026-10-18.
+**Three things will stop it part-way if you are not expecting them**: a file that
+used to be tracked in git, a setting that 4.0.1 could do without, and the fact
+that the container no longer runs as root.
+
+Read this page before you start. Every step below was run as written on a clean
+Ubuntu Server, upgrading a 4.0.1 Docker installation built from the tag
+(2026-10-19), and on a 4.0.1 stack with a restored clinical database (2026-10-19).
 
 What changed
 ------------
@@ -53,19 +60,57 @@ Step 1: let git replace the tracked ``.env``
     Aborting
 
 This is the tracked example ``.env`` the old deployment shipped, with your
-edits in it. With the copy you made above, discard it and pull:
+edits in it. With the copy you made above, discard it and fetch the new version:
 
 .. code-block:: bash
 
     cd ~/web/qatrackplus
     git checkout -- deploy/docker/.env
-    git pull
+    git fetch origin --tags
+    git checkout <the new tag>
     cp ~/qatrackplus-env-backup deploy/docker/.env
 
-Your old settings keep working: ``POSTGRES_USER``, ``POSTGRES_PASSWORD``,
-``POSTGRES_DB``, ``ALLOWED_HOSTS`` and ``CSRF_TRUSTED_ORIGINS`` mean the same
-things they did. ``deploy/docker/.env.example`` documents what you can now add
-to it, including ``SITE_NAME``, ``SITE_DOMAIN`` and ``SECRET_KEY``.
+.. note::
+
+    ``git pull`` is not the command here, even though the 4.0.0 → 4.0.1 page used
+    it. The setup page has you check out a **tag**, so your HEAD is detached and a
+    pull answers ``You are not currently on a branch.`` Fetch and check out the
+    new tag instead - the ``.env`` refusal above then appears exactly as
+    described.
+
+Your old settings keep their meanings: ``POSTGRES_USER``,
+``POSTGRES_PASSWORD``, ``POSTGRES_DB``, ``ALLOWED_HOSTS`` and
+``CSRF_TRUSTED_ORIGINS`` all mean what they did.
+``deploy/docker/.env.example`` documents what you can now add, including
+``SITE_NAME``, ``SITE_DOMAIN`` and ``SECRET_KEY``.
+
+Step 1b: make sure ``.env`` has ``ALLOWED_HOSTS``
+--------------------------------------------------
+
+**If your ``.env`` has no ``ALLOWED_HOSTS`` line, add one now.** 4.0.1 fell back
+to ``localhost,127.0.0.1`` when it was unset; this release requires it, and
+without it the django container stops with::
+
+    ValueError: Required environment variable is missing, or has empty value: ALLOWED_HOSTS
+
+and restarts until you intervene, with ``docker compose up -d`` exiting non-zero.
+
+This bites precisely the site this page is written for. 4.0.1's *tracked* ``.env``
+- the one you edited and just restored - has no such line, while a site that
+copied ``.env.example`` instead already has ``ALLOWED_HOSTS=*``. Set it to the
+names the site is reached by:
+
+.. code-block:: bash
+
+    printf '\nALLOWED_HOSTS=qatrackplus.yourdomain,127.0.0.1\n' >> deploy/docker/.env
+
+.. tip::
+
+    Set ``SECRET_KEY`` in the same edit if it is not there. Otherwise the key is
+    generated on the first boot - including a boot that then fails - and the
+    notice saying so goes with the container that ``docker compose down`` removes
+    in Step 2. Everyone is signed out either way, which this page says below, but
+    you will not have seen the message explaining it.
 
 Step 2: give the new container user ownership of its volumes
 -------------------------------------------------------------
