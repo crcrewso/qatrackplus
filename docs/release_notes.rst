@@ -72,10 +72,10 @@ Settings
 Bug Fixes
 ^^^^^^^^^
 
-* **Staged uploads can be cleaned up.** A file attached while performing QC is
-  written to ``media/uploads/tmp`` and moved into place when the test list instance
-  is saved; abandoned forms left theirs behind, and nothing removed them, so that
-  folder grew indefinitely. ``manage.py check_attachments --staging`` reports what
+* **Staged uploads can be cleaned up**, which several sites have asked for. A file
+  attached while performing QC is written to ``media/uploads/tmp`` and moved into
+  place when the test list instance is saved; abandoned forms left theirs behind,
+  and nothing removed them, so that folder grew indefinitely. ``manage.py check_attachments --staging`` reports what
   is in there, and ``manage.py clean_staged_attachments`` sweeps it - reporting by
   default, removing with ``--delete``.
 
