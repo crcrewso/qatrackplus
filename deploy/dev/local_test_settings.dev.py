@@ -36,6 +36,19 @@ DATABASES = {
 #
 # Never point it at db/default.db: that is the development database, and the
 # test runner would delete it.
+#
+# Naming the file is not enough on its own, and this is the part that surprises
+# people: Django destroys the test database when the run finishes, so the file
+# named above is created, used and deleted, leaving nothing to inspect. Ask for
+# it to be kept:
+#
+#     pytest --reuse-db          # pytest-django, which is what this project uses
+#     python manage.py test --keepdb
+#
+# `--reuse-db` also skips rebuilding the schema on the next run, which is most of
+# why it is worth doing - and the reason to remember `--create-db` after a
+# migration, model or fixture change, or the next run will be against yesterday's
+# schema.
 
 # SQL Server example
 """
