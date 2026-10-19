@@ -18,6 +18,28 @@ QATrack+ 4.0
 4.0.2
 ------
 
+Docker
+^^^^^^
+
+* **The generated secret key is now published atomically, and says when it is
+  created.** On first boot the django service, the django-q service and several
+  gunicorn workers all start at once; the key file was created empty and then
+  written, so another process could read it in that window and start with an
+  empty ``SECRET_KEY``. Reproduced in 54 of 60 runs of eight concurrent
+  initialisers; now 0 of 60. A process that cannot create the key - django-q
+  mounts the volume read-only - says so and names the service that can.
+
+* **Losing the key file is no longer silent.** Start-up prints a ``SECRET_KEY:``
+  notice when it generates a key, saying that any previous key is gone and that
+  every session and password-reset link has been invalidated. Previously the
+  site came up looking healthy, with only a ``Session data corrupted`` line per
+  session to go on. An empty key file is now refused rather than replaced.
+
+* **The first-boot log no longer shows a ``CommandError``.** The entrypoint ran
+  ``createsuperuser --noinput`` unconditionally, which reports *"You must use
+  --username with --noinput"* on every installation that does not set
+  ``DJANGO_SUPERUSER_USERNAME``.
+
 Settings
 ^^^^^^^^
 

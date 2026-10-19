@@ -845,40 +845,13 @@ if use_docker:
     if secret_key_from_env:
         SECRET_KEY = secret_key_from_env.strip()
     else:
-        # If not specified in env var, try to read it from secret_key.txt
-        try:
-            with open(secret_filepath, encoding="utf-8") as f:
-                SECRET_KEY = f.read().strip()
+        # Otherwise read it from secret_key.txt, generating and persisting one
+        # on first boot. The mechanics live in their own stdlib-only module so
+        # that the race between django, django-q and several gunicorn workers
+        # all starting at once can be tested - see qatrack_core/secret_key.py.
+        from qatrack.qatrack_core.secret_key import load_or_create
 
-            if not SECRET_KEY:
-                raise ValueError(
-                    f"Secret key file is empty: `{secret_filepath}`."
-                )
-        except FileNotFoundError:
-            # Fall back to generating it automatically.
-            # It will be persisted in the user-data-volume or user-data bind mount.
-            import secrets
-            secret_filepath.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            SECRET_KEY = secrets.token_urlsafe(64)
-            # Created 0600 by os.open rather than written and then chmod'ed:
-            # the latter leaves the key readable at the process umask for the
-            # moment in between, and this is the one file whose contents
-            # compromise every session and password-reset token in the install.
-            try:
-                descriptor = os.open(
-                    secret_filepath, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
-                )
-            except FileExistsError:
-                # Another process got there first - django and django-q start
-                # together, and gunicorn starts several workers. O_EXCL is what
-                # makes that detectable; whoever loses adopts the key that won,
-                # because two processes generating different keys is worse than
-                # either of them losing the race.
-                with open(secret_filepath, encoding="utf-8") as f:
-                    SECRET_KEY = f.read().strip()
-            else:
-                with os.fdopen(descriptor, 'w', encoding="utf-8") as f:
-                    f.write(SECRET_KEY)
+        SECRET_KEY = load_or_create(secret_filepath)
 
     # Database settings
     POSTGRES_DB = required_env("POSTGRES_DB")

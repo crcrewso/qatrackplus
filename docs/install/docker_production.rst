@@ -77,6 +77,21 @@ If you do not set ``SECRET_KEY``, the system will generate a safe value for you
 in the ``secret_key.txt`` file in the user-data volume. You must then access the
 user-data storage to backup its value to safe storage for future use.
 
+.. warning::
+
+    **Treat that file as a backup item in its own right.** If it is lost - a
+    deleted volume, a restore that misses it - the next start generates a new
+    key, and QATrack+ comes up looking perfectly healthy. What has actually
+    happened, measured on 2026-10-18, is that every signed-in user is signed
+    out, every outstanding password-reset link stops working, and the only
+    trace in the log is a ``Session data corrupted`` line for each affected
+    session, which says nothing about the cause. Start-up now prints a
+    ``SECRET_KEY:`` notice when it generates a key, so this is visible in
+    ``docker compose logs django`` if you are looking.
+
+    Setting ``SECRET_KEY`` in ``.env`` avoids the whole question: the file is
+    then never used.
+
 
 Enable HTTPS/SSL (Optional)
 ...........................
