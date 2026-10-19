@@ -110,30 +110,14 @@ installation and no reports are degraded.
 
    Administrators and SYSTEM keep full control; everyone else can read and run but
    can no longer create files there. ``C:\msys64`` otherwise inherits the permissions
-   of ``C:\``, which let any user write to it — and the QATrack+ service runs as
-   SYSTEM.
-4. Tell QATrack+ to use it, by adding this to ``qatrack\local_settings.py``:
+   of ``C:\``, which let any user *create files in it* — existing files cannot be
+   changed, but a new DLL can be planted beside the ones the service loads, and the
+   QATrack+ service runs as SYSTEM.
 
-   .. code-block:: python
-
-      PDF_RENDERER = 'weasyprint'
-
-5. Restart the **QATrack+ Web Service** and the **QATrack+ Django Q Cluster**
-   scheduled task. No reboot and no environment variable are needed.
-
-To confirm it worked, run this in your QATrack+ folder:
-
-.. code-block:: powershell
-
-   >>  cd C:\deploy\qatrackplus
-   >>  .\.venv\Scripts\Activate.ps1
-   >>  python -m weasyprint --info
-   >>  python manage.py check
-
-``--info`` should print a ``WeasyPrint version`` and a ``Pango version`` line, and
-``check`` should report no issues. An ``OSError: cannot load library
-'libgobject-2.0-0'`` from ``--info``, or a ``qatrack.W014`` from ``check``, means Pango
-was not found and your reports are still being rendered by Chrome.
+Those three steps are all that belongs here: they install libraries and do not
+touch QATrack+. **Turning WeasyPrint on is a later step**, because it edits
+``local_settings.py`` and restarts services that do not exist until the sections
+below have been followed - see :ref:`weasyprint_switch_on_win`.
 
 To see which engine made a particular report, open the PDF's properties: **PDF
 Producer** reads ``WeasyPrint 65.x`` for WeasyPrint and ``Skia/PDF ...`` for Chrome.
@@ -535,16 +519,15 @@ Group...` button and in the `Enter the object name to select` box put
 
 On the `Triggers` tab, click
 `New...` and in the `Begin the task:` dropdown select `At startup`. Under
-`Advanced settings`, tick `Delay task for:` and choose `5 minutes`, then click
-`OK`.
+`Advanced settings`, tick `Delay task for:` and choose or type `5 minutes`, then
+click `OK`.
 
 .. warning::
 
     Do not skip the delay when SQL Server runs on the same machine. SQL Server
     starts a couple of minutes after Windows does, and a Django Q cluster that
     starts first never connects — scheduled reports and notices then stop
-    silently until somebody restarts the task by hand. Measured on Windows
-    Server, 2026-10-18.
+    silently until somebody restarts the task by hand.
 
 .. figure:: images/win/qcluster_trigger.png
    :alt: QCluster Trigger
@@ -590,6 +573,47 @@ What Next
 * Set up a Backup Strategy. You must routinely backup your database, the `media` folder, and your `local_settings.py` file. Please consult with your IT department to automate this. More details can be found here: :ref:`backup of your QATrack+ installation <qatrack_backup>`.
 * Read the :ref:`Administration Guide <admin_guide>`, :ref:`User Guide
   <users_guide>`, and :ref:`Tutorials <tutorials>`.
+
+.. _`weasyprint_switch_on_win`:
+
+Switching PDF reports to WeasyPrint
+-----------------------------------
+
+Only if you installed Pango in :ref:`install_weasyprint_win`. Skip this if you
+did not: Chrome renders your reports and nothing is missing.
+
+1. Tell QATrack+ to use it, by adding this to ``qatrack\local_settings.py``:
+
+   .. code-block:: python
+
+      PDF_RENDERER = 'weasyprint'
+
+2. Restart the **QATrack+ Web Service** and the **QATrack+ Django Q Cluster**
+   scheduled task. No reboot and no environment variable are needed.
+
+To confirm it worked, run this in your QATrack+ folder:
+
+.. code-block:: powershell
+
+   >>  cd C:\deploy\qatrackplus
+   >>  .\.venv\Scripts\Activate.ps1
+   >>  python -m weasyprint --info
+   >>  python manage.py check
+
+``--info`` should print a ``WeasyPrint version`` and a ``Pango version`` line, and
+``check`` should report no issues. An ``OSError: cannot load library
+'libgobject-2.0-0'`` from ``--info``, or a ``qatrack.W014`` from ``check``, means Pango
+was not found and your reports are still being rendered by Chrome.
+
+To see which engine made a particular report, open the PDF's properties: **PDF
+Producer** reads ``WeasyPrint 65.x`` for WeasyPrint and ``Skia/PDF ...`` for Chrome.
+
+.. note::
+
+   This section is deliberately below ``What Next`` rather than beside the Pango
+   instructions in *Prerequisites*. ``win_upgrade_from_3.rst`` includes everything
+   between the CherryPy and ``What Next`` labels, so a labelled section in that
+   range is defined twice and fails a ``-W`` documentation build.
 
 Wrap Up
 -------

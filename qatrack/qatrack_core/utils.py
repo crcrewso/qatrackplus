@@ -227,7 +227,19 @@ def chrometopdf(html, name="", paper_size="letter"):
                 '--disable-gpu',
                 '--no-sandbox',
                 '--print-to-pdf=%s' % out_path,
+                # Both, deliberately. crane measured on 2026-10-18 that
+                # Chrome and Edge 155 print the date header and the
+                # file:///... footer *despite* --print-to-pdf-no-header, and
+                # suppress them for --no-pdf-header-footer. Chrome ignores
+                # switches it does not recognise, so keeping the old one costs
+                # nothing and keeps whatever older builds still honour it.
+                #
+                # No report is affected today - the templates' margins hide
+                # both lines, checked across all 12 report PDFs - but a direct
+                # chrometopdf() call shows them, and that includes the
+                # temporary file's full path.
                 '--print-to-pdf-no-header',
+                '--no-pdf-header-footer',
                 '--user-data-dir=%s' % profiledir,
                 # file_uri, not "file://" + path: the same malformed-URI
                 # problem this module added file_uri for, on the one argument

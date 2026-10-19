@@ -77,4 +77,19 @@ Restart:
     >>  Start-Service "QATrack+ Web Service"
     >>  Start-ScheduledTask -TaskName "QATrack+ Django Q Cluster"
 
+.. note::
+
+    **If you installed Pango so that reports render with WeasyPrint**, add this to
+    ``qatrack\local_settings.py`` as part of the upgrade:
+
+    .. code-block:: python
+
+        PDF_RENDERER = 'weasyprint'
+
+    From this release a Windows installation renders with Chrome unless it is asked
+    for WeasyPrint, so a server that has Pango installed will quietly go back to
+    Chrome without it. Reports keep working either way - see
+    :ref:`install_weasyprint_win`. If you have never installed Pango, there is
+    nothing to do.
+
 .. include:: _upgrade_4_0_after.rst

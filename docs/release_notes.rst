@@ -47,13 +47,24 @@ Settings
   ``'auto'`` (the default), ``'weasyprint'`` or ``'chrome'``. ``'auto'`` means
   WeasyPrint on Linux and in the Docker deployment, and Chrome on Windows.
 
-  This is a change of behaviour on Windows, where WeasyPrint was preferred and
+  This is a change of behaviour on Windows. WeasyPrint was preferred there and
   then failed on every report, because its layout libraries (Pango, cairo,
-  gdk-pixbuf) are not part of a Windows installation. The report was produced by
-  Chrome either way; what you lose is a failed import and an error traceback in
-  ``debug.log`` for every PDF. Windows sites that want WeasyPrint can install
-  Pango through MSYS2 and set ``PDF_RENDERER = 'weasyprint'`` - see
-  :ref:`install_weasyprint_win`. Linux and Docker installations are unaffected.
+  gdk-pixbuf) are not part of a Windows installation: the report was produced by
+  Chrome anyway, after a failed import and an error traceback in ``debug.log``
+  for every PDF. On such a server nothing changes but the noise.
+
+  .. warning::
+
+      **If you installed Pango yourself, this upgrade switches you back to
+      Chrome.** A Windows server with Pango present renders with WeasyPrint on
+      4.0.1, and will render with Chrome after upgrading unless you add
+      ``PDF_RENDERER = 'weasyprint'`` to ``qatrack/local_settings.py``. Reports
+      keep working either way, which is what makes it easy to miss. Measured on
+      Windows Server 2019, 2022 and 2025.
+
+  Windows sites that want WeasyPrint can install Pango through MSYS2 and set
+  ``PDF_RENDERER = 'weasyprint'`` - see :ref:`install_weasyprint_win`. Linux and
+  Docker installations are unaffected.
 
   ``manage.py check`` warns about an unusable value (``qatrack.W013``), and about a
   WeasyPrint that was selected but cannot be imported (``qatrack.W014``).
