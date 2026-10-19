@@ -11,6 +11,7 @@ from importlib import import_module
 
 from django.apps import apps
 from django.contrib.auth.models import Permission
+from django.db import connection
 from django.test import TestCase
 
 from qatrack.accounts.tests.utils import create_user
@@ -18,6 +19,23 @@ from qatrack.service_log import forms, models
 from qatrack.service_log.tests import utils as sl_utils
 
 MIGRATION = 'qatrack.service_log.migrations.0029_v4_0_2_final'
+
+
+class _SchemaEditor:
+    """The one attribute a data migration reads from a schema editor: the alias.
+
+    The migration's `RunPython` functions take the database to write to from
+    `schema_editor.connection.alias`, as a data migration must - so these tests
+    hand them something that carries one, rather than the `None` they used to
+    pass. Not a real schema editor, because none of this issues DDL and opening
+    one inside a `TestCase` would need the atomic block these tests rely on.
+
+    What it does not prove: that a *second* alias is honoured. The suite
+    configures one database, so the routing itself is unverified here - this
+    asserts only that the alias is read from the editor and used.
+    """
+
+    connection = connection
 
 
 class TestServiceEventPermissionLabels(TestCase):
@@ -49,11 +67,11 @@ class TestServiceEventPermissionLabels(TestCase):
         view.save()
         assert self.permission('view_serviceevent').name == migration.OLD
 
-        migration.rename_view_serviceevent(apps, None)
+        migration.rename_view_serviceevent(apps, _SchemaEditor())
         assert self.permission('view_serviceevent').name == migration.NEW
 
         # Reversible, as the migration claims by supplying `backwards`.
-        migration.restore_view_serviceevent_label(apps, None)
+        migration.restore_view_serviceevent_label(apps, _SchemaEditor())
         assert self.permission('view_serviceevent').name == migration.OLD
 
     def test_the_rename_leaves_a_hand_corrected_site_alone(self):
@@ -64,7 +82,7 @@ class TestServiceEventPermissionLabels(TestCase):
         view.name = 'Can look at service events'
         view.save()
 
-        migration.rename_view_serviceevent(apps, None)
+        migration.rename_view_serviceevent(apps, _SchemaEditor())
         assert self.permission('view_serviceevent').name == 'Can look at service events'
 
 

@@ -35,7 +35,7 @@ def fields_for_columns(model, columns):
         return None
 
 
-def duplicate_groups(model, field_names):
+def duplicate_groups(model, field_names, using=None):
     """Groups of rows sharing a value for `field_names`, NULLs excluded.
 
     NULLs are excluded deliberately, because that is what the index this is
@@ -43,8 +43,15 @@ def duplicate_groups(model, field_names):
     NULLs - standard SQL treats them as distinct - so the index that matches the
     model's intent is a filtered one, and a row with a NULL is not a duplicate.
     Counting NULL groups here would report rows the repair does not care about.
+
+    `using` is the database alias, and it has to be passed: the command
+    introspects the connection `--database` names, and an unbound queryset reads
+    whatever the default or the router picks instead. The two disagreeing is
+    worse than either alone - it reports the duplicates of one database against
+    the indexes of another, so a blocked repair can read as clear. @copilot found
+    that on c#13.
     """
-    qs = model.objects.all()
+    qs = model.objects.using(using).all() if using else model.objects.all()
     for name in field_names:
         qs = qs.exclude(**{"%s__isnull" % name: True})
     return (
@@ -72,6 +79,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # One alias, used for both halves of the question: `connection` for what
+        # the database enforces, and `options["database"]` for the rows, passed
+        # down to every queryset below.
         connection = connections[options["database"]]
         limit = options["limit"]
 
@@ -107,7 +117,7 @@ class Command(BaseCommand):
                     ))
                     continue
 
-                groups = list(duplicate_groups(model, field_names))
+                groups = list(duplicate_groups(model, field_names, using=options["database"]))
                 if not groups:
                     self.stdout.write(self.style.SUCCESS(
                         "  OK   %s %s - not enforced, no duplicates" % (model._meta.label, columns)

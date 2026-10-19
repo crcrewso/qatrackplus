@@ -28,6 +28,41 @@ SPECS = [
 ]
 
 
+def spec_constraint_name(spec):
+    app_label, model_name, fields, _nullable = spec
+    return constraint_name(apps.get_model(app_label, model_name), fields)
+
+
+def constraints_by_name(model):
+    with connection.cursor() as cursor:
+        return connection.introspection.get_constraints(cursor, model._meta.db_table)
+
+
+def schema_drift(specs, started_with, present=None):
+    """(added, removed): what a test changed, measured against what it started with.
+
+    The classification the restoring teardown needs, kept out of it so that both
+    directions can be asserted on an engine where neither actually happens - which is
+    every engine but SQL Server. `present` is injectable for exactly that reason.
+    """
+    present = present or repair_constraint_present
+    added = [s for s in specs if present(s) and spec_constraint_name(s) not in started_with]
+    removed = [s for s in specs if not present(s) and spec_constraint_name(s) in started_with]
+    return added, removed
+
+
+def repair_constraint_present(spec):
+    """Does the database already have the index this spec would create?
+
+    By the repair's own generated name - which matters, because on SQL Server the
+    4.0.2 migrations create exactly these names. A test that assumes a repair name
+    can only have come from itself is wrong there, which is what the restoring
+    teardown below exists for.
+    """
+    app_label, model_name, _fields, _nullable = spec
+    return spec_constraint_name(spec) in constraints_by_name(apps.get_model(app_label, model_name))
+
+
 class TestConstraintName(TestCase):
 
     def test_it_is_deterministic(self):
@@ -78,21 +113,72 @@ class TestBuiltConstraint(TestCase):
         assert c.condition == Q(third_party__isnull=False, user__isnull=False)
 
 
+class TestSchemaDrift(TestCase):
+    """The teardown's bookkeeping, asserted without needing an engine that drifts.
+
+    Both faults this replaced are in here as cases: a constraint the test created and
+    must take away, and one that was already there and must be put back. The second is
+    the SQL Server case - the 4.0.2 migrations create indexes under these same generated
+    names - and it cannot be produced on SQLite, so presence is injected.
+    """
+
+    def test_a_constraint_a_test_created_is_reported_as_added(self):
+        added, removed = schema_drift(SPECS, started_with=set(), present=lambda spec: True)
+        assert added == SPECS
+        assert removed == []
+
+    def test_a_constraint_that_was_already_there_is_left_alone(self):
+        all_names = {spec_constraint_name(s) for s in SPECS}
+        added, removed = schema_drift(SPECS, started_with=all_names, present=lambda spec: True)
+        assert added == []
+        assert removed == []
+
+    def test_a_baseline_constraint_a_test_removed_is_reported_for_restoring(self):
+        """The fault: a teardown that only removed would leave these gone for the rest
+        of the run, because `TransactionTestCase` restores rows and not schema."""
+        all_names = {spec_constraint_name(s) for s in SPECS}
+        added, removed = schema_drift(SPECS, started_with=all_names, present=lambda spec: False)
+        assert added == []
+        assert removed == SPECS
+
+    def test_nothing_to_do_when_nothing_moved(self):
+        added, removed = schema_drift(SPECS, started_with=set(), present=lambda spec: False)
+        assert (added, removed) == ([], [])
+
+
 class TestRepairDecisions(TransactionTestCase):
     """`TransactionTestCase`, not `TestCase`.
 
     These open a schema editor, and SQLite refuses to do that inside an atomic block -
     which is what `TestCase` wraps every test in.
 
-    `tearDown` undoes any constraint the repair created, because on an engine that is
-    genuinely missing them the repair issues real DDL - and the first version of this
-    class leaked a constraint from one test into the next on SQL Server. Removal is by
-    generated name, so a constraint the database owns is never touched.
+    **Schema has to be restored by hand here, in both directions.** On an engine that
+    is genuinely missing a constraint the repair issues real DDL, so a test can leak
+    one into the next - the fault the first version of this class had. The second
+    version removed every repair-named constraint in `tearDown`, which has the opposite
+    fault and a worse one: on SQL Server the 4.0.2 migrations create indexes under
+    exactly these generated names, so a teardown that removed them stripped the test
+    database of uniqueness the migrations had put back. `TransactionTestCase` truncates
+    rows between tests and does not rebuild schema, so every test after it in that run
+    would have been running without those constraints. @copilot found that on c#13.
+
+    So each test records what was there when it started, and afterwards removes only
+    what it added and puts back only what it took away.
     """
 
+    def setUp(self):
+        super().setUp()
+        self.started_with = {spec_constraint_name(s) for s in SPECS if repair_constraint_present(s)}
+
     def tearDown(self):
-        with connection.schema_editor() as editor:
-            remove_repaired_constraints(apps, editor, SPECS)
+        added, removed = schema_drift(SPECS, self.started_with)
+
+        if added:
+            with connection.schema_editor() as editor:
+                remove_repaired_constraints(apps, editor, added)
+        if removed:
+            with connection.schema_editor() as editor:
+                repair_unique_constraints(apps, editor, removed)
         super().tearDown()
 
 
@@ -131,27 +217,48 @@ class TestRepairDecisions(TransactionTestCase):
             assert label in result['already_enforced'] + result['unsupported'], result
 
     def test_reversal_leaves_constraints_it_did_not_create(self):
-        """It removes by generated name, so the database's own indexes are untouched.
+        """Removal is by generated name, so the database's own indexes are untouched.
 
-        Asserted without the repair having run, so nothing this module created is
-        present and every unique constraint on the table belongs to the database.
-        Reversal must be a no-op in that situation, on every engine.
+        Measured on the constraints the *database* named, not on every unique
+        constraint: where the repair migrations have already run - SQL Server - a
+        repair-named index is present and removing it is this function's documented
+        job, so counting it here would assert the opposite of the behaviour.
         """
-        before = self._unique_sets(Contact)
+        before = self._unique_sets(Contact, owned_by_the_database=True)
         with connection.schema_editor() as editor:
             remove_repaired_constraints(apps, editor, SPECS)
-        assert self._unique_sets(Contact) == before
+        assert self._unique_sets(Contact, owned_by_the_database=True) == before
 
-    def test_repair_then_reverse_returns_the_schema_to_where_it_started(self):
-        """The round trip, which only does anything on an engine missing a constraint."""
+    def test_a_round_trip_returns_the_schema_to_where_it_started(self):
+        """Both ways round, because the starting point depends on the engine.
+
+        Where the constraint is missing the trip is repair-then-remove; where it is
+        already there under the repair's name - a SQL Server database the migrations
+        have been applied to - it is remove-then-repair, which is the direction that
+        actually exercises both halves. On SQLite, PostgreSQL and MySQL the constraint
+        is enforced under Django's own name, so both halves are no-ops and the
+        assertion is that they are.
+        """
+        contact_specs = [s for s in SPECS if s[1] == 'Contact']
         before = self._unique_sets(Contact)
+
+        if repair_constraint_present(contact_specs[0]):
+            first, second = remove_repaired_constraints, repair_unique_constraints
+        else:
+            first, second = repair_unique_constraints, remove_repaired_constraints
+
         with connection.schema_editor() as editor:
-            repair_unique_constraints(apps, editor, SPECS)
+            first(apps, editor, contact_specs)
         with connection.schema_editor() as editor:
-            remove_repaired_constraints(apps, editor, SPECS)
+            second(apps, editor, contact_specs)
+
         assert self._unique_sets(Contact) == before
 
-    def _unique_sets(self, model):
-        with connection.cursor() as cursor:
-            cons = connection.introspection.get_constraints(cursor, model._meta.db_table)
-        return {frozenset(d['columns']) for d in cons.values() if d.get('unique') and d.get('columns')}
+    def _unique_sets(self, model, owned_by_the_database=False):
+        repair_names = {spec_constraint_name(s) for s in SPECS}
+        return {
+            frozenset(d['columns'])
+            for name, d in constraints_by_name(model).items()
+            if d.get('unique') and d.get('columns')
+            and not (owned_by_the_database and name in repair_names)
+        }
