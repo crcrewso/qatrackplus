@@ -319,24 +319,50 @@ jobs:
           host=$(grep -E '^ALLOWED_HOSTS=' .env | cut -d= -f2- | cut -d, -f1)
           echo "testing against Host: $host"
 
-          # The app answers through nginx at all. An unauthenticated / is a
-          # redirect to the login page, so anything under 500 is a pass here -
-          # what this rules out is nginx 502/504, which is what a broken
-          # upstream or an unstarted django looks like.
-          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $host" http://localhost/)
-          [ "$code" -lt 500 ] || { echo "FAIL: / returned $code"; exit 1; }
-          echo "PASS: / answered $code"
+          # `/` must be the application's own redirect to its login page.
+          # "anything under 500" was the old test, and it passes for a default
+          # nginx welcome page, for a 404, and for any redirect to anywhere -
+          # none of which mean QATrack+ is being served. Raised by Copilot and
+          # CodeRabbit both.
+          # curl's own fields rather than parsing the headers: `awk
+          # IGNORECASE` is a gawk extension and Ubuntu's awk is mawk, so a
+          # header-matching version of this silently found no Location at all.
+          read -r code redirect <<EOF
+          $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "Host: $host" http://localhost/)
+EOF
+          [ "$code" = "302" ] || { echo "FAIL: / returned $code, expected 302"; exit 1; }
+          case "$redirect" in
+            */accounts/login/*) echo "PASS: / redirects to $redirect" ;;
+            *) echo "FAIL: / redirected to '$redirect', expected /accounts/login/..."; exit 1 ;;
+          esac
 
-          # The media and static locations reach their mounted volumes. Not
-          # looking for a particular file - a fresh install has none - only
-          # that nginx resolves the alias, which it answers 403 for because
-          # directory listing is off. A 502/504 here means the volume is not
-          # mounted or the alias is wrong.
-          for path in /media/ /static/; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $host" "http://localhost$path")
-            [ "$code" -lt 500 ] || { echo "FAIL: $path returned $code"; exit 1; }
-            echo "PASS: $path answered $code"
+          # And the login page is QATrack+'s own, not an error page that
+          # happens to answer 200. The CSRF field is in the form, and the
+          # title is built by QATrack+'s base template.
+          login=$(curl -s -H "Host: $host" http://localhost/accounts/login/)
+          echo "$login" | grep -q "csrfmiddlewaretoken" \
+            || { echo "FAIL: no CSRF field on the login page"; exit 1; }
+          echo "$login" | grep -qi "log in" \
+            || { echo "FAIL: the login page does not look like QATrack+'s"; exit 1; }
+          echo "PASS: the login page is served and carries a CSRF token"
+
+          # The media and static locations reach the volumes django writes to.
+          # The old test accepted any status under 500 for /media/ and /static/,
+          # which a missing alias answers 404 to and a removed location answers
+          # with Django's login redirect - both passes. A file written through
+          # django's mount and read back byte for byte through nginx is the
+          # thing actually worth asserting.
+          marker="ci-smoke-$GITHUB_RUN_ID-$RANDOM"
+          docker compose -f compose.yaml exec -T django sh -c \
+            "printf %s '$marker' > /app_data/media/ci-smoke.txt; printf %s '$marker' > /app_data/static/ci-smoke.txt"
+          for path in /media/ci-smoke.txt /static/ci-smoke.txt; do
+            got=$(curl -s -H "Host: $host" "http://localhost$path")
+            [ "$got" = "$marker" ] || {
+              echo "FAIL: $path returned '$got', expected '$marker'"; exit 1; }
+            echo "PASS: $path is served from django's own volume"
           done
+          docker compose -f compose.yaml exec -T django \
+            rm -f /app_data/media/ci-smoke.txt /app_data/static/ci-smoke.txt
 
           # An unknown Host is not served. nginx refuses it with its 444,
           # closing the connection without a response, so curl exits non-zero
