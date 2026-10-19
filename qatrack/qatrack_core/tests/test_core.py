@@ -79,20 +79,44 @@ class TestJSONEncoder:
 
 
 class TestJSONField:
+    """``AutoSave.data`` is one of the fields still using QATrack+'s own
+    JSONField rather than Django's, so it is the one these use."""
 
-    def test_value_to_string(self):
-        """Serializing our JSONField leaves the value as an object to encode
-
-        ``AutoSave.data`` is one of the fields still using QATrack+'s own
-        JSONField rather than Django's - the default ``value_to_string`` would
-        return ``str(dict)``, which is a Python repr and not valid JSON."""
+    def test_value_to_string_is_json_text(self):
+        """Not ``str(dict)``, which is a Python repr no JSON parser reads back."""
         obj = AutoSave(data={"foo": "bar"})
-        assert obj._meta.get_field("data").value_to_string(obj) == {"foo": "bar"}
+        as_text = obj._meta.get_field("data").value_to_string(obj)
+        assert as_text == '{"foo": "bar"}'
+        assert json.loads(as_text) == {"foo": "bar"}
 
-    def test_serializes_as_an_object(self):
-        """A dumpdata round trip keeps the value a dictionary"""
-        dumped = json.loads(serializers.serialize("json", [AutoSave(data={"foo": "bar"})]))
-        assert dumped[0]["fields"]["data"] == {"foo": "bar"}
+    def test_a_json_dump_round_trips(self):
+        """What the fixture is actually for: dump it, load it, get a dict back."""
+        dumped = serializers.serialize("json", [AutoSave(data={"foo": "bar", "n": 1})])
+        assert list(serializers.deserialize("json", dumped))[0].object.data == {
+            "foo": "bar", "n": 1,
+        }
+
+    def test_an_xml_dump_round_trips(self):
+        """The format that a dictionary broke.
+
+        Django's XML serializer writes `value_to_string`'s result as character
+        data, and encodes a dict only for a field reporting
+        ``get_internal_type() == "JSONField"``. This field reports TextField, so
+        a dict reached the XML writer and `dumpdata --format=xml` failed for any
+        populated AutoSave. @copilot found it on c#12.
+
+        The apostrophe is deliberate: it is the character that made the repr
+        form unparseable in the first place.
+        """
+        dumped = serializers.serialize("xml", [AutoSave(data={"foo": "o'clock"})])
+        assert list(serializers.deserialize("xml", dumped))[0].object.data == {
+            "foo": "o'clock",
+        }
+
+    def test_an_empty_value_stays_empty(self):
+        """None is passed through rather than dumped as the text 'null'."""
+        obj = AutoSave(data=None)
+        assert obj._meta.get_field("data").value_to_string(obj) is None
 
 
 class TestRelativeDates:
