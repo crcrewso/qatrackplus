@@ -1,0 +1,14 @@
+# Local-only, never committed: own ports and own image tags so this stack
+# cannot disturb q866demo, which shares compose.yaml's default tags.
+services:
+  nginx:
+    image: qatrackplus-nginx:402clin
+    ports: !override
+      - "8083:80"
+  django:
+    image: qatrackplus-django:402clin
+  django-q:
+    image: qatrackplus-django:402clin
+  postgres:
+    ports: !override
+      - "127.0.0.1:5437:5432"
