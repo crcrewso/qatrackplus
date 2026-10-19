@@ -94,9 +94,30 @@ Restoring Media Files
 Restoring the Database
 ----------------------
 
+**Stop everything that can write to the database first.** Restoring is not the
+mirror image of backing up: taking a backup is safe on a running system, and
+replacing the database is not.
+
 .. code-block:: console
 
+    $ docker compose stop django django-q
     $ docker compose run --rm --no-deps backup restore-db <db_XXXXXXXX_XXXXXX.dump>
+    $ docker compose up -d django django-q
+
+``restore-db`` asks you to type the database name before it does anything, and
+it says the same thing there. It will not refuse to run with the services up,
+though - it drops the database with ``--force``, which **terminates their
+connections** rather than waiting for them. So on a live system a restore
+interrupts whatever anybody was submitting at that moment, and leaves the task
+cluster free to write into a database that is part-way through being replaced.
+Neither failure announces itself.
+
+.. note::
+
+    **Backups do not need this.** The backup script is written so that a backup
+    can be taken safely while the system is running, which is what lets the
+    ``backup`` container keep to its own schedule without anybody coordinating
+    with it.
 
 
 Restarting the Service Containers

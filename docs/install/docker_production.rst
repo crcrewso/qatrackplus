@@ -138,6 +138,8 @@ host is rebooted.
     $ docker compose up -d
 
 
+.. _docker_first_user:
+
 Create Your First User
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -150,3 +152,11 @@ and answer its prompts:
     $ docker compose exec django python manage.py createsuperuser
 
 You can then sign in with the credentials you just chose.
+
+.. note::
+
+    This can be done for you instead: set ``DJANGO_SUPERUSER_USERNAME``,
+    ``DJANGO_SUPERUSER_PASSWORD`` and ``DJANGO_SUPERUSER_EMAIL`` in ``.env``
+    before the first start and the entrypoint creates the account. Remove them
+    once it exists - a password in ``.env`` is a password on disk in plain text.
+    See the Docker configuration page for the full list.
