@@ -327,9 +327,12 @@ jobs:
           # curl's own fields rather than parsing the headers: `awk
           # IGNORECASE` is a gawk extension and Ubuntu's awk is mawk, so a
           # header-matching version of this silently found no Location at all.
-          read -r code redirect <<EOF
-          $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "Host: $host" http://localhost/)
-EOF
+          #
+          # Two requests rather than one with a heredoc: a heredoc terminator
+          # has to sit at column 1, which ends the YAML block scalar this step
+          # is written in and makes the file unparseable.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: $host" http://localhost/)
+          redirect=$(curl -s -o /dev/null -w '%{redirect_url}' -H "Host: $host" http://localhost/)
           [ "$code" = "302" ] || { echo "FAIL: / returned $code, expected 302"; exit 1; }
           case "$redirect" in
             */accounts/login/*) echo "PASS: / redirects to $redirect" ;;
