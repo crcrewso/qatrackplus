@@ -69,6 +69,21 @@ Settings
   ``manage.py check`` warns about an unusable value (``qatrack.W013``), and about a
   WeasyPrint that was selected but cannot be imported (``qatrack.W014``).
 
+Bug Fixes
+^^^^^^^^^
+
+* **A fault type whose code has no ASCII form can be repaired.** 4.0.1 stopped new
+  ones being created with an unusable slug, but a record written before that keeps
+  it - and its pages return 500, so it cannot be fixed by editing it in the site
+  either. ``manage.py repair_fault_type_slugs`` gives it a working address, and
+  ``--dry-run`` shows what it would change first. Slugs that already resolve are
+  left exactly as they are, including their uniqueness counters, so no working URL
+  changes.
+
+  There is at most one such record per site: the ``slug`` column is unique, so the
+  second code with no ASCII form got a different broken value rather than a second
+  empty one.
+
 Documentation
 ^^^^^^^^^^^^^
 
