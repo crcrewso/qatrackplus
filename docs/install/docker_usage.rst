@@ -71,6 +71,39 @@ To perform an immediate one-off backup, run:
 container that shares the same volumes as the running container create when
 ``docker compose up`` is used.
 
+Do the services need stopping first?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**No, and the scheduled backup cannot do it anyway** - the ``backup`` container
+runs its own cron inside the stack and has no way to stop the other services.
+Every nightly backup is therefore taken on a running system, by design.
+
+That is safe for the database on its own. ``pg_dump`` takes a transactionally
+consistent snapshot, so the dump is never a half-written database no matter what
+is happening at the time.
+
+**What stopping the writers does buy is a database and a media archive from the
+same moment.** The script dumps the database and *then* archives the media
+files, so there is a window between the two. A file uploaded in that window ends
+up in the archive without a database row pointing at it, which is harmless. A
+file **deleted** in that window is the other way round: the dump still
+references an attachment that is no longer in the archive, and after a restore
+that attachment is missing.
+
+So if you want a backup where the two halves are exactly in step - before an
+upgrade, before anything else risky, or simply as your site's practice - take it
+the same way you would restore one:
+
+.. code-block:: console
+
+    $ docker compose stop django django-q
+    $ docker compose run --rm --no-deps backup backup
+    $ docker compose up -d django django-q
+
+``postgres`` and ``backup`` stay up; it is only the two services that write that
+need to be out of the way. Out of clinical hours the downtime is a minute or two,
+and nothing about the scheduled nightly backup has to change.
+
 
 Listing the Backup Files in the Backups Storage
 -----------------------------------------------
