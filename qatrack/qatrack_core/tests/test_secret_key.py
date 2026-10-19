@@ -79,8 +79,18 @@ class TestSecretKeyFile(unittest.TestCase):
         assert str(self.path) in str(caught.exception)
         assert self.path.read_text(encoding="utf-8") == "", "must not overwrite"
 
+    @unittest.skipUnless(
+        os.name == "posix",
+        "Windows ignores POSIX mode bits on directories, so chmod 0o500 does not "
+        "make one unwritable and there is nothing here to provoke",
+    )
     def test_a_read_only_location_explains_itself(self):
-        """django-q mounts /user_data read-only; django creates the key."""
+        """django-q mounts /user_data read-only; django creates the key.
+
+        POSIX only, and that is the whole scope of the behaviour: the read-only
+        mount this message exists for is a Docker one, and the Docker
+        deployment is Linux.
+        """
         self.path.parent.mkdir(parents=True)
         os.chmod(self.path.parent, 0o500)
         try:
@@ -99,6 +109,11 @@ class TestSecretKeyFile(unittest.TestCase):
             "secret_key.txt"
         ]
 
+    @unittest.skipUnless(
+        "fork" in multiprocessing.get_all_start_methods(),
+        "needs fork, so POSIX only; the race is between processes in one "
+        "container, which is a Linux deployment",
+    )
     def test_racing_processes_all_end_up_with_one_key(self):
         """django, django-q and several gunicorn workers start together.
 
