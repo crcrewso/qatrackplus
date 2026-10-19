@@ -169,7 +169,6 @@ We can now upgrade the database schema and static media files to be compatible w
 .. code-block:: powershell
 
    >>  python manage.py migrate
-   >>  python manage.py createcachetable
    >>  python manage.py collectstatic
 
 If you have issues with the migration, first check

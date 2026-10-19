@@ -330,7 +330,6 @@ Now run the following commands to set up your database and load the default conf
 
    >>  python manage.py migrate
    >>  python manage.py createsuperuser
-   >>  python manage.py createcachetable
    >>  python manage.py collectstatic
    >>  Get-ChildItem .\fixtures\defaults\*\*json | foreach {python manage.py loaddata $_.FullName}
 

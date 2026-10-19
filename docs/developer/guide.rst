@@ -147,7 +147,6 @@ files from the deploy subdirectory and then create your database:
     cp deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
     mkdir db
     python manage.py migrate
-    python manage.py createcachetable
 
 
 this will put a database called `default.db` in the `db` subdirectory.

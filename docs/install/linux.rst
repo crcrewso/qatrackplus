@@ -415,12 +415,6 @@ your Test Lists:
 
     python manage.py createsuperuser
 
-and to create a cachetable in the database:
-
-.. code-block:: bash
-
-    python manage.py createcachetable
-
 and finally we need to collect all our static media files in one location for
 Nginx to serve:
 
