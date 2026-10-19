@@ -85,8 +85,8 @@ OLD = "Can review service event"
 NEW = "Can view service event"
 
 
-def _rename(apps, frm, to):
-    """Update an existing permission's label.
+def _rename(apps, alias, frm, to):
+    """Update an existing permission's label, on the database being migrated.
 
     `AlterModelOptions` above records the corrected model state, and that is not
     enough on its own: `django.contrib.auth`'s `create_permissions` compares
@@ -96,19 +96,25 @@ def _rename(apps, frm, to):
 
     Scoped to the stale text, so a site that corrected the wording by hand keeps
     its own.
+
+    `alias` comes from the schema editor, and a data migration has to say it. An
+    unbound queryset goes to the default or router-chosen database, so
+    `migrate --database secondary` would rename the row in the *default*
+    database and leave the one it was migrating untouched - or fail, where the
+    table exists only on the alias being migrated. @copilot found that on c#13.
     """
     Permission = apps.get_model("auth", "Permission")
-    Permission.objects.filter(
+    Permission.objects.using(alias).filter(
         content_type__app_label=APP_LABEL, codename=CODENAME, name=frm
     ).update(name=to)
 
 
 def rename_view_serviceevent(apps, schema_editor):
-    _rename(apps, OLD, NEW)
+    _rename(apps, schema_editor.connection.alias, OLD, NEW)
 
 
 def restore_view_serviceevent_label(apps, schema_editor):
-    _rename(apps, NEW, OLD)
+    _rename(apps, schema_editor.connection.alias, NEW, OLD)
 
 
 class Migration(migrations.Migration):

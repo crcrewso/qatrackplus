@@ -10,6 +10,7 @@ These tests run on whatever engine the suite is using, so the ones that need a
 missing constraint fake it rather than requiring SQL Server.
 """
 
+from io import StringIO
 from unittest import mock
 
 from django.core.checks import Warning as CheckWarning
@@ -187,6 +188,56 @@ class TestCheckBehaviour(TestCase):
         """First migrate on an empty database must not produce noise."""
         with mock.patch.object(connection.introspection, 'table_names', return_value=[]):
             assert check_unique_constraints_enforced(None, databases=['default']) == []
+
+
+class TestTheCommandReadsTheDatabaseItInspects(TestCase):
+    """`--database` has to choose both halves of the question.
+
+    The command introspects the connection it names and then counts duplicate rows
+    through the ORM. An unbound queryset goes to the default or router-chosen database,
+    so the two could disagree: the duplicates of one database reported against the
+    indexes of another, which can read as "no blockers" for a repair that is in fact
+    blocked. @copilot found that on c#13.
+    """
+
+    def test_duplicate_groups_is_bound_to_the_alias(self):
+        from qatrack.qatrack_core.management.commands.check_unique_constraints import (
+            duplicate_groups,
+        )
+        assert duplicate_groups(TestListInstance, ['user_key'], using='default').db == 'default'
+
+    def test_the_command_passes_its_database_option_down(self):
+        """With a constraint reported as unenforced, so the call is actually reached.
+
+        On SQLite nothing is unenforced and `duplicate_groups` is never called, which
+        would make this assertion vacuous - so the comparison is stubbed to report the
+        first declared column set for every model.
+        """
+        from django.core.management import call_command
+
+        from qatrack.qatrack_core.management.commands import check_unique_constraints as cmd
+
+        def report_the_first_set(declared, enforced):
+            # `declared` is a set of frozensets of column names
+            return [tuple(sorted(next(iter(declared))))] if declared else []
+
+        with mock.patch.object(cmd, 'unenforced_unique_columns', side_effect=report_the_first_set):
+            # An empty *queryset*, not an empty list: c#5's `summarise_groups`
+            # streams with `.iterator()`, which a list does not have, and
+            # `duplicate_groups` really does return a queryset. Stubbing it with
+            # a list made this test fail against the implementation it is
+            # testing rather than against the behaviour it is asserting.
+            with mock.patch.object(
+                cmd, 'duplicate_groups', return_value=TestListInstance.objects.none()
+            ) as groups:
+                call_command(
+                    'check_unique_constraints', '--database', 'default',
+                    stdout=StringIO(), stderr=StringIO(),
+                )
+
+        assert groups.call_args_list, "the stub did not reach duplicate_groups"
+        for call in groups.call_args_list:
+            assert call.kwargs.get('using') == 'default', call
 
 
 class TestIntrospectionAgreesWithThisEngine(TestCase):
