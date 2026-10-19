@@ -82,17 +82,19 @@ That is safe for the database on its own. ``pg_dump`` takes a transactionally
 consistent snapshot, so the dump is never a half-written database no matter what
 is happening at the time.
 
-**What stopping the writers does buy is a database and a media archive from the
-same moment.** The script dumps the database and *then* archives the media
-files, so there is a window between the two. A file uploaded in that window ends
-up in the archive without a database row pointing at it, which is harmless. A
-file **deleted** in that window is the other way round: the dump still
-references an attachment that is no longer in the archive, and after a restore
-that attachment is missing.
+**What stopping the writers buys is a database and a media archive from the same
+moment**, and it is worth being precise about how much that is worth here. The
+script dumps the database and *then* archives the media files, so there is a
+window between the two. A file uploaded in that window ends up in the archive
+with no database row pointing at it, which is harmless - and the reverse case,
+a referenced file missing from the archive, cannot arise from anything QATrack+
+does: nothing in it deletes an upload, and a corrected upload is stored beside
+the file it replaces rather than over it. See :ref:`qatrack_backup`.
 
-So if you want a backup where the two halves are exactly in step - before an
-upgrade, before anything else risky, or simply as your site's practice - take it
-the same way you would restore one:
+So on a correctly run system the hot backup is not losing anything; what the
+pause gives you is a pair you can reason about without that argument, which is
+worth having before an upgrade and worth having if your site's practice expects
+it. Take it the same way you would restore one:
 
 .. code-block:: console
 
