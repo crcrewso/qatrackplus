@@ -405,7 +405,7 @@ and restart the QATrack+ Web Service and the Django Q cluster.
     Chrome stays the fallback whichever engine you select: if WeasyPrint is
     chosen and its libraries are missing or stop working, reports are rendered
     by Chrome rather than failing. `manage.py check` reports that situation
-    (`qatrack.W014`) so you learn about it at upgrade time instead of from a
+    (`qatrack.W016`) so you learn about it at upgrade time instead of from a
     user waiting on a report.
 
     The two engines produce visually equivalent reports from the same
@@ -416,7 +416,7 @@ and restart the QATrack+ Web Service and the Django Q cluster.
 .. note::
 
     Setting `PDF_RENDERER` to anything other than the three values above is
-    reported by `manage.py check` as `qatrack.W013`, and reports are rendered
+    reported by `manage.py check` as `qatrack.W015`, and reports are rendered
     as though it were `auto`.
 
 

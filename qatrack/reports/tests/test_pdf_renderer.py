@@ -105,7 +105,7 @@ class TestPdfRendererCheck(TestCase):
     def test_unknown_value_is_reported(self):
         problems = check_pdf_renderer(None)
         assert len(problems) == 1
-        assert problems[0].id == "qatrack.W013"
+        assert problems[0].id == "qatrack.W015"
         assert "ghostscript" in problems[0].msg
 
     @override_settings(PDF_RENDERER="ghostscript")
@@ -142,7 +142,7 @@ class TestPdfRendererCheck(TestCase):
 
         assert len(problems) == 1
         assert isinstance(problems[0], Warning)
-        assert problems[0].id == "qatrack.W014"
+        assert problems[0].id == "qatrack.W016"
         assert "libgobject" in problems[0].msg
 
 

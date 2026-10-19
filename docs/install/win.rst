@@ -625,7 +625,7 @@ To confirm it worked, run this in your QATrack+ folder:
 
 ``--info`` should print a ``WeasyPrint version`` and a ``Pango version`` line, and
 ``check`` should report no issues. An ``OSError: cannot load library
-'libgobject-2.0-0'`` from ``--info``, or a ``qatrack.W014`` from ``check``, means Pango
+'libgobject-2.0-0'`` from ``--info``, or a ``qatrack.W016`` from ``check``, means Pango
 was not found and your reports are still being rendered by Chrome.
 
 To see which engine made a particular report, open the PDF's properties: **PDF

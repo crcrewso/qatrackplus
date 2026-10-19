@@ -158,7 +158,7 @@ def check_pdf_renderer(app_configs, **kwargs):
                     "Reports will be rendered as though it were 'auto'. Set it in "
                     "qatrack/local_settings.py to one of the values above, or remove it."
                 ),
-                id='qatrack.W013',
+                id='qatrack.W015',
             )
         ]
 
@@ -182,7 +182,7 @@ def check_pdf_renderer(app_configs, **kwargs):
                     "WeasyPrint needs the pango libraries from MSYS2 - see the Windows "
                     "install guide. Check with `python -m weasyprint --info`."
                 ),
-                id='qatrack.W014',
+                id='qatrack.W016',
             )
         ]
 
