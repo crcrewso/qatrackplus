@@ -1,5 +1,18 @@
 # Does the suite still pass when the tests run in a different order?
 #
+# WHEN TO RUN IT - Cody, 2026-10-19:
+#
+#   * as preparation for any release;
+#   * when a maintainer brings in a new app, or makes a significant database
+#     change;
+#   * when a database driver or a maths library changes version significantly -
+#     psycopg, mysqlclient, mssql-django, numpy, scipy, pandas.
+#
+# The first two are judgement calls a person makes, which is why this is a
+# `workflow_dispatch` and not only a schedule: somebody decides the change is
+# significant and runs it. The path filters below catch the mechanical half of
+# the same policy, and are commented out for the reason given further down.
+#
 # Deliberately NOT part of ci.yml. A shuffled run can fail for a reason that has
 # nothing to do with the pull request in front of it, and a check that does that
 # teaches everybody to ignore it - the same way a `makemigrations` that always
@@ -27,6 +40,20 @@ name: Order independence
 #
 #  schedule:
 #    - cron: "30 4 * * *"
+#
+# And the mechanical half of the policy above - a pull request that adds an app,
+# changes the schema, or moves a driver or maths library. Same precondition:
+# enabling this before the suite can pass shuffled would put a red check on
+# every migration PR for a reason that has nothing to do with it.
+#
+#  pull_request:
+#    paths:
+#      - "qatrack/*/migrations/**"        # a schema change
+#      - "qatrack/*/models.py"            # ... and the models behind it
+#      - "qatrack/*/apps.py"              # a new app
+#      - "qatrack/settings.py"            # INSTALLED_APPS, DATABASES, CACHES
+#      - "pyproject.toml"                 # a driver or maths library pin
+#      - "uv.lock"
 on:
   workflow_dispatch:
     inputs:
