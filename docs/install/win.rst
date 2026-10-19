@@ -125,8 +125,10 @@ To confirm it worked, run this in your QATrack+ folder:
 
 .. code-block:: powershell
 
-   >> .venv\Scripts\python.exe -m weasyprint --info
-   >> .venv\Scripts\python.exe manage.py check
+   >>  cd C:\deploy\qatrackplus
+   >>  .\.venv\Scripts\Activate.ps1
+   >>  python -m weasyprint --info
+   >>  python manage.py check
 
 ``--info`` should print a ``WeasyPrint version`` and a ``Pango version`` line, and
 ``check`` should report no issues. An ``OSError: cannot load library
