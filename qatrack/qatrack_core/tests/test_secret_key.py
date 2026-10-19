@@ -44,6 +44,11 @@ class TestSecretKeyFile(unittest.TestCase):
         assert self.path.read_text(encoding="utf-8").strip() == first
         assert self.load() == first
 
+    @unittest.skipUnless(
+        os.name == "posix",
+        "Windows has no POSIX mode bits - it reports 0o666 for this file - and "
+        "the key is only ever created in the Docker deployment, which is Linux",
+    )
     def test_the_file_and_its_directory_are_private(self):
         self.load()
         assert stat.S_IMODE(self.path.stat().st_mode) == 0o600

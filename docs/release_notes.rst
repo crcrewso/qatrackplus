@@ -55,8 +55,8 @@ Settings
   Pango through MSYS2 and set ``PDF_RENDERER = 'weasyprint'`` - see
   :ref:`install_weasyprint_win`. Linux and Docker installations are unaffected.
 
-  ``manage.py check`` reports an unusable value (``qatrack.E003``), and a
-  WeasyPrint that was selected but cannot be imported (``qatrack.W011``).
+  ``manage.py check`` warns about an unusable value (``qatrack.W013``), and about a
+  WeasyPrint that was selected but cannot be imported (``qatrack.W014``).
 
 Documentation
 ^^^^^^^^^^^^^

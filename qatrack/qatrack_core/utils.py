@@ -107,7 +107,7 @@ def pdf_renderer():
     on every platform but Windows - see that setting for why Windows differs.
 
     An unrecognised value resolves the same way "auto" does rather than
-    raising: `qatrack.E003` reports it at `manage.py check` time, which is
+    raising: `qatrack.W013` reports it at `manage.py check` time, which is
     where a configuration mistake belongs, instead of failing a report at the
     moment a user asks for one.
     """

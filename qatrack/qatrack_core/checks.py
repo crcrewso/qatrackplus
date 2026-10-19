@@ -141,8 +141,15 @@ def check_pdf_renderer(app_configs, **kwargs):
     allowed = ('auto',) + PDF_RENDERERS
 
     if configured not in allowed:
+        # A Warning, not an Error, and crane's measurement on Windows Server
+        # 2022 is why: `manage.py check` failing on this blocks `migrate` and
+        # makes `manage.py qcluster` exit immediately, so a typo in a
+        # presentational setting stops every scheduled report and notice -
+        # while the web server carries on rendering reports perfectly well
+        # through the fallback. The severity has to match what the code does,
+        # and what the code does is fall back.
         return [
-            Error(
+            Warning(
                 "PDF_RENDERER is %r, which is not one of %s." % (
                     getattr(settings, 'PDF_RENDERER', None),
                     ", ".join(repr(value) for value in allowed),
@@ -151,7 +158,7 @@ def check_pdf_renderer(app_configs, **kwargs):
                     "Reports will be rendered as though it were 'auto'. Set it in "
                     "qatrack/local_settings.py to one of the values above, or remove it."
                 ),
-                id='qatrack.E003',
+                id='qatrack.W013',
             )
         ]
 
@@ -175,7 +182,7 @@ def check_pdf_renderer(app_configs, **kwargs):
                     "WeasyPrint needs the pango libraries from MSYS2 - see the Windows "
                     "install guide. Check with `python -m weasyprint --info`."
                 ),
-                id='qatrack.W011',
+                id='qatrack.W014',
             )
         ]
 

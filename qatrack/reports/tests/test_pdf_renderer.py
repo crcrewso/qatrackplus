@@ -102,12 +102,26 @@ class TestPdfRendererDispatch(TestCase):
 class TestPdfRendererCheck(TestCase):
 
     @override_settings(PDF_RENDERER="ghostscript")
-    def test_unknown_value_is_an_error(self):
-        errors = check_pdf_renderer(None)
-        assert len(errors) == 1
-        assert isinstance(errors[0], Error)
-        assert errors[0].id == "qatrack.E003"
-        assert "ghostscript" in errors[0].msg
+    def test_unknown_value_is_reported(self):
+        problems = check_pdf_renderer(None)
+        assert len(problems) == 1
+        assert problems[0].id == "qatrack.W013"
+        assert "ghostscript" in problems[0].msg
+
+    @override_settings(PDF_RENDERER="ghostscript")
+    def test_unknown_value_must_not_be_an_error(self):
+        """An Error here would stop the task cluster over a typo.
+
+        `manage.py check` failing blocks `migrate`, and `manage.py qcluster`
+        exits immediately on a failed check - so every scheduled report and
+        notice stops, while the web server carries on rendering reports
+        through the fallback. Measured by crane on Windows Server 2022,
+        2026-10-19. The severity has to match what the code does, and the code
+        falls back.
+        """
+        problems = check_pdf_renderer(None)
+        assert not any(isinstance(p, Error) for p in problems), problems
+        assert all(isinstance(p, Warning) for p in problems), problems
 
     @override_settings(PDF_RENDERER="chrome")
     def test_chrome_is_not_warned_about(self):
@@ -128,5 +142,5 @@ class TestPdfRendererCheck(TestCase):
 
         assert len(problems) == 1
         assert isinstance(problems[0], Warning)
-        assert problems[0].id == "qatrack.W011"
+        assert problems[0].id == "qatrack.W014"
         assert "libgobject" in problems[0].msg
