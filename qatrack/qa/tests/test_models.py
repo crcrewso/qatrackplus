@@ -550,6 +550,24 @@ class TestOnTestSaveSignal(TestCase):
         self.assertRaises(ValidationError, uti.test.save)
 
 
+
+def unit_test_info_pairs():
+    """Every UnitTestInfo as a set of (unit, test) pairs.
+
+    `UnitTestInfo` declares no `Meta.ordering`, so `objects.all()` carries no
+    `ORDER BY` and the database may return the rows in any order it likes.
+    SQLite hands back insertion order as an accident of implementation;
+    PostgreSQL does not, and the assertions that used to index this list were a
+    coin flip there - the same commit's postgres job failed and then passed on a
+    re-run, 2026-10-19.
+
+    A set of pairs is also what those assertions meant: that a UnitTestInfo
+    exists for a given unit and test, not that it is the second row of an
+    unordered query.
+    """
+    return {(uti.unit, uti.test) for uti in models.UnitTestInfo.objects.all()}
+
+
 class TestUnitTestInfo(TestCase):
 
     def setUp(self):
@@ -1385,11 +1403,11 @@ class TestSignals(TestCase):
 
         utc = utils.create_unit_test_collection(test_collection=test_list)
 
-        utis = list(models.UnitTestInfo.objects.all())
+        utis = unit_test_info_pairs()
 
         # test list on its own
         self.assertEqual(len(utis), 1)
-        self.assertListEqual([utc.unit, test], [utis[0].unit, utis[0].test])
+        assert (utc.unit, test) in utis
 
         # test utis are utils.created for sublists
         sub_test = utils.create_test(name="sub")
@@ -1397,9 +1415,9 @@ class TestSignals(TestCase):
         utils.create_test_list_membership(sub_list, sub_test)
         models.Sublist.objects.create(parent=test_list, child=sub_list, order=0)
 
-        utis = list(models.UnitTestInfo.objects.all())
+        utis = unit_test_info_pairs()
         self.assertEqual(len(utis), 2)
-        self.assertListEqual([utc.unit, sub_test], [utis[1].unit, utis[1].test])
+        assert (utc.unit, sub_test) in utis
 
     def test_sublist_changed(self):
         test = utils.create_test(name="test")
@@ -1414,13 +1432,13 @@ class TestSignals(TestCase):
         utils.create_test_list_membership(sub_list, sub_test)
         models.Sublist.objects.create(parent=test_list, child=sub_list, order=0)
 
-        utis = list(models.UnitTestInfo.objects.all())
+        utis = unit_test_info_pairs()
         self.assertEqual(len(utis), 2)
-        self.assertListEqual([utc.unit, sub_test], [utis[1].unit, utis[1].test])
+        assert (utc.unit, sub_test) in utis
 
         sub_test2 = utils.create_test(name="sub2")
         utils.create_test_list_membership(sub_list, sub_test2)
-        utis = list(models.UnitTestInfo.objects.all())
+        utis = unit_test_info_pairs()
         self.assertEqual(len(utis), 3)
 
     def test_test_cycle_changed(self):
