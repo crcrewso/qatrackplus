@@ -229,7 +229,13 @@ def chrometopdf(html, name="", paper_size="letter"):
                 '--print-to-pdf=%s' % out_path,
                 '--print-to-pdf-no-header',
                 '--user-data-dir=%s' % profiledir,
-                "file://%s" % tmp_html.name,
+                # file_uri, not "file://" + path: the same malformed-URI
+                # problem this module added file_uri for, on the one argument
+                # that was left behind. Chrome tolerates the broken form, which
+                # is why it survived - but "file://D:\\x\\y.html" names a *host*
+                # of D:\\x\\y.html with an empty path, so it is luck rather than
+                # correctness. Raised by CodeRabbit on PR crcrewso#18.
+                file_uri(tmp_html.name),
             ]
 
             stderr_path = os.path.join(settings.LOG_ROOT, 'report-stderr.txt')

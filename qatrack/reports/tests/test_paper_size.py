@@ -270,6 +270,20 @@ class TestChromeCommandQuoting(TestCase):
 
         return captured['command']
 
+    def test_input_document_is_passed_as_a_well_formed_file_uri(self):
+        """Chrome tolerates "file://" + path; that is luck, not correctness.
+
+        Everything between the two slashes and the next one is a URI's
+        authority, so "file://D:\\x\\y.html" names a host and an empty path.
+        WeasyPrint rejects it, Chrome accepts it, and the two engines render
+        the same document - so the form that works everywhere is the one to
+        pass.
+        """
+        command = self._capture_command("/usr/bin/chromium")
+        inputs = [a for a in command if str(a).startswith("file:")]
+        assert len(inputs) == 1, command
+        assert inputs[0].startswith("file:///"), inputs[0]
+
     def test_command_is_a_sequence_not_a_string(self):
         command = self._capture_command("/usr/bin/chromium")
         assert isinstance(command, list | tuple), repr(command)
