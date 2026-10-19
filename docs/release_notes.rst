@@ -72,6 +72,18 @@ Settings
 Bug Fixes
 ^^^^^^^^^
 
+* **``manage.py backup_site`` backs up the uploaded media files on every engine.**
+  The database step returns early on PostgreSQL, on MySQL and on any engine it does
+  not implement, and it used to take the uploads archive with it - so those sites
+  got no media backup either, with nothing said about it. A site that read "Please
+  use pg_dump" and arranged its own database dump would reasonably have believed
+  the rest of the backup happened. The two steps are now independent; the retention
+  step still waits for both, so nothing old is deleted on the strength of an
+  incomplete set.
+
+  **Check any backup set a PostgreSQL or MySQL site made before this release**: it
+  contains neither the database nor the uploads.
+
 * **A fault type whose code has no ASCII form can be repaired.** 4.0.1 stopped new
   ones being created with an unusable slug, but a record written before that keeps
   it - and its pages return 500, so it cannot be fixed by editing it in the site

@@ -35,6 +35,12 @@ timestamped directory.
     **It can only back up the database on SQL Server and SQLite.** On PostgreSQL,
     MySQL, or any other engine it reports that it cannot, and skips the database.
 
+    **Before 4.0.2 it also skipped the uploaded media files on those engines**,
+    without saying so: the database step returned early and took the uploads
+    archive with it. So a backup set made by a PostgreSQL or MySQL site before
+    this release contains **neither** - check one before you rely on it. From
+    4.0.2 the media archive is written whatever the database step did.
+
     **The command exits zero either way.** There is no non-zero exit path in it, so
     a scheduled task that checks only the exit status will record a success. Check
     the output, or check that a database file is in the backup directory.
