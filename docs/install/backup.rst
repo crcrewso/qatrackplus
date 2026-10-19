@@ -48,8 +48,24 @@ At a minimum, you must ensure that you keep secure, off-server backups of:
     Do not simply empty it. An in-progress session that a user can still resume
     refers to its staged uploads by id for ``AUTOSAVE_DAYS_TO_KEEP`` days (30 by
     default), so deleting a file younger than that takes an upload out of a form
-    somebody is coming back to. Older than that window, a staged file belongs to
-    nothing.
+    somebody is coming back to.
+
+    ``manage.py clean_staged_attachments`` applies that rule for you. Its sweep
+    boundary is ``AUTOSAVE_DAYS_TO_KEEP`` **plus a margin** - seven days by
+    default, ``--margin-days`` to change it - so it never touches a staged file
+    that a resumable session could refer to, and the margin covers the two clocks
+    not lining up exactly. It reports what it would remove and does nothing else
+    unless you pass ``--delete``:
+
+    .. code-block:: bash
+
+        python manage.py clean_staged_attachments            # report
+        python manage.py clean_staged_attachments --delete   # and remove
+
+    It removes the database row and then the file, in that order, so it cannot
+    leave a row pointing at a file that is gone - which is the fault
+    ``check_attachments`` exists to report. Finalized attachments are never
+    candidates, whatever their age.
 
 It is highly recommended that your backups do not reside on the QATrack+ server itself.
 Store them on a remote system (e.g. a network or shared drive) so that if your server

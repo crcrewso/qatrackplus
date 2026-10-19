@@ -72,6 +72,19 @@ Settings
 Bug Fixes
 ^^^^^^^^^
 
+* **Staged uploads can be cleaned up.** A file attached while performing QC is
+  written to ``media/uploads/tmp`` and moved into place when the test list instance
+  is saved; abandoned forms left theirs behind, and nothing removed them, so that
+  folder grew indefinitely. ``manage.py check_attachments --staging`` reports what
+  is in there, and ``manage.py clean_staged_attachments`` sweeps it - reporting by
+  default, removing with ``--delete``.
+
+  Its boundary is ``AUTOSAVE_DAYS_TO_KEEP`` plus a margin of seven days, because an
+  in-progress session a user can still resume refers to its staged uploads by id
+  for the length of the autosave window. Nothing inside that window is touched, and
+  finalized attachments are never candidates: everything else under the media folder
+  is a record.
+
 * **``manage.py backup_site`` backs up the uploaded media files on every engine.**
   The database step returns early on PostgreSQL, on MySQL and on any engine it does
   not implement, and it used to take the uploads archive with it - so those sites
