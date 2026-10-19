@@ -52,8 +52,14 @@ fi
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-echo "Creating superuser..."
-python manage.py createsuperuser --noinput || true
+# Only when the deployment asked for one. Run unconditionally, this printed
+# "CommandError: You must use --username with --noinput." into the log of
+# every boot of every installation that does not set these - the first thing
+# a new operator sees, and it looks like the install has failed.
+if [ -n "${DJANGO_SUPERUSER_USERNAME:-}" ]; then
+    echo "Creating superuser ${DJANGO_SUPERUSER_USERNAME}..."
+    python manage.py createsuperuser --noinput || true
+fi
 
 echo "Starting application..."
 
