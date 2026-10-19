@@ -28,6 +28,19 @@ python manage.py migrate --noinput
 #
 # Applied after migrate, because django_site exists only once the sites app has
 # migrated.
+#
+# **It is applied on every start, not only the first.** So in this deployment
+# the environment is the source of truth for those two fields: editing the site
+# record in the Django admin will be undone by the next restart. That is the
+# intended behaviour for a container whose configuration lives in .env - the
+# alternative is a deployment whose displayed name silently depends on what
+# somebody typed into the admin of a database that has since been restored
+# elsewhere - but it is a behaviour change from 4.0.1, where this record was
+# only ever set by hand, so it is said out loud here and in .env.example.
+# Raised by CodeRabbit on PR crcrewso#18.
+#
+# To manage the record from the admin instead, leave SITE_NAME and SITE_DOMAIN
+# unset: with neither set this block does nothing at all.
 site_domain="${SITE_DOMAIN:-$(printf '%s' "${ALLOWED_HOSTS:-}" | cut -d, -f1)}"
 if [ -n "${SITE_NAME:-}" ] || [ -n "$site_domain" ]; then
     echo "Applying the site name and domain to the site record..."
