@@ -335,7 +335,30 @@ Now run the following commands to set up your database and load the default conf
    >>  Get-ChildItem .\fixtures\defaults\*\*json | foreach {python manage.py loaddata $_.FullName}
 
 If you want to enable internationalization, then you need to compile the
-messages catalogs for the languages you need:
+messages catalogs for the languages you need.
+
+.. note::
+
+    ``compilemessages`` runs GNU gettext's ``msgfmt``, which Windows does not
+    include and Python does not provide. Without it the command stops with
+    ``CommandError: Can't find msgfmt. Make sure you have GNU gettext tools
+    0.15 or newer installed.``, no catalogue is compiled, and QATrack+ serves
+    every string in English with nothing else to say that anything failed.
+
+    If you installed MSYS2 for :ref:`install_weasyprint_win`, you already have
+    a package manager for it:
+
+    .. code-block:: bash
+
+       pacman -S gettext
+
+    ``msgfmt.exe`` then lives in ``C:\msys64\usr\bin``, which has to be on
+    ``PATH`` for Django to find it. Otherwise install the standalone
+    `gettext-iconv binaries for Windows
+    <https://mlocati.github.io/articles/gettext-iconv-windows.html>`__, which
+    put themselves on ``PATH``.
+
+    **Skip all of this if you only use English** - nothing else needs it.
 
 .. code-block:: powershell
 
