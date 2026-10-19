@@ -639,6 +639,18 @@ Running The Test Suite
 Once you have QATrack+ and its dependencies installed, run the suite from the
 root QATrack+ directory:
 
+.. important::
+
+    Run the suite as a regular, non-elevated user - not with ``sudo`` and not as
+    ``root``.
+
+    ``root`` bypasses filesystem permission checks, so the tests covering
+    directory ownership and permissions - ``check_media_folder_permissions``
+    among them - can pass as ``root`` while the same code fails for the account
+    that actually runs Gunicorn and Django-Q2. A run as ``root`` also leaves
+    root-owned files in ``logs/`` and ``qatrack/media/``, which the application
+    user then cannot write to.
+
 .. code-block:: shell
 
     pytest

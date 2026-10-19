@@ -180,6 +180,13 @@ def apply(g, environ=os.environ):
 
     g['SECRET_KEY'] = load_secret_key(env)
 
+    # The container runs as root by design, so qatrack.W001 - which warns that the
+    # server process is running as root, because the reflex on a permissions
+    # complaint is to re-run under sudo - does not apply here. Without this it
+    # would print on every start, since entrypoint.sh runs migrate and migrate runs
+    # the system checks.
+    g['SILENCED_SYSTEM_CHECKS'] = ['qatrack.W001']
+
     # Database
     g['DATABASES'] = {
         'default': {
