@@ -18,21 +18,42 @@ that the declaration is wired up at all.
 
 import inspect
 
-from braces.views._access import AccessMixin as BracesAccessMixin
-from django.contrib.auth.mixins import AccessMixin as DjangoAccessMixin
+from braces.views._access import (
+    MultiplePermissionsRequiredMixin as BracesMultiplePermissionsRequiredMixin,
+)
+from braces.views._access import PermissionRequiredMixin as BracesPermissionRequiredMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin as DjangoPermissionRequiredMixin
 from django.test import TestCase
-from django.views.generic import View
+from django.views.generic import DeleteView, FormView, View
 
 # **Both families, and this is the point of the file.** QATrack+ mostly uses
 # `braces.views.PermissionRequiredMixin`, which is *not* a subclass of Django's
 # `AccessMixin`. The first version of this sweep tested only Django's, so it skipped
 # every class it was written to check and passed while measuring nothing. It was caught
 # by the one test here that names a class explicitly.
-ACCESS_MIXINS = (DjangoAccessMixin, BracesAccessMixin)
+#
+# **And these are the mixins that check a permission, not the ones that check a
+# login.** The second version swept for any *access* mixin, which let a
+# `LoginRequiredMixin` in front of the view base vouch for a
+# `PermissionRequiredMixin` behind it: the login was enforced, the permission was not,
+# and the sweep passed. @copilot found that on c#12. So the names below are the three
+# classes that actually test a permission, and nothing else counts as one.
+PERMISSION_MIXINS = (
+    DjangoPermissionRequiredMixin,
+    BracesPermissionRequiredMixin,
+    BracesMultiplePermissionsRequiredMixin,
+)
 
 
-def is_access_mixin(cls):
-    return issubclass(cls, ACCESS_MIXINS)
+def permission_mixins_in(cls):
+    """The permission mixins in `cls`'s MRO, in MRO order.
+
+    Identity against `PERMISSION_MIXINS` rather than `issubclass`, because a project
+    mixin built on one of them keeps its base in the MRO *ahead of the view bases* -
+    Python linearises a class before its own bases - so the canonical class is the
+    conservative thing to measure.
+    """
+    return [c for c in cls.__mro__ if c in PERMISSION_MIXINS]
 
 
 def view_classes_declaring_a_permission():
@@ -69,6 +90,26 @@ def dispatch_owner(cls):
     return next(c for c in cls.__mro__ if 'dispatch' in vars(c))
 
 
+def unenforced_reason(cls):
+    """Why `cls`'s declared permission cannot be checked, or None if it can.
+
+    Two ways it cannot be. The view mixes in nothing that reads
+    `permission_required`, or it does and that mixin sits behind the generic view
+    base: `View.dispatch` does not call `super()`, so it is where the chain stops.
+    """
+    mixins = permission_mixins_in(cls)
+    if not mixins:
+        return "declares permission_required but mixes in no permission mixin"
+
+    mro = cls.__mro__
+    if View in mro and min(mro.index(m) for m in mixins) > mro.index(View):
+        return (
+            "%s sits behind the generic View base, whose dispatch does not call "
+            "super(); dispatch enters at %s" % (mixins[0].__name__, dispatch_owner(cls).__name__)
+        )
+    return None
+
+
 class TestPermissionMixinsActuallyRun(TestCase):
 
     def test_there_are_views_to_check(self):
@@ -79,28 +120,62 @@ class TestPermissionMixinsActuallyRun(TestCase):
     def test_every_declared_permission_is_reachable_by_dispatch(self):
         offenders = []
         for label, cls in sorted(view_classes_declaring_a_permission().items()):
-            owner = dispatch_owner(cls)
-            # Either the access mixin owns dispatch, or it sorts ahead of the plain
-            # View whose dispatch would otherwise shadow it.
-            mro = cls.__mro__
-            access = [c for c in mro if is_access_mixin(c) and c is not cls]
-            if not access:
-                continue
-            if is_access_mixin(owner):
-                continue
-            if View in mro and min(mro.index(a) for a in access) < mro.index(View):
-                continue
-            offenders.append("%s: dispatch from %s, mixin after it" % (label, owner.__name__))
+            problem = unenforced_reason(cls)
+            if problem:
+                offenders.append("%s: %s" % (label, problem))
 
         assert not offenders, (
             "these views declare a permission that is never checked:\n  " + "\n  ".join(offenders)
         )
 
+    def test_the_sweep_rejects_a_view_whose_permission_mixin_is_behind_the_view(self):
+        """The negative control, without which the test above proves nothing.
+
+        This is the shape @copilot named on c#12: a login mixin in front, which the
+        earlier version of the sweep accepted on the permission mixin's behalf, and the
+        permission mixin itself behind `DeleteView`, where `View.dispatch` - which does
+        not call `super()` - ends the chain before it is reached.
+
+        It is defined inside the test rather than at module level on purpose: the sweep
+        walks every module under `qatrack`, test modules included, so a deliberately
+        broken view left at module scope would be swept up and fail the real test.
+        """
+        from braces.views import LoginRequiredMixin
+
+        class MisorderedView(
+            LoginRequiredMixin, DeleteView, FormView, BracesPermissionRequiredMixin
+        ):
+            permission_required = 'service_log.delete_serviceevent'
+
+        assert unenforced_reason(MisorderedView), (
+            "the sweep accepted a view whose permission mixin sits behind View.dispatch"
+        )
+
+        class OrderedView(
+            BracesPermissionRequiredMixin, LoginRequiredMixin, DeleteView, FormView
+        ):
+            permission_required = 'service_log.delete_serviceevent'
+
+        assert unenforced_reason(OrderedView) is None, (
+            "the sweep rejected a correctly ordered view: %s" % unenforced_reason(OrderedView)
+        )
+
+    def test_a_declaration_with_no_permission_mixin_at_all_is_reported(self):
+        """`permission_required` on a view that mixes in nothing to read it is a
+        declaration with no effect, and reads exactly like an enforced one."""
+
+        class DeclaredButUnmixed(DeleteView):
+            permission_required = 'service_log.delete_serviceevent'
+
+        assert unenforced_reason(DeclaredButUnmixed) == "declares permission_required but " \
+            "mixes in no permission mixin"
+
     def test_delete_service_event_specifically(self):
         """The one that was wrong, named so a reader can find the history."""
         from qatrack.service_log.views import DeleteServiceEvent
 
-        assert is_access_mixin(dispatch_owner(DeleteServiceEvent))
+        assert unenforced_reason(DeleteServiceEvent) is None
+        assert permission_mixins_in(DeleteServiceEvent), "no permission mixin at all"
         assert DeleteServiceEvent.permission_required == 'service_log.delete_serviceevent'
         # FormView must survive the reorder - the view's delete form depends on it
         assert any(c.__name__ == 'FormView' for c in DeleteServiceEvent.__mro__)
