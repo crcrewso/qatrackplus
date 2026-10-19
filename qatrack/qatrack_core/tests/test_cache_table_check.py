@@ -14,6 +14,7 @@ surprise mid-upgrade.
 from unittest import mock
 
 from django.core.cache.backends.db import DatabaseCache
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from qatrack.qatrack_core.checks import check_cache_tables_exist, configured_cache_tables
@@ -79,7 +80,17 @@ class TestTheCheckFires(TestCase):
 
     @override_settings(CACHES=DB_CACHE)
     def test_nothing_is_reported_when_the_table_exists(self):
-        """The test database is built by migrating, so the table is there."""
+        """The check is quiet once the table is there.
+
+        The table is created here rather than assumed. It used to be assumed,
+        on the grounds that the test database is built by migrating - but
+        `0002_cache_table` only creates a table when the *configured* backend is
+        the database cache, and `test_settings.py` pins the suite to locmem so a
+        test run needs no cache table at all. Both of those are right on their
+        own; together they made this assertion depend on which cache the suite
+        happened to be configured with, which is not what it is testing.
+        """
+        call_command('createcachetable', verbosity=0)
         assert check_cache_tables_exist(databases=['default']) == []
 
     @override_settings(CACHES=DB_CACHE)
