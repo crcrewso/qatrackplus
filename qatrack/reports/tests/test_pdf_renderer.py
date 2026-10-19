@@ -144,3 +144,39 @@ class TestPdfRendererCheck(TestCase):
         assert isinstance(problems[0], Warning)
         assert problems[0].id == "qatrack.W014"
         assert "libgobject" in problems[0].msg
+
+
+class TestPaperSizeIsValidatedBeforeAnEngineIsChosen(TestCase):
+    """An invalid paper size must not be reported as an engine failure.
+
+    `clean_paper_size` is called by both engines, so the error always
+    surfaced - but via the fallback, which logged "WeasyPrint failed on this
+    report" with a traceback and then failed the same way inside Chrome. The
+    cause named in the log was wrong, and scheduled reports and management
+    commands are where anyone would read it. Raised by CodeRabbit.
+    """
+
+    @override_settings(PDF_RENDERER="weasyprint")
+    def test_no_engine_is_called_for_an_invalid_size(self):
+        report = reports.BaseReport()
+        report.get_context = lambda: {"paper_size": "a3-ish"}
+
+        with mock.patch("qatrack.reports.reports.chrometopdf") as chrome:
+            with mock.patch("qatrack.reports.reports.weasyprint_to_pdf") as weasy:
+                with self.assertRaises(ValueError):
+                    report.to_pdf()
+
+        assert not chrome.called, "Chrome was asked to render an invalid size"
+        assert not weasy.called, "WeasyPrint was asked to render an invalid size"
+
+    @override_settings(PDF_RENDERER="chrome")
+    def test_valid_sizes_still_reach_the_engine(self):
+        for size in ("letter", "a4", "A4", " letter "):
+            with self.subTest(size=size):
+                report = reports.BaseReport()
+                report.get_context = lambda: {"paper_size": size}
+                with mock.patch("qatrack.reports.reports.chrometopdf") as chrome:
+                    chrome.return_value = b"%PDF-"
+                    report.to_pdf()
+                assert chrome.called
+                assert chrome.call_args[1]["paper_size"] == size.strip().lower()

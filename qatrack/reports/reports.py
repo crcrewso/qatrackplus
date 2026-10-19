@@ -20,6 +20,7 @@ from django.utils.translation import gettext_lazy as _l
 from qatrack.qatrack_core.dates import format_as_date, format_datetime
 from qatrack.qatrack_core.utils import (
     chrometopdf,
+    clean_paper_size,
     pdf_renderer,
     relative_dates,
     site_base_url,
@@ -272,8 +273,15 @@ class BaseReport(metaclass=ReportMeta):
         context['base_template'] = "reports/pdf_report.html"
         template = self.get_template(using=None)
         content = template.render(context)
-        paper_size = context.get('paper_size', 'letter')
-        
+        # Validated here, before an engine is chosen, because both engines
+        # validate it themselves and the fallback turns that into a lie: an
+        # invalid size raised ValueError out of WeasyPrint, was caught by the
+        # generic handler below, logged a traceback headed "WeasyPrint failed
+        # on this report", and then failed identically inside Chrome. The
+        # eventual error was right and everything said about its cause was
+        # wrong. Raised by CodeRabbit on PR crcrewso#18.
+        paper_size = clean_paper_size(context.get('paper_size', 'letter'))
+
         if pdf_renderer() == "chrome":
             # Chosen, not fallen back to. Nothing is attempted and nothing is
             # logged: on a platform where WeasyPrint's libraries are not part
