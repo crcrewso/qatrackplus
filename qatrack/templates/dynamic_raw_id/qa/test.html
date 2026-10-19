@@ -10,5 +10,10 @@ back to the id so the field always says *something* identifying.
 
 `name` is a plain CharField, so an empty one can only come from data rather than
 from a migration default.
+
+The fallback is translated, like every other string a user reads. The id is a
+placeholder rather than part of the sentence, so a translation can put it where
+its own grammar wants it. @copilot asked for that on c#6.
 {% endcomment %}
-<a href="{{ object.1 }}">{% if object.0.name %}{{ object.0.name }}{% else %}Test {{ object.0.pk }} (no name){% endif %}</a>
+{% load i18n %}
+<a href="{{ object.1 }}">{% if object.0.name %}{{ object.0.name }}{% else %}{% blocktrans with pk=object.0.pk %}Test {{ pk }} (no name){% endblocktrans %}{% endif %}</a>
