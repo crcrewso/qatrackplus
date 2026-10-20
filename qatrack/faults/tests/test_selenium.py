@@ -166,7 +166,7 @@ class TestFaultsInlineEdit(BaseFaultsTests):
         
         # Click the edit button for occurrence
         edit_btn = self.wait.until(e_c.presence_of_element_located(
-            (By.CSS_SELECTOR, "#fault-section-occurrence button[hx-get]")
+            (By.CSS_SELECTOR, "#fault-section-occurrence .box-tools button[hx-get]")
         ))
         edit_btn.click()
         
@@ -176,15 +176,15 @@ class TestFaultsInlineEdit(BaseFaultsTests):
         ))
         
         # Ensure 'Save' and 'Cancel' buttons are there
-        self.driver.find_element(By.CSS_SELECTOR, "#fault-section-occurrence form button[type='submit']")
-        cancel_btn = self.driver.find_element(By.CSS_SELECTOR, "#fault-section-occurrence form button[hx-get]")
+        self.driver.find_element(By.CSS_SELECTOR, "#fault-section-occurrence .tl-group-foot button[type='submit']")
+        cancel_btn = self.driver.find_element(By.CSS_SELECTOR, "#fault-section-occurrence .tl-group-foot button[hx-get]")
         
         # Click cancel
         cancel_btn.click()
         
         # Wait for form to disappear and edit button to be back
         self.wait.until(e_c.presence_of_element_located(
-            (By.CSS_SELECTOR, "#fault-section-occurrence button[hx-get]")
+            (By.CSS_SELECTOR, "#fault-section-occurrence .box-tools button[hx-get]")
         ))
 
     def test_inline_edit_fault_types(self):
@@ -192,7 +192,7 @@ class TestFaultsInlineEdit(BaseFaultsTests):
         self.open(self.url)
         
         edit_btn = self.wait.until(e_c.presence_of_element_located(
-            (By.CSS_SELECTOR, "#fault-section-fault-types button[hx-get]")
+            (By.CSS_SELECTOR, "#fault-section-fault-types .box-tools button[hx-get]")
         ))
         edit_btn.click()
         
@@ -200,11 +200,11 @@ class TestFaultsInlineEdit(BaseFaultsTests):
             (By.CSS_SELECTOR, "#fault-section-fault-types form")
         ))
         
-        cancel_btn = self.driver.find_element(By.CSS_SELECTOR, "#fault-section-fault-types form button[hx-get]")
+        cancel_btn = self.driver.find_element(By.CSS_SELECTOR, "#fault-section-fault-types .tl-group-foot button[hx-get]")
         cancel_btn.click()
         
         self.wait.until(e_c.presence_of_element_located(
-            (By.CSS_SELECTOR, "#fault-section-fault-types button[hx-get]")
+            (By.CSS_SELECTOR, "#fault-section-fault-types .box-tools button[hx-get]")
         ))
 
     def test_inline_edit_related_ses(self):
@@ -212,7 +212,7 @@ class TestFaultsInlineEdit(BaseFaultsTests):
         self.open(self.url)
         
         edit_btn = self.wait.until(e_c.presence_of_element_located(
-            (By.CSS_SELECTOR, "#fault-section-related-ses button[hx-get]")
+            (By.CSS_SELECTOR, "#fault-section-related-ses .box-tools button[hx-get]")
         ))
         edit_btn.click()
         
@@ -220,11 +220,11 @@ class TestFaultsInlineEdit(BaseFaultsTests):
             (By.CSS_SELECTOR, "#fault-section-related-ses form")
         ))
         
-        cancel_btn = self.driver.find_element(By.CSS_SELECTOR, "#fault-section-related-ses form button[hx-get]")
+        cancel_btn = self.driver.find_element(By.CSS_SELECTOR, "#fault-section-related-ses .tl-group-foot button[hx-get]")
         cancel_btn.click()
         
         self.wait.until(e_c.presence_of_element_located(
-            (By.CSS_SELECTOR, "#fault-section-related-ses button[hx-get]")
+            (By.CSS_SELECTOR, "#fault-section-related-ses .box-tools button[hx-get]")
         ))
 
     def test_inline_edit_attachments(self):
@@ -232,7 +232,7 @@ class TestFaultsInlineEdit(BaseFaultsTests):
         self.open(self.url)
         
         edit_btn = self.wait.until(e_c.presence_of_element_located(
-            (By.CSS_SELECTOR, "#fault-section-attachments button[hx-get]")
+            (By.CSS_SELECTOR, "#fault-section-attachments .box-tools button[hx-get]")
         ))
         edit_btn.click()
         
@@ -240,9 +240,9 @@ class TestFaultsInlineEdit(BaseFaultsTests):
             (By.CSS_SELECTOR, "#fault-section-attachments form")
         ))
         
-        cancel_btn = self.driver.find_element(By.CSS_SELECTOR, "#fault-section-attachments form button[hx-get]")
+        cancel_btn = self.driver.find_element(By.CSS_SELECTOR, "#fault-section-attachments .tl-group-foot button[hx-get]")
         cancel_btn.click()
         
         self.wait.until(e_c.presence_of_element_located(
-            (By.CSS_SELECTOR, "#fault-section-attachments button[hx-get]")
+            (By.CSS_SELECTOR, "#fault-section-attachments .box-tools button[hx-get]")
         ))
