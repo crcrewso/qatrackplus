@@ -294,7 +294,21 @@ Now run the following commands to set up your database and load the default conf
    >>  Get-ChildItem .\fixtures\defaults\*\*json | foreach {python manage.py loaddata $_.FullName}
 
 If you want to enable internationalization, then you need to compile the
-messages catalogs for the languages you need:
+messages catalogs for the languages you need.
+
+.. note::
+
+    ``compilemessages`` runs GNU gettext's ``msgfmt``, which Windows does not
+    include and Python does not provide. Without it the command stops with
+    ``CommandError: Can't find msgfmt. Make sure you have GNU gettext tools
+    0.15 or newer installed.``, no catalogue is compiled, and QATrack+ then
+    serves every string in English with nothing else to say that anything
+    failed.
+
+    Install the GNU gettext binaries for Windows and make sure the folder
+    holding ``msgfmt.exe`` is on ``PATH`` for the session you run
+    ``compilemessages`` in. If you only need English, you can skip this step
+    and the command altogether.
 
 .. code-block:: powershell
 
