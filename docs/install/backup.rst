@@ -73,6 +73,41 @@ backup of the wrong database.
     expect.
 
 
+Staged uploads in ``media/uploads/tmp``
+----------------------------------------
+
+**Uploaded files are records and nothing in QATrack+ deletes one.** The single
+exception is ``media/uploads/tmp``, which holds files chosen on a form that was
+never submitted. Nothing removes those either, so the folder only grows, and
+several sites have asked for a way to clear it.
+
+``manage.py check_attachments --staging`` reports what is in there: how many
+staged files, how much space, and how old the oldest is.
+
+``manage.py clean_staged_attachments`` removes the ones nobody can still be
+using. Its boundary is ``AUTOSAVE_DAYS_TO_KEEP`` **plus a margin** - seven days
+by default, ``--margin-days`` to change it - so it never touches a file a
+resumable session could still refer to, and the margin covers the two clocks not
+lining up exactly. It reports and does nothing else unless you pass
+``--delete``:
+
+.. code-block:: bash
+
+    python manage.py clean_staged_attachments            # report only
+    python manage.py clean_staged_attachments --delete   # and remove
+
+It removes the database row and then the file, in that order, so it cannot leave
+a row pointing at a file that is gone - the fault ``check_attachments`` exists to
+report. Finalized attachments are never candidates, whatever their age.
+
+.. danger::
+
+    Do not point a retention or clean-up job at the rest of the media tree. A
+    corrected upload is stored beside the file it replaces rather than over it,
+    so a file with no row pointing at it is usually a previous version of a
+    record, not rubbish.
+
+
 Using Django to Dump The Database To JSON
 -----------------------------------------
 

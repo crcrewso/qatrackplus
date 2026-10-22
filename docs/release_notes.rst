@@ -18,6 +18,15 @@ QATrack+ 4.0
 4.0.2
 ------
 
+* **Staged uploads can now be reported and swept.** Files chosen on a form that
+  was never submitted stay in ``media/uploads/tmp`` forever, and the folder only
+  grows; several sites asked for a way to clear it.
+  ``manage.py check_attachments --staging`` reports what is there, and
+  ``manage.py clean_staged_attachments`` removes what no resumable session can
+  still refer to - ``AUTOSAVE_DAYS_TO_KEEP`` plus a margin. It reports by default
+  and deletes only with ``--delete``. Nothing else in the media tree is touched:
+  uploaded files are records.
+
 Deployment and Upgrade Notes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
