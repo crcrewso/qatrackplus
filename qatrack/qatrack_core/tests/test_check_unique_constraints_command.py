@@ -30,6 +30,17 @@ def run(**kwargs):
 
 
 class TestHealthyDatabase(TestCase):
+    """A database with nothing to repair - simulated, not assumed.
+
+    On SQL Server the test database genuinely *is* missing constraints, because
+    that is the defect this command exists to report: a fresh 4.0 schema there
+    has 16 unenforced column sets, and the command correctly says so. A test that
+    asserted "Nothing to repair" against the live scan therefore passed on SQLite
+    and PostgreSQL and failed on the one engine the command is for.
+
+    So the clean verdict is tested by making the scan clean, which is also closer
+    to what these tests are for: the wording, not the schema.
+    """
 
     def test_it_names_the_database_and_vendor(self):
         output = run()
@@ -37,9 +48,24 @@ class TestHealthyDatabase(TestCase):
         assert connection.vendor in output
 
     def test_a_clean_run_says_so_unambiguously(self):
-        output = run()
+        from qatrack.qatrack_core.management.commands import check_unique_constraints as cmd
+
+        with mock.patch.object(cmd, 'unenforced_unique_columns', return_value=[]):
+            output = run()
         assert "Nothing to repair" in output, output
         assert "Inconclusive" not in output
+
+    def test_an_unhealthy_database_does_not_say_nothing_to_repair(self):
+        """The negative control, and the case SQL Server actually produces."""
+        from qatrack.qatrack_core.management.commands import check_unique_constraints as cmd
+
+        def report_the_first_set(declared, enforced):
+            return [tuple(sorted(next(iter(declared))))] if declared else []
+
+        with mock.patch.object(cmd, 'unenforced_unique_columns', side_effect=report_the_first_set):
+            output = run()
+        assert "Nothing to repair" not in output, output
+        assert "not enforced" in output
 
     def test_it_counts_the_models_it_checked(self):
         output = run()
