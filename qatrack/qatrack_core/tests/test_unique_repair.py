@@ -7,6 +7,8 @@ the decision logic can be asserted anywhere. An earlier version guarded on
 Server.
 """
 
+from unittest import skipUnless
+
 from django.apps import apps
 from django.db import connection
 from django.db.models import Q
@@ -129,8 +131,22 @@ class TestRepairDecisions(TransactionTestCase):
                 remove_repaired_constraints(apps, editor, ours)
         super().tearDown()
 
+    @skipUnless(
+        connection.features.supports_partial_indexes,
+        "needs a constraint that introspects under its own name; see the note below",
+    )
     def test_teardown_leaves_a_constraint_that_was_there_at_setup(self):
         """The guard itself, asserted rather than assumed.
+
+        Skipped where partial indexes are unsupported, which is MySQL. The
+        constraint has to come back from `get_constraints` under the name it was
+        given, and only a *conditional* UniqueConstraint does: Django renders
+        that as `CREATE UNIQUE INDEX ... WHERE ...`, keeping the name, while an
+        unconditional one is a table-level UNIQUE clause whose name introspection
+        does not return on SQLite. On MySQL the conditional form is silently
+        skipped instead. Either way the name is absent for reasons that have
+        nothing to do with the snapshot filter this test is about, so the honest
+        move is to skip rather than to weaken the assertion.
 
         Creates a constraint under a generated name *before* `setUp`'s snapshot would
         have seen it, by snapshotting again afterwards, and checks `tearDown`'s filter
