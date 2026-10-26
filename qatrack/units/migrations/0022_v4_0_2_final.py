@@ -62,7 +62,7 @@ import django.db.models.deletion
 #
 # (app_label, model_name, fields, fields that may be NULL)
 UNIQUE_REPAIRS = [
-    ('units', 'UnitType', ('model', 'name', 'unit_class', 'vendor'), ('model', 'unit_class', 'vendor')),
+    ('units', 'UnitType', ('model', 'name', 'unit_class', 'vendor')),
 ]
 
 

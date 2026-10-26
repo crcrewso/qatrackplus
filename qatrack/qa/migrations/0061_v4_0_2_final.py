@@ -68,11 +68,11 @@ import re
 #
 # (app_label, model_name, fields, fields that may be NULL)
 UNIQUE_REPAIRS = [
-    ('qa', 'Sublist', ('child', 'parent'), ()),
-    ('qa', 'TestListInstance', ('user_key',), ('user_key',)),
-    ('qa', 'TestListMembership', ('test', 'test_list'), ()),
-    ('qa', 'UnitTestCollection', ('content_type', 'frequency', 'object_id', 'unit'), ('frequency',)),
-    ('qa', 'UnitTestInfo', ('test', 'unit'), ()),
+    ('qa', 'Sublist', ('child', 'parent')),
+    ('qa', 'TestListInstance', ('user_key',)),
+    ('qa', 'TestListMembership', ('test', 'test_list')),
+    ('qa', 'UnitTestCollection', ('content_type', 'frequency', 'object_id', 'unit')),
+    ('qa', 'UnitTestInfo', ('test', 'unit')),
 ]
 
 

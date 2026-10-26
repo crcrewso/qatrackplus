@@ -19,14 +19,15 @@ from qatrack.qa.models import TestListInstance
 from qatrack.qatrack_core.unique_repair import (
     _build,
     constraint_name,
+    nullable_fields,
     remove_repaired_constraints,
     repair_unique_constraints,
 )
 
 SPECS = [
-    ('parts', 'Contact', ('first_name', 'last_name', 'supplier'), ()),
-    ('parts', 'Room', ('name', 'site'), ('site',)),
-    ('qa', 'TestListInstance', ('user_key',), ('user_key',)),
+    ('parts', 'Contact', ('first_name', 'last_name', 'supplier')),
+    ('parts', 'Room', ('name', 'site')),
+    ('qa', 'TestListInstance', ('user_key',)),
 ]
 
 
@@ -58,7 +59,7 @@ class TestConstraintName(TestCase):
 class TestBuiltConstraint(TestCase):
 
     def test_no_condition_when_nothing_is_nullable(self):
-        c = _build(Contact, ('first_name', 'last_name', 'supplier'), ())
+        c = _build(Contact, ('first_name', 'last_name', 'supplier'))
         assert c.condition is None
 
     def test_nullable_columns_produce_a_filtered_constraint(self):
@@ -68,7 +69,7 @@ class TestBuiltConstraint(TestCase):
         application considers valid, so the filter is what makes the repair match
         Django's semantics rather than the engine's.
         """
-        c = _build(Room, ('name', 'site'), ('site',))
+        c = _build(Room, ('name', 'site'))
         assert c.condition == Q(site__isnull=False)
 
     def test_every_nullable_column_appears_in_the_condition(self):
@@ -105,7 +106,7 @@ class TestRepairDecisions(TransactionTestCase):
     def _generated_names_present(self):
         """Which of SPECS' generated constraint names exist right now."""
         present = set()
-        for app_label, model_name, fields, _nullable in SPECS:
+        for app_label, model_name, fields in SPECS:
             model = apps.get_model(app_label, model_name)
             name = constraint_name(model, fields)
             with connection.cursor() as cursor:
@@ -155,7 +156,7 @@ class TestRepairDecisions(TransactionTestCase):
         model = apps.get_model('parts', 'Room')
         name = constraint_name(model, ('name', 'site'))
         with connection.schema_editor() as editor:
-            editor.add_constraint(model, _build(model, ('name', 'site'), ('site',)))
+            editor.add_constraint(model, _build(model, ('name', 'site')))
         try:
             assert name in self._generated_names_present()
             self.preexisting_constraint_names = self._generated_names_present()
@@ -168,7 +169,7 @@ class TestRepairDecisions(TransactionTestCase):
                        for s in survivors), survivors
         finally:
             with connection.schema_editor() as editor:
-                editor.remove_constraint(model, _build(model, ('name', 'site'), ('site',)))
+                editor.remove_constraint(model, _build(model, ('name', 'site')))
 
 
     def test_it_does_nothing_where_the_database_already_enforces(self):
@@ -207,7 +208,12 @@ class TestRepairDecisions(TransactionTestCase):
         """
         from unittest import mock
 
-        nullable_specs = [s for s in SPECS if s[3]]
+        # Asked of the model, as the repair itself now does, rather than read
+        # from a fourth element the specs no longer carry.
+        nullable_specs = [
+            s for s in SPECS
+            if nullable_fields(apps.get_model(s[0], s[1]), s[2])
+        ]
         assert nullable_specs, "SPECS no longer has a nullable spec to exercise"
 
         with mock.patch.object(

@@ -63,11 +63,11 @@ import django.db.models.deletion
 #
 # (app_label, model_name, fields, fields that may be NULL)
 UNIQUE_REPAIRS = [
-    ('service_log', 'GroupLinker', ('group', 'name'), ('group',)),
-    ('service_log', 'Hours', ('service_event', 'third_party', 'user'), ('third_party', 'user')),
-    ('service_log', 'ServiceEventSchedule', ('frequency', 'service_event_template', 'unit_service_area'), ('frequency',)),
-    ('service_log', 'ThirdParty', ('first_name', 'last_name', 'vendor'), ()),
-    ('service_log', 'UnitServiceArea', ('service_area', 'unit'), ()),
+    ('service_log', 'GroupLinker', ('group', 'name')),
+    ('service_log', 'Hours', ('service_event', 'third_party', 'user')),
+    ('service_log', 'ServiceEventSchedule', ('frequency', 'service_event_template', 'unit_service_area')),
+    ('service_log', 'ThirdParty', ('first_name', 'last_name', 'vendor')),
+    ('service_log', 'UnitServiceArea', ('service_area', 'unit')),
 ]
 
 

@@ -12,14 +12,14 @@ there. This is run deliberately, before the repair migration.
 
 from django.apps import apps
 from django.core.management.base import BaseCommand
-from django.db import DEFAULT_DB_ALIAS, connections
-from django.db.models import Count
+from django.db import connections
 
 from qatrack.qatrack_core.checks import (
     declared_unique_columns,
     enforced_unique_columns,
     unenforced_unique_columns,
 )
+from qatrack.qatrack_core.unique_repair import duplicate_groups
 
 
 def fields_for_columns(model, columns):
@@ -33,32 +33,6 @@ def fields_for_columns(model, columns):
         return [by_column[c] for c in columns]
     except KeyError:
         return None
-
-
-def duplicate_groups(model, field_names, using=DEFAULT_DB_ALIAS):
-    """Groups of rows sharing a value for `field_names`, NULLs excluded.
-
-    NULLs are excluded deliberately, because that is what the index this is
-    validating will do. Django's `unique=True` on a nullable column permits many
-    NULLs - standard SQL treats them as distinct - so the index that matches the
-    model's intent is a filtered one, and a row with a NULL is not a duplicate.
-    Counting NULL groups here would report rows the repair does not care about.
-
-    `using` is not optional in practice. Without it this read the default - or routed -
-    database while the schema was introspected from `--database`, so the command could
-    report one database's indexes against another's rows and look entirely consistent
-    doing it. `_default_manager` rather than `objects`, because a model is not obliged
-    to call it that.
-    """
-    qs = model._default_manager.using(using)
-    for name in field_names:
-        qs = qs.exclude(**{"%s__isnull" % name: True})
-    return (
-        qs.values(*field_names)
-        .annotate(num=Count("pk"))
-        .filter(num__gt=1)
-        .order_by("-num")
-    )
 
 
 def summarise_groups(groups, limit):
