@@ -1,22 +1,32 @@
 .. _docker_upgrade_from_4_0:
 
-Upgrading a Docker 4.0.0 installation to 4.0.1
-================================================
+Upgrading a Docker 4.0.x installation
+=====================================
 
-4.0.1 is a patch release containing **no database migrations**. On Docker the
-upgrade is a code update, a dependency sync and a restart:
+The 4.0.x patch releases contain **no database migrations**. On Docker the upgrade is
+a code update, a dependency sync and a restart:
 
 1. ``git fetch`` and ``git pull``
 2. ``docker compose build``
 3. ``docker compose up -d``
 4. ``manage.py check`` and ``manage.py migrate`` inside the container
 
-You never name a version. The installation guide checks out the ``releases/4.0``
-*branch* rather than a version tag, so the branch carries each patch as it is released
-and a ``git pull`` is all that moves you between them.
+You never name a version. The installation guide clones the repository without
+choosing a branch, so your clone follows the default branch and a ``git pull`` is all
+that moves you between patches. The ``migrate`` step above is still worth running: it
+reports that there is nothing to do, which is a different thing from your not having
+checked.
 
-**These steps apply to any 4.0.x patch**, not only this one. What changes between
-patches is in the next section.
+**These steps apply to any 4.0.x patch.** What changes between patches is in the next
+section.
+
+.. note::
+
+    **If your clone was made on Windows before QATrack+ 4.0.2**, check it out again
+    before building, or the scripts inside ``deploy/docker`` may still have Windows
+    line endings and will fail inside the containers. See
+    :ref:`checking out deploy/docker again <docker_line_endings>`, which keeps your
+    own edits to ``.env``, ``nginx.conf`` and the compose files.
 
 .. note::
 
