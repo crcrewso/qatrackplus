@@ -18,24 +18,6 @@ QATrack+ 4.0
 4.0.2
 ------
 
-Other Changes
-^^^^^^^^^^^^^
-
-* **A new system check, ``qatrack.W012``, reports calculation procedures that draw
-  with** ``matplotlib.pyplot``. ``pyplot`` holds its figures in module level state,
-  and all of a test list's composite tests are calculated in one request with
-  ``pyplot`` cleared only after the last of them, so one procedure's plot can carry
-  into the next one's - a plot saved against the wrong test, or an empty one.
-  **Every deployment is affected**, not only the threaded Windows one. The check runs
-  on ``migrate`` and on ``check --database <alias>``, names the procedures it found,
-  and shows the ``UTILS.get_figure()`` replacement.
-
-  It is a Warning and never blocks an upgrade, because only the site can rewrite its
-  own procedures. **The underlying cause is known and is not fixed here:** clearing
-  ``pyplot`` between procedures rather than after the last one would change the saved
-  plots of any site relying on figures carrying over, so it is being decided
-  separately.
-
 Deployment and Upgrade Notes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
