@@ -36,6 +36,7 @@ upgrade for exactly the installations that most need it.
 
 import hashlib
 
+from django.db import DEFAULT_DB_ALIAS
 from django.db.models import Count, Q, UniqueConstraint
 
 
@@ -51,7 +52,7 @@ def constraint_name(model, fields):
     return "qatrack_uniq_%s_%s" % (table[:40], digest)
 
 
-def _build(model, fields, nullable):
+def _build(model, fields, nullable=None):
     """The constraint to add: filtered when any of its columns may be NULL.
 
     The condition is what makes this match Django's semantics rather than SQL Server's.
@@ -59,6 +60,8 @@ def _build(model, fields, nullable):
     distinct - so an unfiltered unique index would reject a second NULL row that the
     application considers perfectly valid.
     """
+    if nullable is None:
+        nullable = nullable_fields(model, fields)
     condition = Q(**{"%s__isnull" % f: False for f in nullable}) if nullable else None
     return UniqueConstraint(
         fields=list(fields),
@@ -93,39 +96,69 @@ def _is_enforced(connection, model, fields):
     would produce. Raised by @coderabbitai on c#5 as a heavy lift; this is the part that
     is not.
     """
-    with connection.cursor() as cursor:
-        constraints = connection.introspection.get_constraints(
-            cursor, model._meta.db_table
-        )
-    wanted = _columns(model, fields)
-    return any(
-        d.get("unique") and d.get("columns") and frozenset(d["columns"]) == wanted
-        for d in constraints.values()
+    # One introspection, shared with `qatrack.W011` and
+    # `manage.py check_unique_constraints`, so the three cannot drift apart on
+    # what "enforced" means. Imported here rather than at module scope because
+    # migrations import this module and `checks.py` pulls in app registry state.
+    from qatrack.qatrack_core.checks import enforced_unique_columns
+
+    return _columns(model, fields) in enforced_unique_columns(
+        connection, model._meta.db_table
     )
 
 
-def _duplicate_count(connection, model, fields, nullable):
-    """Groups of rows sharing a value, NULLs excluded.
+def nullable_fields(model, fields):
+    """Which of `fields` the model permits NULL in.
 
-    Excluded because the constraint built above excludes them too: a row with a NULL in
-    a nullable column is not a duplicate, so counting those groups would report rows
-    the repair does not care about.
+    Asked of the model rather than written down beside each constraint. Sixteen
+    specs used to carry a hand-maintained tuple of nullable field names, and
+    nothing checked it against the model - so a field made nullable later, or a
+    seventeenth spec written in a hurry, would have silently changed which rows
+    count as duplicates. In a migration `model` is the historical one, so this
+    is the nullability as of that migration, which is what the index being built
+    has to match.
     """
-    qs = model._default_manager.using(connection.alias)
-    for f in nullable:
+    return tuple(f for f in fields if model._meta.get_field(f).null)
+
+
+def duplicate_groups(model, fields, using=None):
+    """Groups of rows sharing a value for `fields`, NULLs excluded.
+
+    One implementation, shared by the repair and by
+    `manage.py check_unique_constraints`, because the command's verdict is only
+    worth anything if it is answering the same question the migration will ask.
+    They were two functions that excluded NULLs differently - the repair for the
+    nullable fields only, the command for every field - so the command could
+    report "no duplicates" where the repair would find a blocker. No spec in
+    tree triggered it, which is the only reason it was not a live defect.
+
+    NULLs are excluded because the index that matches Django's intent is a
+    filtered one: Django permits many NULLs in a nullable unique column where
+    standard SQL treats them as distinct, so a row with a NULL is not a
+    duplicate and counting those groups would report rows the repair ignores.
+
+    `using` is not optional in practice. Without it this reads the default - or
+    routed - database while the schema is introspected from `--database`, so a
+    caller could report one database's indexes against another's rows and look
+    entirely consistent doing it. `_default_manager` rather than `objects`,
+    because a model is not obliged to call it that.
+    """
+    qs = model._default_manager.using(using or DEFAULT_DB_ALIAS)
+    for f in nullable_fields(model, fields):
         qs = qs.exclude(**{"%s__isnull" % f: True})
     return (
         qs.values(*fields)
-        .annotate(_n=Count("pk"))
-        .filter(_n__gt=1)
-        .count()
+        .annotate(num=Count("pk"))
+        .filter(num__gt=1)
+        .order_by("-num")
     )
 
 
 def repair_unique_constraints(apps, schema_editor, specs, log=None):
     """Add a unique constraint for each spec the database is not enforcing.
 
-    `specs` is a sequence of (app_label, model_name, field_names, nullable_field_names).
+    `specs` is a sequence of (app_label, model_name, field_names); which of those
+    fields may be NULL is asked of the model rather than written down.
     Returns counts so a caller - or a test - can assert on what happened rather than
     parsing output.
     """
@@ -136,8 +169,9 @@ def repair_unique_constraints(apps, schema_editor, specs, log=None):
         if log is not None:
             log(message)
 
-    for app_label, model_name, fields, nullable in specs:
+    for app_label, model_name, fields in specs:
         model = apps.get_model(app_label, model_name)
+        nullable = nullable_fields(model, fields)
         label = "%s.%s %s" % (app_label, model_name, list(fields))
 
         if _is_enforced(connection, model, fields):
@@ -151,13 +185,16 @@ def repair_unique_constraints(apps, schema_editor, specs, log=None):
                 % (label, connection.vendor))
             continue
 
-        duplicates = _duplicate_count(connection, model, fields, nullable)
+        duplicates = duplicate_groups(model, fields, using=connection.alias).count()
         if duplicates:
             result["blocked"].append((label, duplicates))
             say(
-                "  %s: NOT repaired - %d duplicated value(s) already present. Run "
-                "`manage.py check_unique_constraints` to list them, resolve them, then "
-                "re-run this migration." % (label, duplicates)
+                "  %s: NOT repaired - %d duplicated value(s) already present. This "
+                "migration records as applied either way and will not retry, so "
+                "`qatrack.W011` will keep reporting this column set until it is "
+                "resolved: run `manage.py check_unique_constraints` to list the "
+                "duplicates, resolve them, then add the index with the CREATE UNIQUE "
+                "INDEX statement that check prints." % (label, duplicates)
             )
             continue
 
@@ -177,7 +214,7 @@ def remove_repaired_constraints(apps, schema_editor, specs):
     constraints that were already enforced, so there is nothing to remove for those.
     """
     connection = schema_editor.connection
-    for app_label, model_name, fields, nullable in specs:
+    for app_label, model_name, fields in specs:
         model = apps.get_model(app_label, model_name)
         name = constraint_name(model, fields)
         with connection.cursor() as cursor:
@@ -185,4 +222,4 @@ def remove_repaired_constraints(apps, schema_editor, specs):
                 cursor, model._meta.db_table
             )
         if name in existing:
-            schema_editor.remove_constraint(model, _build(model, fields, nullable))
+            schema_editor.remove_constraint(model, _build(model, fields))

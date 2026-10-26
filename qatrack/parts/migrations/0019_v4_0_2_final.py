@@ -61,11 +61,11 @@ from qatrack.qatrack_core.unique_repair import (
 #
 # (app_label, model_name, fields, fields that may be NULL)
 UNIQUE_REPAIRS = [
-    ('parts', 'Contact', ('first_name', 'last_name', 'supplier'), ()),
-    ('parts', 'Part', ('new_or_used', 'part_number'), ()),
-    ('parts', 'PartStorageCollection', ('part', 'storage'), ()),
-    ('parts', 'Room', ('name', 'site'), ('site',)),
-    ('parts', 'Storage', ('location', 'room'), ('location', 'room')),
+    ('parts', 'Contact', ('first_name', 'last_name', 'supplier')),
+    ('parts', 'Part', ('new_or_used', 'part_number')),
+    ('parts', 'PartStorageCollection', ('part', 'storage')),
+    ('parts', 'Room', ('name', 'site')),
+    ('parts', 'Storage', ('location', 'room')),
 ]
 
 
