@@ -53,11 +53,25 @@ services:
       # across rebuilds, so upgrades do not log every user out.
       - user-data-volume:/usr/src/qatrackplus/deploy/docker/user-data
     healthcheck:
+      # start_period covers the first boot, which is much slower than any later
+      # one: django applies every migration and runs collectstatic before it
+      # listens. Docker probes every start_interval (5s by default) while the
+      # start period is running and marks the container healthy on the first
+      # probe that passes, so a fast boot is not slowed down by a long window -
+      # it only stops compose giving up on a slow one.
+      #
+      # 300s is measured, not guessed. On a 4 vCPU VM with the page cache
+      # dropped, django was listening 42s after start with no disk cap, 88s at
+      # 600 IOPS, 147s at 300 IOPS and 246s at 150 IOPS. The old 40s window
+      # (40 + 3 x 30 = 130s) failed at 300 IOPS and below, leaving
+      # "dependency failed to start: container ...-django-1 is unhealthy" and
+      # nginx never started, on a stack that was perfectly healthy a minute
+      # later. See qatrackplus#910.
       test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 300s
 
   postgres:
     image: postgres:15-alpine
@@ -66,10 +80,18 @@ services:
     volumes:
       - postgres-volume:/var/lib/postgresql/data
     healthcheck:
+      # Postgres had no start_period, so its whole allowance was
+      # 10s x 5 = 50s. On the first boot that window also has to cover initdb
+      # creating the cluster, and at 150 IOPS a fresh initdb outran it: compose
+      # stopped the stack with "container ...-postgres-1 is unhealthy" before
+      # django ever started, and postgres went healthy shortly afterwards.
+      # 120s is a margin over the 50s that was measured failing rather than a
+      # measurement of initdb itself, which was not timed separately.
       test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-qatrackplus}" ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 120s
 
   backup:
     build:
