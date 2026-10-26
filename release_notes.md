@@ -7,6 +7,7 @@ Release notes are located at http://docs.qatrackplus.com/en/latest/release_notes
 * **Docker**: Docker images no longer contain your `.env` file, local settings, uploaded files or database dumps. Rebuild any QATrack+ image you have copied to a registry or another machine.
 * **Docker**: Database dumps in `deploy/docker/backups/` and new `.env` files (other than the `.env.example` templates) are now ignored by git. `deploy/docker/.env` is still tracked, so changes to it can still be committed.
 * **Docker**: Files under `deploy/docker` always check out with LF line endings, including on Windows.
+* **QA**: A new system check, `qatrack.W012`, reports calculation procedures that draw with `matplotlib.pyplot`, which can save a plot against the wrong test. It names the procedures and shows the `UTILS.get_figure()` replacement; it is a warning and never blocks an upgrade ([#904](https://github.com/qatrackplus/qatrackplus/pull/904)).
 
 ## v4.0.0 Recent Fixes
 

@@ -113,13 +113,20 @@ def procedure_uses_pyplot(source):
     draw anything. A site with a warning it cannot act on learns to ignore
     warnings.
 
-    Two routes, because both work here:
+    Every route that reaches the same module state counts, which nsmela's review
+    of q#904 showed is more than the two obvious ones:
 
-    * importing it - `import matplotlib.pyplot as plt`, or
-      `from matplotlib import pyplot`;
+    * importing pyplot - `import matplotlib.pyplot as plt`, or
+      `from matplotlib import pyplot`, or `from matplotlib.pyplot import plot`;
+    * importing `pylab`, which is pyplot plus numpy in one namespace, by any of
+      its spellings - `import pylab`, `from pylab import plot`,
+      `from pylab import *`, `import matplotlib.pylab as pl`, or
+      `from matplotlib import pylab`;
     * reaching it through the module the calculation context already provides -
-      `matplotlib.pyplot.plot(...)`, with no import at all, because
-      DEFAULT_CALCULATION_CONTEXT hands procedures `matplotlib` whole.
+      `matplotlib.pyplot.plot(...)` with no import at all, because
+      DEFAULT_CALCULATION_CONTEXT hands procedures `matplotlib` whole, and
+      equally `import matplotlib as mpl` then `mpl.pyplot.plot(...)`, so any
+      alias the procedure gave matplotlib has to be followed.
 
     A syntax error is not this function's problem: it returns nothing and lets
     whatever reports broken procedures report it.
@@ -131,22 +138,34 @@ def procedure_uses_pyplot(source):
     except (SyntaxError, ValueError):
         return []
 
+    # pylab is pyplot re-exported, so it shares the same figure state.
+    pyplot_modules = ('matplotlib.pyplot', 'matplotlib.pylab', 'pylab')
+
+    # Two passes, so that `mpl.pyplot` is recognised wherever the
+    # `import matplotlib as mpl` that named it happens to sit.
     found = set()
+    matplotlib_aliases = {'matplotlib'}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name == 'matplotlib.pyplot' or alias.name == 'pylab':
+                if alias.name == 'matplotlib':
+                    matplotlib_aliases.add(alias.asname or 'matplotlib')
+                elif alias.name in pyplot_modules:
                     found.add(alias.asname or alias.name)
         elif isinstance(node, ast.ImportFrom):
             if node.module == 'matplotlib':
                 for alias in node.names:
-                    if alias.name == 'pyplot':
-                        found.add(alias.asname or 'pyplot')
-            elif node.module == 'matplotlib.pyplot':
-                found.add('matplotlib.pyplot')
-        elif isinstance(node, ast.Attribute) and node.attr == 'pyplot':
-            if isinstance(node.value, ast.Name) and node.value.id == 'matplotlib':
-                found.add('matplotlib.pyplot')
+                    if alias.name in ('pyplot', 'pylab'):
+                        found.add(alias.asname or alias.name)
+            elif node.module in pyplot_modules:
+                # `from matplotlib.pyplot import plot`, or `from pylab import *`:
+                # the names are pyplot's own, so report the module.
+                found.add(node.module)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in ('pyplot', 'pylab'):
+            if isinstance(node.value, ast.Name) and node.value.id in matplotlib_aliases:
+                found.add('matplotlib.' + node.attr)
 
     return sorted(found)
 
@@ -157,31 +176,37 @@ def check_calculation_procedures_use_pyplot(app_configs=None, databases=None, **
 
     `matplotlib.pyplot` keeps its figures in module-level state, so two
     procedures plotting at once in one process share it. QATrack+ makes that
-    worse rather than better: `clean_mpl` in `qa/views/perform.py` calls
+    worse rather than better: `cleanup_matplotlib` in `qa/views/perform.py` calls
     `plt.clf()` and `plt.close('all')` after a view that may have plotted, and
     both act on **every** figure in the process rather than this request's. The
     function's own docstring says pyplot is not threadsafe, and the
     `except KeyError` wrapped round it is commented as failing "when multiple
     uploads are being analyzed at same time" - which is this, already observed.
 
-    **Whether it can happen depends on how the site serves requests, which this
-    check cannot see.** A system check runs under `manage.py`, in its own
-    process; nothing tells it what is serving. The shipped Linux and Docker
-    deployments configure gunicorn with sync workers, one request per process,
-    and are safe by that configuration rather than by anything in the code. The
-    shipped Windows deployment runs CherryPy's thread pool and is not.
+    **Every deployment is exposed, and no server configuration avoids it.**
+    `CompositePerformer.calculate` works out every composite test in a test list
+    inside a single request, and `cleanup_matplotlib` runs only after the last
+    one (`perform.py:733`), so two procedures written the old way share a figure
+    with no threads involved at all: the second one's saved plot carries the
+    first one's line. A threaded server - the shipped Windows deployment's
+    CherryPy pool, or Apache mod_wsgi, which defaults to 15 threads - adds a
+    second way for figures to collide, between concurrent requests. gunicorn
+    with sync workers avoids only that second case.
 
-    So this reports the half it can establish - that the procedures are written
-    the vulnerable way - and the hint tells the reader which deployment turns it
-    into a fault. A Warning, never an Error: the site may be on a configuration
-    where it cannot happen, and in any case nothing is repaired by refusing to
-    let them migrate.
+    That correction is nsmela's, on q#904: an earlier version of this check told
+    Linux and Docker sites they were "not exposed", and for a check whose whole
+    job is telling a clinic whether its QC plots can be wrong, that is the one
+    answer it must not give wrongly.
+
+    So this reports what it can establish - that the procedures are written the
+    vulnerable way - and the hint says how the figures get mixed up. A Warning,
+    never an Error: nothing is repaired by refusing to let them migrate.
 
     The failure is not a crash. It is a plot saved against the wrong test, or an
     empty one, in a record a physicist will read as evidence.
 
-    Registered under Tags.database like `qatrack.W011`, so it runs on `migrate`
-    and on `check --database <alias>` and costs nothing on every other command.
+    Registered under Tags.database, so it runs on `migrate` and on
+    `check --database <alias>` and costs nothing on every other command.
     On a first `migrate` the tables do not exist yet, so nothing is reported
     until the next run.
     """
@@ -203,9 +228,9 @@ def check_calculation_procedures_use_pyplot(app_configs=None, databases=None, **
     for alias in databases:
         connection = connections[alias]
 
-        # Unreachable or un-migrated is not this check's business, exactly as
-        # for W011: other checks report a broken connection, and a fresh
-        # install's first `migrate` must not be derailed by a diagnostic.
+        # Unreachable or un-migrated is not this check's business: other
+        # checks report a broken connection, and a fresh install's first
+        # `migrate` must not be derailed by a diagnostic.
         try:
             with connection.cursor() as cursor:
                 tables = set(connection.introspection.table_names(cursor))
@@ -247,7 +272,8 @@ def check_calculation_procedures_use_pyplot(app_configs=None, databases=None, **
         Warning(
             "%d calculation procedure(s) draw with matplotlib.pyplot: %s. pyplot "
             "holds its figures in module-level state, so two procedures plotting "
-            "at the same time in one process can take each other's figures - and "
+            "at the same time, or one after another in the same test list, can "
+            "take each other's figures - and "
             "QATrack+ clears every figure in the process after a plot, not just "
             "the one it made. The result is a plot saved against the wrong test, "
             "or an empty one." % (len(offenders), listed),
@@ -259,15 +285,16 @@ def check_calculation_procedures_use_pyplot(app_configs=None, databases=None, **
                 "    ax = fig.add_subplot(111)\n"
                 "    ax.plot(xs, ys)\n"
                 "    UTILS.write_file('plot.png', fig)\n\n"
-                "Whether this can bite you depends on how you serve QATrack+, "
-                "which a system check cannot see. The shipped Windows deployment "
-                "serves requests on a CherryPy thread pool and shares one "
-                "process, so it is exposed. The shipped Linux and Docker "
-                "deployments run gunicorn with sync workers, one request per "
-                "process, and are not - but that is their current configuration "
-                "rather than a guarantee, and adding threads or workers with "
-                "threads would change it. This is a warning, not an error: "
-                "nothing here stops you migrating."
+                "Every deployment can be affected. All the composite tests in "
+                "a test list are calculated in one request, and pyplot is only "
+                "cleared after the last one, so a procedure that draws on the "
+                "current pyplot figure can pick up the plot of the procedure "
+                "that ran before it. On a threaded server - the shipped Windows "
+                "deployment's CherryPy thread pool, or Apache mod_wsgi (15 "
+                "threads by default) - two requests can also take each other's "
+                "figures. gunicorn with sync workers avoids only that second "
+                "case. This is a warning, not an error: nothing here stops you "
+                "migrating."
             ),
             id='qatrack.W012',
         )

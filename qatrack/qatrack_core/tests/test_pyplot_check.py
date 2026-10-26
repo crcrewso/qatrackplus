@@ -7,7 +7,7 @@ pyplot, and that it does not fire on text that merely mentions it.
 
 from unittest import mock
 
-from django.core.checks import Warning
+from django.core.checks import Tags, Warning
 from django.db.utils import DatabaseError
 from django.test import TestCase
 
@@ -46,6 +46,32 @@ class TestProcedureUsesPyplot:
 
     def test_pylab(self):
         assert procedure_uses_pyplot("import pylab\npylab.plot([1])") == ['pylab']
+
+    def test_from_pylab_import_a_name(self):
+        assert procedure_uses_pyplot("from pylab import plot\nplot([1])") == ['pylab']
+
+    def test_from_pylab_import_star(self):
+        assert procedure_uses_pyplot("from pylab import *\nplot([1])") == ['pylab']
+
+    def test_matplotlib_pylab_with_an_alias(self):
+        assert procedure_uses_pyplot("import matplotlib.pylab as pl\npl.plot([1])") == ['pl']
+
+    def test_from_matplotlib_import_pylab(self):
+        assert procedure_uses_pyplot("from matplotlib import pylab\n") == ['pylab']
+
+    def test_reached_through_an_aliased_matplotlib(self):
+        """`import matplotlib as mpl` then `mpl.pyplot` - nsmela, q#904.
+
+        It works because perform.py has already imported pyplot, so the
+        attribute resolves without the procedure importing anything itself.
+        """
+        source = "import matplotlib as mpl\nmpl.pyplot.plot([1])\n"
+        assert procedure_uses_pyplot(source) == ['matplotlib.pyplot']
+
+    def test_an_alias_declared_after_it_is_used_is_still_followed(self):
+        """Two passes, so declaration order cannot hide a use."""
+        source = "def draw(m):\n    m.pyplot.plot([1])\nimport matplotlib as m\n"
+        assert procedure_uses_pyplot(source) == ['matplotlib.pyplot']
 
     def test_the_safe_pattern_is_not_reported(self):
         source = (
@@ -99,6 +125,21 @@ class TestPyplotCheck(TestCase):
         assert problems[0].id == 'qatrack.W012'
         assert 'Flatness plot' in problems[0].msg
 
+    def test_the_hint_does_not_tell_sync_worker_sites_they_are_safe(self):
+        """nsmela, q#904, and this is the assertion he wrote.
+
+        An earlier hint told Linux and Docker sites they were "not" exposed.
+        Every deployment is: all the composite tests in a test list are
+        calculated in one request and pyplot is cleared only after the last of
+        them, so figures carry over with no threads involved.
+        """
+        self.make_test("import matplotlib.pyplot as plt\nplt.plot([1])\nresult = 1\n")
+        hint = check_calculation_procedures_use_pyplot(None, databases=['default'])[0].hint
+        flat = ' '.join(hint.split())
+        assert 'sync workers, one request per process, and are not' not in flat
+        # The hint has to name the case that needs no threads at all.
+        assert 'test list' in flat
+
     def test_the_hint_gives_the_replacement_and_names_the_exposed_deployment(self):
         self.make_test("import matplotlib.pyplot as plt\nresult = 1\n")
         hint = check_calculation_procedures_use_pyplot(None, databases=['default'])[0].hint
@@ -147,4 +188,7 @@ class TestPyplotCheck(TestCase):
             if c is check_calculation_procedures_use_pyplot
         ]
         assert registered, "the check is not registered"
-        assert registry.registry.tags_available() and 'database' in registry.registry.tags_available()
+        # nsmela, q#904: 'database' in tags_available() is true as long as *any*
+        # check carries that tag, so it passed even with a bare @register().
+        # Assert the tag on this check instead.
+        assert Tags.database in check_calculation_procedures_use_pyplot.tags

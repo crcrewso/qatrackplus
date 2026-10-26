@@ -484,9 +484,14 @@ An example showing how to use `write_file` to create a matplotlib plot:
     Do not plot with ``matplotlib.pyplot`` (often imported as ``plt``) in a
     calculation procedure. ``pyplot`` keeps its figures in module level state,
     shared by everything running in the same process, so two procedures plotting
-    at the same time can take each other's figures - and QATrack+ clears every
-    figure in the process after a plot, not only the one it made. The result is a
-    plot saved against the wrong test, or an empty one.
+    at the same time, **or one after another in the same test list**, can take
+    each other's figures - and QATrack+ clears every figure in the process after
+    a plot, not only the one it made. The result is a plot saved against the
+    wrong test, or an empty one.
+
+    Every deployment is affected, not only threaded ones: all of a test list's
+    composite tests are calculated in one request, and ``pyplot`` is cleared
+    only after the last of them.
 
     ``UTILS.get_figure()`` returns a figure with its own canvas, which nothing
     else can reach. Earlier versions of this page showed the ``pyplot`` form;
