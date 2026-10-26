@@ -46,36 +46,6 @@ Ordered by consequence, most serious first.
   formats are now derived from a single setting, so the value written to a form and
   the value read back from it cannot disagree (:issues:`#826 <826>`).
 
-* **Backups taken with ``manage.py backup_site`` may contain no database.** Check
-  any backup set it produced, on any engine, before you rely on it. The command no
-  longer attempts the database at all: it names the engine it found, names the tool
-  to use, and backs up the uploaded media only.
-
-  **On SQL Server it reported success while writing nothing.** Measured on SQL
-  Server 2022: the command printed "Successfully backed up SQL Server database
-  to ..." and "Backup process completed.", exited zero, and left the dated folders
-  empty - no row in ``msdb.dbo.backupset``, and "Error: 3041 ... BACKUP failed to
-  complete the command" in the SQL Server error log at the same second. **This
-  corrects the 4.0.1 release note**, which said the command writes a database
-  backup on SQL Server and SQLite; for SQL Server that was not true.
-
-  **On SQLite it wrote the copy beside the live database**, not into the backup
-  directory, because the database name is an absolute path there and the join
-  discarded the destination. So the only copy sat on the same disk as the original,
-  outside ``BACKUP_DIR``, and was taken while QATrack+ may have been writing to it.
-
-  On MySQL, 4.0.1 stopped it skipping the database silently; a set taken before
-  that can contain media and settings and no database. On PostgreSQL it never
-  wrote one and always said so.
-
-  **The supported database backup is the Docker ``backup`` service**, which runs
-  ``pg_dump``. Every other deployment should back the database up with its own
-  engine's tooling, as part of the backup regime your IT department already runs -
-  ``pg_dump``, ``BACKUP DATABASE`` or SQL Server Management Studio, ``mysqldump``,
-  or for SQLite a copy taken while QATrack+ is stopped. :ref:`qatrack_backup` has
-  a table and the per-engine detail. Only the engine can promise a consistent
-  database backup; QATrack+ cannot, and no longer implies it can.
-
 * **SQL Server installations have their lost unique constraints restored.** On
   Microsoft SQL Server, ``mssql-django`` drops a unique index when an unrelated
   field change retypes a table's primary key, and does not put it back - which the
@@ -109,28 +79,6 @@ Ordered by consequence, most serious first.
   showed as one, with nothing to indicate the other existed. They are collapsed by
   identity now. The fix above is what made this reachable - narrowed to one group,
   two collections sharing a name rarely met (:issues:`#883 <883>`).
-
-* **Test list memberships show the name of each test again.** The admin fetches
-  each name over AJAX from an endpoint mounted beneath ``admin/``, and the admin
-  site ends its own URLs with a catch-all that claimed the request first, so the
-  admin answered its own endpoint with a 404 - for every user, including a
-  superuser. A test list's memberships listed an id and a macro name and no test
-  name, and a group permission could not fix it. The view and change icons beside
-  the field now have a link as well; they were rendered without one and did nothing.
-  A test saved with no name shows its id rather than nothing at all
-  (:issues:`#897 <897>`).
-
-* **Six fixes that had been written and then stranded are in.** Four were left on
-  the unreleased 3.2.0 branch: a scheduled report to a group with no members raised
-  ``AttributeError`` and was never sent; serializing QATrack+'s own ``JSONField``
-  produced a Python repr rather than JSON, so a dumped ``AutoSave``,
-  ``TestInstance.json_value`` or ``ServiceEvent.extra_info`` did not load back as a
-  dictionary; AutoSave never loaded for Wrap Around tests, which ``set_value`` did
-  not recognise as numerical; and the report preview threw on every window resize
-  until its container had been laid out. The *Export Test Pack* and *Import Test
-  Pack* links are also back on the Test and Test List Cycle changelists, where they
-  had been left only on Test Lists, and string and date values in the QC history
-  popover no longer render in black on a coloured label.
 
 Other Changes
 ^^^^^^^^^^^^^
