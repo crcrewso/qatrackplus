@@ -18,6 +18,27 @@ QATrack+ 4.0
 4.0.2
 ------
 
+Bug Fixes
+^^^^^^^^^
+
+* **A first** ``docker compose up -d`` **no longer fails on slow or busy storage.** A
+  first boot applies every migration and runs ``collectstatic`` before django listens,
+  and the health windows were shorter than that takes, so compose gave up with
+  *"dependency failed to start: container ...-django-1 is unhealthy"* and left nginx
+  unstarted - on a stack that became healthy by itself a minute or two later. Measured
+  on a 4 vCPU VM with a cold page cache, django was listening 42 seconds after start
+  with no disk cap and 246 seconds at 150 IOPS, against a window of 130 seconds.
+  Postgres had no start-up allowance at all beyond 50 seconds, which a fresh
+  ``initdb`` also outran on slow storage. A healthy boot is not slowed down: Docker
+  marks a container healthy on the first probe that passes.
+
+* **Upgrading no longer leaves the site answering** ``502 Bad Gateway``. ``docker
+  compose up -d`` recreates django, giving it a new address on the compose network,
+  but leaves nginx running when the nginx image has not changed - and nginx had
+  resolved ``django`` once at start-up and kept that address for the life of the
+  process. Every request then went nowhere until nginx was restarted by hand. nginx
+  now re-resolves the name through Docker's embedded DNS.
+
 Deployment and Upgrade Notes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

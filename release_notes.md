@@ -13,6 +13,8 @@ Release notes are located at http://docs.qatrackplus.com/en/latest/release_notes
 * **Docker**: Docker images no longer contain your `.env` file, local settings, uploaded files or database dumps. Rebuild any QATrack+ image you have copied to a registry or another machine.
 * **Docker**: Database dumps in `deploy/docker/backups/` and `.env` files (other than the `.env.example` templates) are now ignored by git.
 * **Docker**: Files under `deploy/docker` always check out with LF line endings, including on Windows.
+* **Docker**: A first `docker compose up -d` no longer fails on slow or busy storage. The health windows were shorter than a first boot takes, so compose gave up while django was still applying migrations and nginx never started.
+* **Docker**: Upgrading no longer leaves the site answering `502 Bad Gateway` until nginx is restarted. nginx had been holding django's old network address.
 
 ## v4.0.0 Recent Fixes
 
