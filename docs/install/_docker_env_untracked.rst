@@ -64,3 +64,34 @@ database password.
 
 If your server is a Windows machine, see :ref:`the note on line endings
 <docker_line_endings>` in the installation guide as well.
+
+Check you are on the release branch
+-----------------------------------
+
+Installations made before 4.0.2 were told to ``git clone`` without naming a branch, which
+leaves the checkout on ``master`` rather than on a release. ``git pull`` then follows
+``master``, so the site can pick up work that has not been released. The install guide now
+checks out ``releases/4.0``; move an existing installation onto it once:
+
+.. code-block:: bash
+
+    cd ~/web/qatrackplus
+    git branch --show-current
+
+If that prints anything other than ``releases/4.0``, switch to it. Do this **with the same
+care as the ``.env`` steps above** - it is the same hazard, because switching branches also
+replaces tracked files you may have edited:
+
+.. code-block:: bash
+
+    git checkout releases/4.0
+
+``git branch --show-current`` printing ``releases/4.0`` afterwards is the whole check. A
+site already on the branch needs none of this.
+
+.. note::
+
+    ``manage.py`` and the admin report the version from ``qatrack/settings.py``, which is
+    set by hand. A checkout of ``master`` therefore reports a release number too, so the
+    branch name is the only thing that tells you which code you are running.
+

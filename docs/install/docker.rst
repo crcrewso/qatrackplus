@@ -192,6 +192,7 @@ the following:
 
     git clone https://github.com/qatrackplus/qatrackplus.git
     cd qatrackplus
+    git checkout releases/4.0
 
 .. _docker_line_endings:
 
