@@ -87,11 +87,13 @@ place:
 
 **The GUI tests need a browser.** Around 35 of them drive a real one, and on a
 server with none installed they error at setup rather than being skipped. That is
-not a failure of your installation. Deselect them:
+not a failure of your installation. Deselect them by marker - ignoring the file
+they mostly live in is not enough, because other test modules import its base
+class and define browser-driven tests of their own:
 
 .. code-block:: bash
 
-    .venv/bin/python -m pytest --ignore=qatrack/qa/tests/test_selenium.py
+    .venv/bin/python -m pytest -m "not selenium"
 
 .. warning::
 
