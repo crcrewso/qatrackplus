@@ -142,6 +142,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      # On a first install postgres initialises its data directory before it
+      # accepts connections, and on slow storage that is the longest wait in
+      # the whole start-up. Without this, the only window is interval x
+      # retries - 50s - and django's own 600s start_period cannot help,
+      # because django never starts: `depends_on` gives up on postgres first
+      # and compose reports "dependency failed to start". Measured on a 4 vCPU
+      # VM with the disk capped at 150 IOPS and a cold cache: the server took
+      # 100-117s from its container starting, and the first boot failed twice.
+      # 120s was tested twice at that cap and both boots came up healthy.
+      # Slower storage than 150 IOPS has not been tested.
+      start_period: 120s
 
   backup:
     build:

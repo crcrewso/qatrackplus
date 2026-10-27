@@ -295,14 +295,24 @@ initialising. The first time QATrack+ starts up initialisation can take about
 
 .. note::
 
-    The web server (``nginx``) and the background task service (``django-q``)
-    only start once the ``django`` service reports that it is ready, and
-    ``django`` is given up to 10 minutes for its first start. On a slow machine
-    this may still not be enough, and ``docker compose up`` stops with
-    ``dependency failed to start: container qatrackplus-django-1 is unhealthy``.
-    Nothing is broken: ``django`` keeps working through its database migrations.
-    Wait until ``docker compose logs django`` shows the ``Listening at`` line,
-    then run ``docker compose up -d`` to start the rest. Migrations that have
+    Each service waits for the one it depends on: ``django`` starts once
+    ``postgres`` reports ready, and ``nginx`` and ``django-q`` start once
+    ``django`` does. Both are given time for a slow first start -- ``postgres``
+    up to 2 minutes to initialise its data directory, ``django`` up to 10 for
+    the cache table, migrations and static files. On storage slower than that,
+    ``docker compose up`` stops with ``dependency failed to start``, naming
+    whichever container ran out of time:
+
+    * ``container qatrackplus-postgres-1 is unhealthy`` -- postgres is still
+      initialising. ``docker compose logs postgres`` ends with
+      ``database system is ready to accept connections`` once it has finished.
+    * ``container qatrackplus-django-1 is unhealthy`` -- ``django`` is still
+      working through its migrations. ``docker compose logs django`` shows the
+      ``Listening at`` line once it has finished.
+
+    **Nothing is broken in either case**, and nothing needs undoing: the
+    service that ran out of time keeps working. Wait for the line above, then
+    run ``docker compose up -d`` again to start the rest. Migrations that have
     already run are not repeated.
 
 No user account is created for you, so create one before your first login.

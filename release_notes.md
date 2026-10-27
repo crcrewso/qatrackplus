@@ -2,6 +2,10 @@
 
 Release notes are located at http://docs.qatrackplus.com/en/latest/release_notes.html
 
+## v4.0.3
+
+* **Docker**: A first install on slow storage no longer stops with `dependency failed to start: container qatrackplus-postgres-1 is unhealthy`. PostgreSQL creates its data directory before it accepts connections, and on storage delivering about 150 IOPS or less that took longer than the time it was allowed; it now has up to 2 minutes. Nothing changes on faster storage, where the database is marked ready at the first passing check as before.
+
 ## v4.0.2
 
 * **Docker**: `deploy/docker/.env` is no longer tracked by git, because it holds your database password. Before your first `git pull` to 4.0.2, copy your `.env` aside and back as described in the Docker upgrade guide; later pulls leave it alone.
