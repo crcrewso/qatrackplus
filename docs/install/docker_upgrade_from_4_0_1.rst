@@ -4,13 +4,14 @@ Upgrading a Docker 4.0.1 installation to 4.0.2
 ===============================================
 
 4.0.2 is a patch release that **does run database migrations**, unlike 4.0.1. On
-Docker the upgrade is a backup, a code update, a rebuild and the migrations:
+Docker you do not run them yourself - the ``django`` container applies them every
+time it starts - so the upgrade is a backup, a code update and a rebuild:
 
 1. **Back up the database, and confirm the backup opens**
 2. ``git fetch`` and ``git pull``
 3. ``docker compose build``
-4. ``docker compose up -d``
-5. ``manage.py check --database default`` and ``manage.py migrate`` inside the container
+4. ``docker compose up -d`` - this is the step that migrates
+5. Confirm, with ``manage.py check --database default`` inside the container
 
 You never name a version. The installation guide checks out the ``releases/4.0``
 *branch* rather than a version tag, so the branch carries each patch as it is released
@@ -53,8 +54,21 @@ Then fetch the new version and rebuild:
     docker compose build
     docker compose up -d
 
-Check the installation and run the migrations inside the container. **This release has
-migrations**, so ``migrate`` will report work done:
+``up -d`` is where the database is upgraded. The ``django`` container's entrypoint
+runs ``migrate`` before gunicorn on every start, and ``up -d`` does not return until
+``django`` reports healthy, which it does only once the migrations and
+``collectstatic`` have finished. The eight lines the previous section describes are
+therefore printed in the container's log rather than in your terminal:
+
+.. code-block:: bash
+
+    docker compose logs django
+
+Then confirm the result. **On Docker this is a check, not a step that does work** -
+``migrate`` reports ``No migrations to apply.`` because the container has already
+applied them, and that is the expected answer here rather than a sign the upgrade did
+not happen. ``check --database default`` is the one worth reading: it reports
+``qatrack.W011`` for any unique constraint still unenforced, as described above:
 
 .. code-block:: bash
 
