@@ -52,6 +52,23 @@ readable before you go any further — see :ref:`qatrack_backup`:
     pg_dump -U qatrack -Fc qatrackplus > ~/qatrackplus-pre-4.0.2.dump
     pg_restore --list ~/qatrackplus-pre-4.0.2.dump > /dev/null && echo "backup reads OK"
 
+On MySQL, the equivalent. ``--single-transaction`` keeps the dump consistent, and the
+last line a complete ``mysqldump`` writes is ``-- Dump completed``, so its absence is
+how you tell a truncated file from a finished one:
+
+.. code-block:: bash
+
+    mysqldump -u qatrack -p --single-transaction --routines qatrackplus \
+        > ~/qatrackplus-pre-4.0.2.sql
+    tail -1 ~/qatrackplus-pre-4.0.2.sql | grep -q 'Dump completed' && echo "backup reads OK"
+
+.. warning::
+
+    **If this site has backup sets from before 4.0.1, do not rely on them here.**
+    ``manage.py backup_site`` skipped the database silently on MySQL and still reported
+    success, so an older set can hold media and settings and no database at all - see
+    :ref:`qatrack_backup`. Take the dump above instead.
+
 Fetch the new version:
 
 .. code-block:: bash

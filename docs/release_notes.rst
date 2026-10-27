@@ -157,9 +157,12 @@ Other Changes
   pending field-state changes across seven apps on a clean checkout - all metadata,
   almost all of it ``verbose_name`` labels that the localisation work added to
   fields which had none without recording the resulting state. They are now one
-  migration per app. Every operation is a no-op on SQLite, PostgreSQL and SQL
-  Server, so applying them writes a row to ``django_migrations`` and changes no
-  schema and no data. The effect is that ``manage.py makemigrations --check`` is
+  migration per app. Every one of those 195 operations is a no-op on SQLite,
+  PostgreSQL and SQL Server, so applying them writes a row to
+  ``django_migrations`` and changes no schema and no data. **That is a statement
+  about the field state, not about the whole release:** four of the same
+  migrations also carry the SQL Server constraint repair described above, which
+  does create indexes where the database has stopped enforcing them. The effect is that ``manage.py makemigrations --check`` is
   meaningful again, having previously failed on every installation
   (:issues:`#896 <896>`).
 
