@@ -222,7 +222,7 @@ Deployment and Upgrade Notes
 * **Docker: scheduled notifications and reports now run.** Docker installations
   had no process running QATrack+'s background tasks, so scheduled QC
   notifications, scheduled reports and the emails they send were never sent. A
-  new ``django-q`` service runs them; it starts with the next
+  new ``django-q2`` service runs them; it starts with the next
   ``docker compose up -d``.
 
 * **Docker: HTTPS works.** nginx published port 443 but had no HTTPS
@@ -293,7 +293,7 @@ Deployment and Upgrade Notes
   ``.env`` (see :ref:`docker_development`).
 
   QATrack+'s log files are now kept in a ``logs-volume`` volume, shared by the
-  ``django`` and ``django-q`` services, rather than in the checkout's ``logs``
+  ``django`` and ``django-q2`` services, rather than in the checkout's ``logs``
   folder, and they survive upgrades. Read them with
   ``docker compose exec django ls logs`` and
   ``docker compose exec django tail -n 50 logs/debug.log``. With the development

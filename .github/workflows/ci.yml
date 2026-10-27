@@ -298,15 +298,15 @@ jobs:
             exit 1
           fi
 
-      - name: Verify background tasks run (django-q)
+      - name: Verify background tasks run (django-q2)
         working-directory: deploy/docker
         run: |
-          # Queue a task from the app and wait for the django-q service to run it.
+          # Queue a task from the app and wait for the django-q2 service to run it.
           docker compose exec -T django python manage.py shell -c "
           from django_q.tasks import async_task, result
           task = async_task('math.floor', 2.5)
           value = result(task, wait=60000)
-          print('django-q ran task', task, '->', value)
+          print('django-q2 ran task', task, '->', value)
           assert value == 2, value
           "
 
@@ -351,8 +351,8 @@ jobs:
           [ "$before" = "$after" ] || { echo "FAIL: secret key changed when django was recreated"; exit 1; }
           echo "PASS: secret key kept across recreation"
           $dc exec -T django grep -q ci-log-marker logs/debug.log || { echo "FAIL: log files lost when django was recreated"; exit 1; }
-          $dc exec -T django-q grep -q ci-log-marker logs/debug.log || { echo "FAIL: django-q does not share the log files"; exit 1; }
-          echo "PASS: log files kept across recreation and shared with django-q"
+          $dc exec -T django-q2 grep -q ci-log-marker logs/debug.log || { echo "FAIL: django-q2 does not share the log files"; exit 1; }
+          echo "PASS: log files kept across recreation and shared with django-q2"
 
       - name: Verify nginx follows django to a new address
         # An upgrade recreates django, which can give it a new address on the

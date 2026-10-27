@@ -296,7 +296,7 @@ initialising. The first time QATrack+ starts up initialisation can take about
 
 .. note::
 
-    The web server (``nginx``) and the background task service (``django-q``)
+    The web server (``nginx``) and the background task service (``django-q2``)
     only start once the ``django`` service reports that it is ready, and
     ``django`` is given up to 10 minutes for its first start. On a slow machine
     this may still not be enough, and ``docker compose up`` stops with
@@ -317,8 +317,8 @@ answer its prompts:
 You can then sign in at http://localhost with the credentials you just chose.
 
 Scheduled notifications, scheduled reports and the emails they send run in the
-``django-q`` service. ``docker compose ps`` shows it, with the other services, as
-``healthy``, and ``docker compose logs django-q`` shows what it has run.
+``django-q2`` service. ``docker compose ps`` shows it, with the other services, as
+``healthy``, and ``docker compose logs django-q2`` shows what it has run.
 ``docker compose logs`` keeps at most 50 MB of each service's output, and starts
 again empty when a container is recreated, for example by an upgrade.
 QATrack+'s own log files (``debug.log``, ``auth.log`` and the others) are kept in

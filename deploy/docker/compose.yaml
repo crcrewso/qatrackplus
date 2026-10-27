@@ -66,7 +66,7 @@ services:
     build:
       context: ../../
       dockerfile: deploy/docker/django/Dockerfile
-    # init and django-q run this same image, so it is built once. It is named
+    # init and django-q2 run this same image, so it is built once. It is named
     # after the Compose project, so a second stack on the same host (a test
     # copy run with -p) builds its own image instead of replacing this one.
     image: ${COMPOSE_PROJECT_NAME:-qatrackplus}-django
@@ -86,7 +86,7 @@ services:
       # across rebuilds, so upgrades do not log every user out.
       - user-data-volume:/usr/src/qatrackplus/deploy/docker/user-data
       # QATrack+'s log files (debug.log, auth.log, ...), kept across rebuilds and
-      # shared with django-q, as on a Linux install.
+      # shared with django-q2, as on a Linux install.
       - logs-volume:/usr/src/qatrackplus/logs
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
@@ -97,13 +97,13 @@ services:
       # every migration and collects static files. On a first install or an
       # upgrade that can take several minutes. Failed checks during
       # start_period don't count, so this only stops `docker compose up`
-      # giving up on django (and never starting nginx and django-q) too early;
+      # giving up on django (and never starting nginx and django-q2) too early;
       # a normal start is still marked healthy at the first passing check.
       start_period: 600s
 
   # Runs QATrack+'s background tasks: scheduled notifications, scheduled
   # reports, and the emails and PDFs they send.
-  django-q:
+  django-q2:
     image: ${COMPOSE_PROJECT_NAME:-qatrackplus}-django
     pull_policy: never
     command: [ "python", "manage.py", "qcluster" ]

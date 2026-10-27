@@ -26,7 +26,7 @@ services:
       - ../../logs:/usr/src/qatrackplus/logs
 
   # Background tasks run the same code, as the same user.
-  django-q: *from-checkout
+  django-q2: *from-checkout
 
   # Docker creates your checkout's logs/ folder, owned by root, if it is
   # missing; init (which runs as root) hands it to your user, along with any

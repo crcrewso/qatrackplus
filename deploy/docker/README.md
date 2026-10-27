@@ -28,7 +28,7 @@ This folder contains the Docker configuration for running QATrack+ in a modern, 
    ```bash
    docker compose up -d --build
    ```
-   This runs the QATrack+ code built into the image, as an unprivileged user. The `django-q` service runs scheduled notifications and reports.
+   This runs the QATrack+ code built into the image, as an unprivileged user. The `django-q2` service runs scheduled notifications and reports.
 3. To serve over HTTPS, copy `cert.pem` (full chain) and `key.pem` into `user-data/ssl` (with `sudo`: Docker creates that folder as root), set `HTTP_OR_HTTPS=https` in `.env`, and run `docker compose up -d`.
 
 ### 3. Development

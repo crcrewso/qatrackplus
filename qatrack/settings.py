@@ -298,6 +298,9 @@ FIXTURE_DIRS = (
 INSTALLED_APPS = [
     'django.contrib.admin', 'django.contrib.contenttypes', 'django.contrib.auth', 'django.contrib.sessions',
     'django.contrib.sites', 'django.contrib.messages', 'django.contrib.staticfiles', 'django.contrib.humanize',
+    # `django_q` is the module name the django-q2 package installs; django-q2 is a
+    # fork of the unmaintained django-q and kept its import path. Nothing here
+    # depends on django-q itself.
     'django_extensions', 'django_q', 'django_comments', 'formtools', 'django_filters', 'rest_framework',
     'rest_framework_filters', 'rest_framework.authtoken', 'listable', 'qatrack.genericdropdown', 'recurrence',
     'widget_tweaks', 'dynamic_raw_id', 'mptt', 'django_mptt_admin', 'qatrack.cache', 'qatrack.accounts',
@@ -601,7 +604,13 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
-        'django-q2': {
+        # The logger name is django-q2's own, and it is `django-q` with no "2":
+        # django-q2 is a fork of django-q and kept both the `django_q` module path
+        # and `logging.getLogger("django-q")`. Keying this on `django-q2` matched
+        # nothing, so django-q2.log stayed empty of the cluster's own records. The
+        # handler and the file keep the package's name; only the logger has to
+        # match what the library calls itself.
+        'django-q': {
             'handlers': ['console', 'django-q2'],
             'level': 'DEBUG',
             'propagate': True,
