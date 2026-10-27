@@ -11,7 +11,8 @@ New Installation of QATrack+ 4.0 on Ubuntu Linux
 
 This guide is going to walk you through installing everything required to run
 QATrack+ on an Ubuntu 24.04 LTS (Noble Numbat) server with Python 3.12, Nginx
-as the web server and PostgreSQL 16 (MySQL 8.0) as the database.  The
+as the web server and PostgreSQL 16 (recommended) or MySQL 8.0 — which remains
+supported for existing installations — as the database.  The
 instructions have also been tested on Ubuntu 22.04 and installation
 instructions should be similar on other Ubuntu systems. Similar steps will also
 likely work on other Linux distributions but those distributions are not
@@ -38,8 +39,30 @@ Prerequisites
 .. warning::
 
     These install steps should be done using a regular user account. They will not
-    work if you are currently logged in as 'root'. If you don't have a
-    regular user account, you should set one up before continuing.
+    work if you are currently logged in as 'root'.
+
+.. dropdown:: Starting from a fresh cloud server, where root is all you have
+    :color: warning
+
+    A new server from a cloud provider commonly gives you **root and nothing
+    else**, so there is no regular account to use yet. Create one before you begin:
+
+    .. code-block:: bash
+
+        adduser qatrack
+        usermod -aG sudo qatrack
+
+    If you reach the server by SSH key rather than by password, copy your key over
+    to the new account as well, or you will not be able to log in as it:
+
+    .. code-block:: bash
+
+        install -d -m 700 -o qatrack -g qatrack /home/qatrack/.ssh
+        install -m 600 -o qatrack -g qatrack /root/.ssh/authorized_keys \
+            /home/qatrack/.ssh/authorized_keys
+
+    Then log out and back in as ``qatrack`` before continuing. The rest of this
+    guide assumes you are that user and that ``sudo`` works.
 
 Make sure your existing packages are up to date:
 
@@ -137,11 +160,20 @@ And then create a readonly user for the SQL query tool:
     sudo -u postgres psql < deploy/postgres/create_ro_role.sql
 
 
-Now edit /etc/postgresql/18/main/pg_hba.conf (use your favourite editor, e.g.
-`sudo nano /etc/postgresql/18/main/pg_hba.conf` (note, if you have a different
-version of Postgres installed, then you would need to change the 18 in that
-path e.g. /etc/postgresql/16/main/pg_hba.conf) and scroll down to the bottom
-and change `peer` to `md5` for the `local all all` entry so it looks like:
+Now edit ``pg_hba.conf``. The path contains the major version of PostgreSQL you
+just installed, which depends on your distribution rather than on QATrack+ —
+**Ubuntu 24.04 installs PostgreSQL 16**, so the path there is
+``/etc/postgresql/16/main/pg_hba.conf``. Check which you have rather than
+assuming:
+
+.. code-block:: bash
+
+    ls /etc/postgresql/
+    # then, substituting the version it printed:
+    sudo nano /etc/postgresql/16/main/pg_hba.conf
+
+Scroll down to the bottom and change ``peer`` to ``md5`` for the ``local all all``
+entry so it looks like:
 
 .. code-block:: bash
 
@@ -260,7 +292,13 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
 .. code-block:: bash
 
     cd ~/web/qatrackplus
-    uv sync --extra postgres
+    uv sync --extra postgres --no-dev
+
+``--no-dev`` keeps the test and documentation tooling out of a deployment.
+Without it ``uv`` installs the ``dev`` dependency group as well - around 220
+packages including pytest, selenium, sphinx and **django-debug-toolbar** - none
+of which a server needs in order to run QATrack+. Leave it off only if you
+intend to run the test suite on this machine; see :ref:`linux_upgrade_from_4_0_1`.
 
 .. dropdown:: For MySQL: Install Requirements
     :color: warning
@@ -284,16 +322,19 @@ At this point you can run the QATrack+ test suite to ensure your environment is 
     cp deploy/sqlite/local_settings.py qatrack/local_settings.py
     make test_simple
 
-This should take a few minutes to run and should exit with output that looks
-similar to the following:
+This takes a couple of minutes and should end with a line like this:
 
 .. code-block:: bash
 
-    Results (88.45s):
+    1354 passed, 3 skipped, 34 deselected, 219 warnings in 152.63s (0:02:32)
 
-        975 passed
-        5 skipped
-        32 deselected
+Measured on a 1 vCPU / 1 GB server running Ubuntu 24.04 against 4.0.1. **Do not
+treat the exact numbers as a target** - they move with every release, and the
+count differs by platform and by which optional dependencies you installed. What
+matters is that nothing *failed*.
+
+The three skips are expected on a standard install: they are the Active Directory
+tests, which need the optional ``python-ldap`` package.
 
 
 Configuration of QATrack+
@@ -423,7 +464,18 @@ Nginx to serve:
     python manage.py collectstatic
 
 If you want to enable internationalization, then you need to compile the
-messages catalogs for the languages you need:
+messages catalogs for the languages you need. ``compilemessages`` is a wrapper
+around GNU gettext's ``msgfmt``, which is not part of Python, so install it
+first:
+
+.. code-block:: bash
+
+    sudo apt install gettext
+
+Without it the command stops with ``CommandError: Can't find msgfmt. Make sure
+you have GNU gettext tools 0.15 or newer installed.`` and no catalogue is
+compiled - QATrack+ then serves every string in English, with nothing else to
+say it is wrong.
 
 .. code-block:: bash
 
@@ -458,6 +510,15 @@ In order for Django Q to run properly and for Nginx to serve uploaded files, we 
     touch logs/{migrate,debug,django-q2,auth}.log
     sudo chown -R www-data:www-data logs qatrack/media
     sudo chmod ug+rwxs logs qatrack/media
+
+.. note::
+
+    ``exec sg`` replaces your shell, so it works when you are typing at a terminal
+    and **cannot work inside a script**: everything after it in the same file is
+    never reached. If you are automating this install, drop that line and either log
+    out and back in, or run the remaining commands with ``sg www-data -c '...'``. The
+    line is only a convenience to avoid logging out - nothing later depends on it
+    having run in the same shell.
 
 
 and then set up the Django Q configuration:
@@ -525,6 +586,73 @@ and finally restart Nginx:
 
 
 You should now be able to log into your server at http://yourserver/!
+
+
+Serving over HTTPS
+------------------
+
+The configuration written by ``make nginx.conf`` serves plain HTTP. For anything
+reachable beyond a trusted network you want TLS, and `Let's Encrypt
+<https://letsencrypt.org>`__ issues free certificates that browsers trust.
+
+.. important::
+
+    **First give nginx a real server name.** ``make nginx.conf`` writes
+    ``server_name _;`` - a catch-all - and certbot's nginx plugin cannot match a
+    catch-all to a certificate, so it will not know which block to edit. Replace it
+    with the host name people will use:
+
+    .. code-block:: bash
+
+        sudo sed -i 's/server_name  *_;/server_name qatrack.example.com;/' \
+            /etc/nginx/sites-available/qatrack.conf
+        sudo nginx -t && sudo systemctl reload nginx
+
+Then obtain and install the certificate. The DNS name must already resolve to this
+server, and port 80 must be reachable from the internet:
+
+.. code-block:: bash
+
+    sudo apt install certbot python3-certbot-nginx
+    sudo certbot --nginx -d qatrack.example.com --agree-tos -m you@example.com --redirect
+
+``--redirect`` adds the HTTP-to-HTTPS redirect. certbot installs a renewal timer at
+the same time; confirm it with ``systemctl is-active certbot.timer`` and check the
+certificate with ``sudo certbot certificates``.
+
+.. note::
+
+    The QATrack+ nginx configuration redirects *everything* on port 80 to HTTPS,
+    including ``/.well-known/acme-challenge/``. Let's Encrypt follows that redirect
+    and does not validate the certificate while doing so, so renewal still works -
+    but if you replace the configuration with one that blocks the path outright,
+    renewal will start failing silently.
+
+Tested on Ubuntu 24.04 with nginx 1.24.0 and certbot 2.9.0.
+
+.. warning::
+
+    **Set the site's domain, then restart the application.** QATrack+ builds the links
+    in emailed reports and notifications from Django's ``Site`` record, which ships as
+    ``example.com``. Set it under *Sites* in the admin, or:
+
+    .. code-block:: bash
+
+        python manage.py shell -c "
+        from django.contrib.sites.models import Site
+        s = Site.objects.get_current()
+        s.domain = 'qatrack.example.com'; s.name = 'QATrack+'; s.save()"
+
+    **Changing it in the database is not enough on its own.** Django caches the
+    current site per process, so running gunicorn keeps serving the old value and the
+    change appears to have done nothing:
+
+    .. code-block:: bash
+
+        sudo supervisorctl restart gunicorn
+
+    Note also that rebuilding the database re-loads the default fixtures, which set
+    the domain back to ``example.com``. Re-apply it after any rebuild.
 
 
 Next Steps
