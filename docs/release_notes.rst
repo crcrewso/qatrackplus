@@ -80,6 +80,16 @@ Ordered by consequence, most serious first.
   identity now. The fix above is what made this reachable - narrowed to one group,
   two collections sharing a name rarely met (:issues:`#883 <883>`).
 
+* **A calculation procedure can no longer break a whole QC session by setting an
+  unusual comment.** ``UTILS.set_comment`` passed its value straight into the
+  composite response, so a value JSON cannot serialize - an exception object, say -
+  failed the response for **every** test in the list, not just the one whose
+  procedure did it. The result of a calculation was already checked for this and
+  reported against the single test; the comment was not. Values are now converted to
+  text, a value that is empty or zero sets no comment at all rather than the word
+  ``None``, and a date or time comment is formatted with the same setting as every
+  other date QATrack+ renders (:issues:`#656 <656>`).
+
 Other Changes
 ^^^^^^^^^^^^^
 
