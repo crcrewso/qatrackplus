@@ -222,5 +222,21 @@ class Command(BaseCommand):
             )
         else:
             self.stdout.write(self.style.SUCCESS(
-                "No duplicates - the repair migration can re-create every one of them."
+                "No duplicates - nothing in this database blocks the repair."
             ))
+
+        if unenforced_total:
+            # This command asks the database what it enforces, so it reports an
+            # unenforced set whatever the cause. The 4.0.2 migrations repair the
+            # sixteen sets they name, and only those: a set unenforced for some other
+            # reason is reported here and `migrate` will not re-create it. The two
+            # scopes are deliberately different - say so rather than let the message
+            # above be read as a promise about every set listed.
+            self.stdout.write(
+                "\nWhat the migrations will and will not do: QATrack+ 4.0.2 re-creates the "
+                "sixteen column sets the 4.0 SQL Server retype dropped, which its migrations "
+                "name individually. A set listed above for any other reason - an index dropped "
+                "by hand, or one declared after 4.0.2 - is reported by this command but is not "
+                "re-created by `migrate`. Run `manage.py check --database default` after "
+                "upgrading: anything still named by qatrack.W011 needs re-creating by hand."
+            )
