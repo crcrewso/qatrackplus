@@ -43,6 +43,8 @@ Substitute the filename you just listed:
     docker compose exec backup pg_restore --list /backups/db_YYYYMMDD_HHMMSS.dump > /dev/null \
         && echo "backup reads OK"
 
+.. include:: _docker_env_untracked.rst
+
 Then fetch the new version and rebuild:
 
 .. code-block:: bash
