@@ -357,9 +357,12 @@ Create the following bat file:
 
     NET USE V: "\\pdc\OneDrive$\QATrack+"
 
-    xcopy D:\QATrack+\qatrackplus\deploy\docker\user-data\backup-management\backups V:\backups /E /G /H /D /Y
+    xcopy D:\QATrack+\qatrackplus\deploy\docker\backups V:\backups /E /G /H /D /Y
 
-Then using Windows Task scheduler to set that bat file to run daily.
+Then use Windows Task Scheduler to run that bat file daily, after the 02:00 backup.
+
+Adjust the source path to your own checkout. ``deploy\docker\backups`` is where the
+``backup`` service writes, through the ``./backups`` bind mount in ``compose.yaml``.
 
 Advanced usage tips
 -------------------
@@ -367,15 +370,14 @@ Advanced usage tips
 Accessing the Django shell
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you need to access the Django shell run the following in another terminal:
+Run it in the ``django`` service, from ``deploy/docker``:
 
 .. code-block:: console
 
-    docker exec -ti docker_qatrack-django_1 /bin/bash
-    source deploy/docker/user-data/python-virtualenv/bin/activate
-    python manage.py shell
+    docker compose exec django python manage.py shell
 
-This requires that the containers are already running.
+The containers have to be running. The same shape works for any management
+command - ``docker compose exec django python manage.py <command>``.
 
 Making QATrack+ start on boot and run in the background
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -441,23 +443,23 @@ browser to see QATrack+. After editing `compose.yaml` you need to rerun
 Making the backup management store its files on a network share
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Within the docker image all backup data is placed at
-`/usr/src/qatrackplus/deploy/docker/user-data/backup-management`.  If during
-the initial boot of the docker image a network drive is mounted to that
-directory theoretically all backups should be managed on that network drive
-instead. To achieve this, at the start of `init.sh` write the following line:
-
+The ``backup`` service writes to ``deploy/docker/backups`` on the host, through the
+``./backups:/backups`` bind mount in ``compose.yaml``. To keep backups on a network
+share, mount the share at that path **before** starting the stack, so the service
+writes straight to it:
 
 .. code-block:: console
 
-    mount -t cifs -o username=your_user_name -o password=your_password //host_name/share_name /usr/src/qatrackplus/deploy/docker/user-data/backup-management
+    sudo mount -t cifs -o username=your_user_name,password=your_password \
+        //host_name/share_name /path/to/qatrackplus/deploy/docker/backups
 
-See `cifs man page
-<https://www.systutorials.com/docs/linux/man/8-mount.cifs/>`__ for more help if
-needed.
+See the `cifs man page
+<https://www.systutorials.com/docs/linux/man/8-mount.cifs/>`__ for the options, and
+add it to ``/etc/fstab`` if you want it mounted at boot.
 
-This has not been tested yet, please inform Simon Biggs (me@simonbiggs.net) if
-you have issues / if you get it working.
+Changing the left-hand side of the ``./backups`` bind mount in ``compose.yaml`` works
+too, but that is a tracked file: an upgrade's ``git pull`` will stop on your edit
+unless you stash it, as described in the upgrade guides.
 
 Shutdown the server
 ~~~~~~~~~~~~~~~~~~~
@@ -491,37 +493,79 @@ Once any files have changed in the qatrackplus directory you need to run the fol
 Backup management
 ~~~~~~~~~~~~~~~~~
 
-Everytime `docker compose up` is run a timestamped backup zip file of the
-database, uploaded files, and your site specific css is created. These backups
-are stored within
-`qatrackplus/deploy/docker/user-data/backup-management/backups`.  To restore a
-backup zip file copy it to the restore directory found at
-`qatrackplus/deploy/docker/user-data/backup-management/restore`.  The
-restoration will occur next time `docker compose up` is called. After
-successful restoration the zip file within the restore directory is deleted.
+The ``backup`` service runs a nightly backup. It is not triggered by
+``docker compose up``, and there is no automatic restore.
 
-This restore method will also successfully restore backup files created on a
-different machine. However it will only successfully restore a like for like
-QATrack+ version. This cannot be used when upgrading between versions.
+**What it does.** ``crond`` inside the container runs ``/backup.sh`` at **02:00** every
+day. That writes two files into ``deploy/docker/backups`` on the host:
+
+* ``db_<date>.dump`` - the database, from ``pg_dump -F c`` (PostgreSQL's custom
+  format, which ``pg_restore`` reads)
+* ``media_<date>.tar.gz`` - the uploaded files, from ``tar -czf``
+
+Files of both kinds older than **seven days** are deleted on each run. Run it by hand
+with ``docker compose exec backup bash /backup.sh``.
+
+:ref:`qatrack_backup` covers what a complete backup set has to contain, and why
+checking that a backup *opens* matters as much as taking it:
+
+.. code-block:: console
+
+    docker compose exec backup pg_restore --list /backups/db_<date>.dump > /dev/null \
+        && echo "backup reads OK"
+
+**Restoring the database** runs in the same service, which already has
+``pg_restore`` and the credentials:
+
+.. code-block:: console
+
+    docker compose stop django django-q2
+    docker compose exec backup pg_restore -h postgres -U "$POSTGRES_USER" \
+        -d "$POSTGRES_DB" --clean --if-exists /backups/db_<date>.dump
+    docker compose start django django-q2
+
+**Restoring the media files needs a one-off container**, because the ``backup``
+service mounts the media volume read-only - deliberately, so a backup cannot damage
+what it is copying. Nothing else can see both the dumps and a writable media volume:
+
+.. code-block:: console
+
+    docker run --rm \
+        -v "$(pwd)/backups:/backups:ro" \
+        -v qatrackplus_media-volume:/media \
+        alpine tar -xzf /backups/media_<date>.tar.gz -C /
+
+Both halves restore onto the **same QATrack+ version** they were taken from. Moving a
+backup between versions is an upgrade, not a restore: restore onto the old version
+first, then follow the upgrade guide.
 
 Delete docker data
 ~~~~~~~~~~~~~~~~~~
 
-If for some reason you need it, the following command will delete all docker
-data from all docker projects (WARNING, IRREVERSABLE):
+These commands act on **this project only**. Run them from ``deploy/docker``.
+
+To stop and remove the containers, keeping the database and uploaded files:
 
 .. code-block:: console
 
-    docker stop $(docker ps -a -q) && docker rm $(docker ps -a -q)
+    docker compose down
 
-And this will delete all of the cache:
-
-.. code-block:: console
-
-    echo 'y' | docker volume prune
-
-To just delete all postgres database data do the following:
+To remove the volumes as well - **the database, the uploaded files, the collected
+static files and the generated secret key** (irreversible):
 
 .. code-block:: console
 
-    docker stop docker_qatrack-postgres_1 && docker rm docker_qatrack-postgres_1 && docker volume rm docker_qatrack-postgres-volume
+    docker compose down -v
+
+To remove just the database volume, leaving media alone:
+
+.. code-block:: console
+
+    docker compose down
+    docker volume rm qatrackplus_postgres-volume
+
+.. warning::
+
+    Earlier versions of this page suggested ``docker stop $(docker ps -a -q)`` and
+    ``docker volume prune``. Those act on **every** container and volume on the
+    machine, including other projects, and should not be used here.
