@@ -90,6 +90,16 @@ Ordered by consequence, most serious first.
   ``None``, and a date or time comment is formatted with the same setting as every
   other date QATrack+ renders (:issues:`#656 <656>`).
 
+* **Test list memberships show the name of each test again.** The admin fetches
+  each name over AJAX from an endpoint mounted beneath ``admin/``, and the admin
+  site ends its own URLs with a catch-all that claimed the request first, so the
+  admin answered its own endpoint with a 404 - for every user, including a
+  superuser. A test list's memberships listed an id and a macro name and no test
+  name, and a group permission could not fix it. The view and change icons beside
+  the field now have a link as well; they were rendered without one and did nothing.
+  A test saved with no name shows its id rather than nothing at all
+  (:issues:`#897 <897>`).
+
 Other Changes
 ^^^^^^^^^^^^^
 
