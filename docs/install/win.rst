@@ -527,6 +527,8 @@ with the Windows Task you created.
 
 .. _finally:
 
+.. include:: _site_record.rst
+
 What Next
 ---------
 

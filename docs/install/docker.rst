@@ -364,6 +364,8 @@ Then use Windows Task Scheduler to run that bat file daily, after the 02:00 back
 Adjust the source path to your own checkout. ``deploy\docker\backups`` is where the
 ``backup`` service writes, through the ``./backups`` bind mount in ``compose.yaml``.
 
+.. include:: _site_record.rst
+
 Advanced usage tips
 -------------------
 

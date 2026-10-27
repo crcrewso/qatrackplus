@@ -630,29 +630,7 @@ certificate with ``sudo certbot certificates``.
 
 Tested on Ubuntu 24.04 with nginx 1.24.0 and certbot 2.9.0.
 
-.. warning::
-
-    **Set the site's domain, then restart the application.** QATrack+ builds the links
-    in emailed reports and notifications from Django's ``Site`` record, which ships as
-    ``example.com``. Set it under *Sites* in the admin, or:
-
-    .. code-block:: bash
-
-        python manage.py shell -c "
-        from django.contrib.sites.models import Site
-        s = Site.objects.get_current()
-        s.domain = 'qatrack.example.com'; s.name = 'QATrack+'; s.save()"
-
-    **Changing it in the database is not enough on its own.** Django caches the
-    current site per process, so running gunicorn keeps serving the old value and the
-    change appears to have done nothing:
-
-    .. code-block:: bash
-
-        sudo supervisorctl restart gunicorn
-
-    Note also that rebuilding the database re-loads the default fixtures, which set
-    the domain back to ``example.com``. Re-apply it after any rebuild.
+.. include:: _site_record.rst
 
 
 Next Steps
