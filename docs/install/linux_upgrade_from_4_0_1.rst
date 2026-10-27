@@ -60,6 +60,12 @@ Fetch the new version:
     git fetch origin
     git pull
 
+.. note::
+
+    If ``git pull`` reports that you are not on a branch, you are on a tag from an
+    earlier install. ``git checkout releases/4.0`` once, and every upgrade after that is
+    the ``pull`` above.
+
 Update the Python environment. Use the extra that matches your database:
 
 .. code-block:: bash

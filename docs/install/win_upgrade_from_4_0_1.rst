@@ -10,7 +10,7 @@ migrations and a restart:
 1. Stop the scheduled task and the web service
 2. **Back up the database, and confirm the backup restores**
 3. ``git fetch`` and ``git pull``
-4. ``uv sync --exact --extra win --extra mssql``
+4. ``uv sync --exact --extra win --extra mssql``, then activate ``.venv``
 5. ``python manage.py check --database default``
 6. ``python manage.py migrate`` and ``python manage.py collectstatic``
 7. Start the service and scheduled task again
@@ -58,6 +58,19 @@ Fetch the new version and update the environment. You do not name a version — 
     >>  git fetch origin
     >>  git pull
     >>  uv sync --exact --extra win --extra mssql
+
+Activate the environment. ``uv sync`` updates ``.venv`` but does not activate it,
+and the commands below are run with the environment's own ``python``:
+
+.. code-block:: console
+
+    >>  .\.venv\Scripts\Activate.ps1
+
+Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``.
+Without this, in a fresh PowerShell window ``python`` is the system interpreter -
+or Windows' Python Store alias, which opens the Microsoft Store instead of running
+anything - so the commands below would either fail on missing dependencies or
+run against the wrong environment, while your services are stopped.
 
 Check the installation. **The ``--database`` is deliberate:** the missing-constraint
 warnings have to ask SQL Server what it enforces, so they only appear when a connection
