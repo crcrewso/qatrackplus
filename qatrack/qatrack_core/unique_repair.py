@@ -207,11 +207,21 @@ def repair_unique_constraints(apps, schema_editor, specs, log=None):
 
 
 def remove_repaired_constraints(apps, schema_editor, specs):
-    """Reverse of `repair_unique_constraints`: remove only what it added.
+    """Reverse of `repair_unique_constraints`: remove the names this module owns.
 
     Keyed on the generated name, so a constraint the database had of its own is left
     alone. A name that is not present is not an error - the forward pass skips
     constraints that were already enforced, so there is nothing to remove for those.
+
+    **It removes by name, not by what a particular call created,** and the two are
+    not the same thing. On a database where an earlier run of the repair *migration*
+    created the constraint, a later forward pass reports `already_enforced` and adds
+    nothing, yet this still removes the index, because the name is there. That is
+    correct for the only caller - a migration reversing its own forward pass - and it
+    is why calling forward then reverse is not an identity on such a database.
+    Measured on SQL Server 2022, where the 4.0 retype drops
+    `parts.Contact (first_name, last_name, supplier_id)` and the 4.0.2 repair
+    migration re-creates it under the generated name.
     """
     connection = schema_editor.connection
     for app_label, model_name, fields in specs:

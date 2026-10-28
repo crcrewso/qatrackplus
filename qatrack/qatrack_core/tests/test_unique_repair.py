@@ -132,6 +132,38 @@ class TestRepairDecisions(TransactionTestCase):
                 remove_repaired_constraints(apps, editor, ours)
         super().tearDown()
 
+    def _own_specs_present(self, specs):
+        """Which of `specs` currently carry this module's generated name."""
+        present = self._generated_names_present()
+        return [
+            spec for spec in specs
+            if constraint_name(apps.get_model(spec[0], spec[1]), spec[2]) in present
+        ]
+
+    def _ensure_absent(self, specs=SPECS):
+        """Clear this module's own names, and report what was cleared so it can go back.
+
+        **Three tests need this and none of them used to have it.** The repair
+        migrations generate the same names, so on SQL Server - where the 4.0 retype
+        dropped the indexes and 4.0.2 re-created them - every one of SPECS already
+        carries its generated name before any test runs. A test that assumes
+        otherwise either removes migrated schema or collides with it.
+
+        Pair every call with `_restore`, because the class's whole invariant is that a
+        constraint a migration owns is never left deleted (see the class docstring).
+        """
+        removed = self._own_specs_present(specs)
+        if removed:
+            with connection.schema_editor() as editor:
+                remove_repaired_constraints(apps, editor, removed)
+        return removed
+
+    def _restore(self, specs):
+        """Put back exactly what `_ensure_absent` cleared, the way a migration made it."""
+        if specs:
+            with connection.schema_editor() as editor:
+                repair_unique_constraints(apps, editor, specs)
+
     @skipUnless(
         connection.features.supports_partial_indexes,
         "needs a constraint that introspects under its own name; see the note below",
@@ -153,6 +185,14 @@ class TestRepairDecisions(TransactionTestCase):
         have seen it, by snapshotting again afterwards, and checks `tearDown`'s filter
         would exclude it. Without the snapshot this class deletes migrated schema.
         """
+        room = [('parts', 'Room', ('name', 'site'))]
+        # Run alone on SQL Server, this used to fail with "an index or statistics with
+        # name 'qatrack_uniq_parts_room_0d1952b2' already exists": the repair migration
+        # had already created it, and `add_constraint` below collided. It only passed in
+        # a full run because unittest sorts methods alphabetically and
+        # `test_repair_then_reverse...` had removed that index first. Verified on
+        # pristine `42783309` against SQL Server 2022.
+        cleared = self._ensure_absent(room)
         model = apps.get_model('parts', 'Room')
         name = constraint_name(model, ('name', 'site'))
         with connection.schema_editor() as editor:
@@ -170,6 +210,7 @@ class TestRepairDecisions(TransactionTestCase):
         finally:
             with connection.schema_editor() as editor:
                 editor.remove_constraint(model, _build(model, ('name', 'site')))
+            self._restore(cleared)
 
 
     def test_it_does_nothing_where_the_database_already_enforces(self):
@@ -232,23 +273,61 @@ class TestRepairDecisions(TransactionTestCase):
     def test_reversal_leaves_constraints_it_did_not_create(self):
         """It removes by generated name, so the database's own indexes are untouched.
 
-        Asserted without the repair having run, so nothing this module created is
-        present and every unique constraint on the table belongs to the database.
-        Reversal must be a no-op in that situation, on every engine.
+        Asserted from a state where none of this module's names are present, so every
+        unique constraint left on the table is one the database owns. Reversal must be
+        a no-op in that situation, on every engine.
+
+        The state is established rather than assumed. It used to be assumed, and on
+        SQL Server the assumption was false: the repair migration had already created
+        those names, so this removed migrated schema and passed only because the
+        column set had already been taken away by the test that sorts before it.
         """
-        before = self._unique_sets(Contact)
-        with connection.schema_editor() as editor:
-            remove_repaired_constraints(apps, editor, SPECS)
-        assert self._unique_sets(Contact) == before
+        cleared = self._ensure_absent()
+        try:
+            before = self._unique_sets(Contact)
+            with connection.schema_editor() as editor:
+                remove_repaired_constraints(apps, editor, SPECS)
+            assert self._unique_sets(Contact) == before
+        finally:
+            self._restore(cleared)
 
     def test_repair_then_reverse_returns_the_schema_to_where_it_started(self):
-        """The round trip, which only does anything on an engine missing a constraint."""
-        before = self._unique_sets(Contact)
-        with connection.schema_editor() as editor:
-            repair_unique_constraints(apps, editor, SPECS)
-        with connection.schema_editor() as editor:
-            remove_repaired_constraints(apps, editor, SPECS)
-        assert self._unique_sets(Contact) == before
+        """The round trip, over a state in which this call is the one that creates.
+
+        **This is the test that failed on SQL Server 2019, 2022 and 2025** - measured
+        by crane on all three, reproduced here on 2022, and the one red job on c#24.
+
+        It asserted identity from whatever the migrations had left behind. On SQL
+        Server that is `qatrack_uniq_parts_contact_b0a03600` on
+        `(first_name, last_name, supplier_id)`, created by the 4.0.2 repair migration
+        because the 4.0 retype dropped it. So the forward pass reported
+        `already_enforced` and created nothing, while the reverse removed the
+        migration's index by name - leaving `parts_contact` with only its primary key,
+        which is the `assert {frozenset({'id'})} == ...` CI reported.
+
+        **Nothing about the repair is wrong there.** Reversal removes the names this
+        module owns, which is right for its only caller - a migration undoing its own
+        forward pass. Only a second forward pass sees the difference, and nothing but
+        this test does that.
+
+        Clearing those names first makes the round trip this call's own. It also makes
+        the assertion mean something on an engine that is already fully enforced:
+        with them gone, the forward pass has something to create.
+        """
+        cleared = self._ensure_absent()
+        try:
+            before = self._unique_sets(Contact)
+            with connection.schema_editor() as editor:
+                result = repair_unique_constraints(apps, editor, SPECS)
+            if result['created']:
+                # Not vacuous: the clear above gave the forward pass real work, so the
+                # removal that follows is removing something this call created.
+                assert self._unique_sets(Contact) != before, result
+            with connection.schema_editor() as editor:
+                remove_repaired_constraints(apps, editor, SPECS)
+            assert self._unique_sets(Contact) == before
+        finally:
+            self._restore(cleared)
 
     def _unique_sets(self, model):
         with connection.cursor() as cursor:
