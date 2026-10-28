@@ -64,12 +64,115 @@ Prerequisites
     Then log out and back in as ``qatrack`` before continuing. The rest of this
     guide assumes you are that user and that ``sudo`` works.
 
-Make sure your existing packages are up to date:
+Make sure your existing packages are up to date. On a server you reach over SSH,
+start a ``tmux`` session before you begin, so that the upgrade keeps running — and
+stays answerable — if your connection drops. (``tmux`` is already installed on most
+cloud images; ``sudo apt install tmux`` if yours does not have it.)
 
 .. code-block:: bash
 
+    tmux
     sudo apt update
     sudo apt upgrade
+
+.. dropdown:: New to ``tmux``? Everything you need for this guide
+
+    ``tmux`` runs your shell **on the server** rather than inside your SSH client, so
+    nothing running in it depends on your connection staying up. If your laptop sleeps,
+    your network drops, or SSH itself stops answering — which is exactly what the next
+    step does — the commands keep running, and you can pick the session back up when
+    you get back in.
+
+    .. list-table::
+        :header-rows: 1
+        :widths: 22 78
+
+        * - Command
+          - What it does
+        * - ``tmux``
+          - Starts a session and puts you in a shell inside it.
+        * - ``tmux attach``
+          - Puts you back into the session you left. This is the one you run after
+            logging in again.
+        * - ``tmux ls``
+          - Lists the sessions on this server, if you are not sure one is still there.
+        * - ``exit``
+          - Ends the session, once you are finished with it.
+
+    To leave a session running on purpose, press ``Ctrl-b`` and then ``d``, for
+    "detach". ``Ctrl-b`` is how you talk to ``tmux`` itself rather than to the shell
+    inside it, and the only other one worth learning is ``Ctrl-b`` then ``[``, which
+    lets you scroll back through output with the arrow keys — press ``q`` to stop
+    scrolling and return to the shell.
+
+    If your server has ``screen`` instead, it does the same job: ``screen`` to start,
+    ``screen -r`` to get back in, and ``Ctrl-a`` where ``tmux`` uses ``Ctrl-b``.
+
+    Nothing else in this guide requires a session like this, but the longer steps —
+    installing dependencies, running the test suite — are worth the same protection.
+
+.. warning::
+
+    **The upgrade offers to replace** ``/etc/ssh/sshd_config``\ **, and SSH stops
+    accepting new connections before it asks.** Cloud images ship their own
+    ``sshd_config``, so ``openssh-server`` finds a locally modified file and asks
+    what to do about it — as a full-screen dialog, not a one-line prompt.
+
+    Answer it in the session you are already in. **"keep the local version
+    currently installed" is already the selected option, so pressing Enter is the
+    right answer** — and on a fresh server it is the honest one too, since the
+    image's ``sshd_config`` is the only locally modified file there is. SSH starts
+    answering again about five seconds later and the upgrade finishes normally.
+
+    What you cannot do is open a second session to go and look at the question.
+    ``openssh-server`` is unpacked — which stops ``sshd`` — more than a minute
+    before the dialog appears, and the dialog then waits as long as you do, so
+    ``ssh`` reports ``connection refused`` while your provider still reports the
+    server as running. Measured on Linode Ubuntu 24.04 images, 2026-10-28, on
+    1 GB and 2 GB servers alike.
+
+    **Getting back in.** If your connection drops while the question is waiting,
+    port 22 will not come back on its own. Log in through your provider's
+    out-of-band console — Linode calls it Lish, most providers offer a web or
+    serial console, and a local virtual machine has the hypervisor's own window —
+    and pick the session back up:
+
+    .. code-block:: bash
+
+        tmux attach
+
+    You are in front of the same dialog, on the same half-finished upgrade. Answer
+    it and the upgrade carries on from where it stopped.
+
+    **If you were not running under tmux,** the upgrade died with your shell,
+    and the server is left with ``openssh-server`` half-configured and the twenty
+    or so packages behind it unconfigured. From the console, reboot, and then
+    finish the job:
+
+    .. code-block:: bash
+
+        sudo dpkg --configure -a
+
+    Answer the same question the same way, then check the result with
+    ``dpkg --audit``, which prints nothing at all when every package is configured.
+
+    **Adding -y to the upgrade command does not help.** It answers ``apt``'s own
+    *"Do you want to continue?"*, not this one, which comes from ``dpkg``: measured,
+    ``sudo apt -y upgrade`` stops on the same dialog in the same place.
+
+    For an unattended install, answer the question before it is asked:
+
+    .. code-block:: bash
+
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -y \
+            -o Dpkg::Options::="--force-confold" upgrade
+
+    That upgrade runs start to finish without stopping — but note that it still
+    takes ``sshd`` down for about a minute while ``openssh-server`` is replaced
+    (measured: 60 s), so a connection opened during that minute is still refused.
+    The difference is that nothing is waiting for an answer, so the port comes back
+    on its own.
+
 
 You will need to have the `make` command and a few other packages available for
 this deployment. Install install them as follows:
@@ -171,6 +274,15 @@ assuming:
     ls /etc/postgresql/
     # then, substituting the version it printed:
     sudo nano /etc/postgresql/16/main/pg_hba.conf
+
+.. note::
+
+    This guide uses ``nano`` because it works the way a text editor works in
+    Windows: the arrow keys move the cursor, what you type appears where the cursor
+    is, and the commands are listed along the bottom of the screen — ``Ctrl-o`` then
+    ``Enter`` writes the file, ``Ctrl-x`` leaves it. Ubuntu installs it by default,
+    so it is already there. If you have an editor you prefer, use that instead;
+    nothing in this guide depends on the choice.
 
 Scroll down to the bottom and change ``peer`` to ``md5`` for the ``local all all``
 entry so it looks like:
@@ -359,7 +471,13 @@ Create your `local_settings.py` file by copying the example from `deploy/{postgr
         cp deploy/mysql/local_settings.py qatrack/local_settings.py
 
 
-then open the file in a text editor.  There are many available settings and
+then open the file:
+
+.. code-block:: bash
+
+    nano qatrack/local_settings.py
+
+There are many available settings and
 they are documented within the example file and more completely on :ref:`the
 settings page <qatrack-config>`. Directions for :ref:`setting up email
 <config_email>`  are also included on that page.
