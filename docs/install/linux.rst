@@ -52,6 +52,11 @@ Prerequisites
         adduser qatrack
         usermod -aG sudo qatrack
 
+    ``adduser`` asks you to choose a password for the new account and to type it
+    twice, and then offers a handful of optional details -- full name, phone
+    number and so on -- which you can skip by pressing ``Enter`` at each one.
+    Keep the password: ``sudo`` asks for it.
+
     If you reach the server by SSH key rather than by password, copy your key over
     to the new account as well, or you will not be able to log in as it:
 
