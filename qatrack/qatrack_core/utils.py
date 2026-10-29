@@ -66,6 +66,107 @@ def file_uri(path):
     return Path(path).absolute().as_uri()
 
 
+def chrome_available():
+    """Whether a Chrome/Chromium executable is configured and present."""
+    return bool(settings.CHROME_PATH) and os.path.exists(settings.CHROME_PATH)
+
+
+#: What to do about a WeasyPrint that will not load. Both branches below need it,
+#: and the Windows half is not guessable from the failure: the missing pieces are
+#: the same system libraries, but there they surface as a GLib load error that no
+#: amount of installing the Python package fixes.
+WEASYPRINT_INSTALL_HINT = (
+    "WeasyPrint needs Pango, cairo and harfbuzz installed as system packages, not "
+    "just the Python package. On Windows that means a GTK runtime (MSYS2's UCRT64 "
+    "packages, for instance) and the WEASYPRINT_DLL_DIRECTORIES environment "
+    "variable pointing at its bin directory."
+)
+
+
+def weasyprint_import_error():
+    """The exception importing WeasyPrint raises here, or None if it imports.
+
+    Catches OSError as well as ImportError: WeasyPrint is a cffi wrapper
+    around Pango, cairo and harfbuzz, which are system packages rather than
+    Python ones. Where they are absent - python:*-slim images, most notably -
+    the import fails with OSError, not ImportError.
+
+    The exception itself is returned rather than discarded because it is the
+    only thing that says which library is missing. On Windows the failure is
+    "cannot load library 'libgobject-2.0-0'", which names GLib and not any of
+    the three packages a bare "cannot load" message would send you after.
+    """
+    try:
+        import weasyprint  # noqa: F401
+    except (ImportError, OSError) as e:
+        return e
+    return None
+
+
+def weasyprint_available():
+    """Whether WeasyPrint can actually render here."""
+    return weasyprint_import_error() is None
+
+
+def html_to_pdf(html, name="", paper_size="letter"):
+    """Render html to PDF with whichever engine is configured and usable.
+
+    settings.PDF_ENGINE selects:
+
+      "auto"        Chrome if available, otherwise WeasyPrint (default)
+      "chrome"      Chrome only
+      "weasyprint"  WeasyPrint only
+
+    Chrome leads in "auto", and this **does** change the renderer for a site
+    that has both engines - which is most of them, since CHROME_PATH is probed
+    automatically. That is deliberate and temporary.
+
+    The reason is the report templates. v4 moved rendering from Chrome to
+    WeasyPrint and reports were then silently cut off after the first few
+    pages: WeasyPrint cannot fragment a flex container or a float across
+    pages, and Bootstrap floats every grid column. reports/pdf.css pins `.row`
+    and `.col-xs-12` back to plain blocks to fix that, but **no test yet
+    catches a return of the truncation**, and a truncated QC report looks
+    complete. Chrome fragments those layouts natively and has no such mode.
+
+    WeasyPrint needs no browser, so it cannot be broken by a Chrome upgrade, a
+    snap-confined chromium or a headless sandbox (#835), and it is where
+    QATrack+ is heading. The default moves to it once both engines are covered
+    by tests that would catch truncation - not before.
+
+    Neither engine available is an error rather than a silent fallback: a
+    report that cannot be produced should say so, not arrive wrong.
+    """
+    engine = getattr(settings, "PDF_ENGINE", "auto")
+
+    if engine == "chrome":
+        return chrometopdf(html, name=name, paper_size=paper_size)
+
+    if engine == "weasyprint":
+        why = weasyprint_import_error()
+        if why is not None:
+            raise PdfGenerationError(
+                "PDF_ENGINE is 'weasyprint' but WeasyPrint cannot load: %s. %s"
+                % (why, WEASYPRINT_INSTALL_HINT)
+            )
+        return weasyprint_to_pdf(html, name=name, paper_size=paper_size)
+
+    if engine != "auto":
+        raise PdfGenerationError(
+            "Unknown PDF_ENGINE %r - expected 'auto', 'chrome' or 'weasyprint'." % engine
+        )
+
+    if chrome_available():
+        return chrometopdf(html, name=name, paper_size=paper_size)
+
+    if weasyprint_available():
+        return weasyprint_to_pdf(html, name=name, paper_size=paper_size)
+
+    raise PdfGenerationError(
+        "No PDF engine is available. Either set CHROME_PATH to a browser, or make "
+        "WeasyPrint loadable - it fails here with: %s. %s PDF_ENGINE can pin a "
+        "specific engine." % (weasyprint_import_error(), WEASYPRINT_INSTALL_HINT)
+    )
 
 def site_base_url(site=None):
     """The Site's absolute base URL, with exactly one scheme on the front.
@@ -110,26 +211,60 @@ def weasyprint_to_pdf(html, name="", paper_size="letter"):
         raise ImportError("WeasyPrint not installed. Install with: uv pip install weasyprint")
 
     # The report templates link the real bootstrap/adminlte print stylesheets
-    # and include reports/pdf.css themselves, so the only thing we need to add
-    # here is the page geometry.  Do *not* re-implement the Bootstrap grid: a
-    # flexbox `.row` stops WeasyPrint from fragmenting its contents across
-    # pages, which silently truncates any report containing a forced page
-    # break (see reports/pdf.css).
-    # clean_paper_size, not paper_size.lower(): this value is interpolated into a
-    # CSS declaration, and WeasyPrint is the engine BaseReport.to_pdf prefers - so
-    # validating only on the Chrome path (set_paper_size) left the default path
-    # unchecked, and the CSS-injection case the tests cover bypassed it whenever
-    # WeasyPrint succeeded.
-    paper_css = """
-    @page {
-        size: %s;
-        margin: 20px 20px 20px 30px;
-    }
-    """ % clean_paper_size(paper_size)
+    # and include reports/pdf.css themselves, so the only thing to add here is
+    # the page size - and it is added the same way Chrome gets it, through
+    # set_paper_size(), so there is one mechanism rather than one per engine.
+    # Margins come from reports/pdf.css for both engines; declaring them here
+    # as well meant two sources that had to be kept in step by hand.
+    #
+    # Do *not* re-implement the Bootstrap grid here: a flexbox `.row` stops
+    # WeasyPrint from fragmenting its contents across pages, which silently
+    # truncates any report containing a forced page break (see
+    # reports/pdf.css).
+    # A full document goes through set_paper_size(), the same path Chrome takes,
+    # so the two engines cannot end up disagreeing about the page size.
+    #
+    # A fragment has no head, and injecting there would mean emitting a `<style>`
+    # outside `<head>`. WeasyPrint does not need that: `stylesheets=` is its own
+    # documented way to supply extra CSS and does not care about the document's
+    # shape. Same validated rule either way - only the delivery differs - so this
+    # is a fallback rather than a second mechanism.
+    # Validated before the engine is touched, and before either route is chosen:
+    # a bad paper size is refused the same way whichever route it would have taken,
+    # and without a document being parsed first. Hoisting this out of the fragment
+    # branch is what TestBothEnginesValidatePaperSize asserts - it replaces the
+    # engine with a stub that records whether it was reached.
+    rule = paper_size_rule(paper_size)
 
     pdf = BytesIO()
-    HTML(string=html).write_pdf(pdf, stylesheets=[CSS(string=paper_css)])
+    if has_head(html):
+        HTML(string=set_paper_size(html, paper_size)).write_pdf(pdf)
+    else:
+        HTML(string=html).write_pdf(pdf, stylesheets=[CSS(string=rule)])
     return pdf.getvalue()
+
+
+HEAD_CLOSE = "</head>"
+
+
+def has_head(html):
+    """Whether `html` is a full document, so a `<style>` can be put in its head.
+
+    One place that knows how the head is found, because `set_paper_size` and
+    `weasyprint_to_pdf` both have to agree about it: the second chooses its
+    mechanism on the answer.
+    """
+    return HEAD_CLOSE in html
+
+
+def paper_size_rule(paper_size="letter"):
+    """The validated `@page` size declaration, as bare CSS text.
+
+    Separate from `set_paper_size` so WeasyPrint can take the same validated
+    rule through its own stylesheet API without going via an HTML `<style>`.
+    One source for the declaration, two ways of delivering it.
+    """
+    return "@page { size: %s; }" % clean_paper_size(paper_size)
 
 
 def set_paper_size(html, paper_size="letter"):
@@ -140,10 +275,15 @@ def set_paper_size(html, paper_size="letter"):
     silently did nothing, so every report came out Letter regardless of what
     the user picked.  CSS is the only lever that works, and it has to come
     after reports/pdf.css so it wins the cascade against its `@page` block.
+
+    With no head to inject into there is nothing better to do for Chrome than
+    prepend the rule, which is not valid HTML - a `<style>` outside `<head>` -
+    though both engines accept it. WeasyPrint is not stuck with that; see
+    `weasyprint_to_pdf`.
     """
-    rule = "<style>@page { size: %s; }</style>" % clean_paper_size(paper_size)
-    if "</head>" in html:
-        return html.replace("</head>", "%s</head>" % rule, 1)
+    rule = "<style>%s</style>" % paper_size_rule(paper_size)
+    if has_head(html):
+        return html.replace(HEAD_CLOSE, "%s%s" % (rule, HEAD_CLOSE), 1)
     return rule + html
 
 
