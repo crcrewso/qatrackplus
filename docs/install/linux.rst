@@ -11,7 +11,8 @@ New Installation of QATrack+ 4.0 on Ubuntu Linux
 
 This guide is going to walk you through installing everything required to run
 QATrack+ on an Ubuntu 24.04 LTS (Noble Numbat) server with Python 3.12, Nginx
-as the web server and PostgreSQL 16 (MySQL 8.0) as the database.  The
+as the web server and PostgreSQL 16 (recommended) or MySQL 8.0 — which remains
+supported for existing installations — as the database.  The
 instructions have also been tested on Ubuntu 22.04 and installation
 instructions should be similar on other Ubuntu systems. Similar steps will also
 likely work on other Linux distributions but those distributions are not
@@ -38,15 +39,145 @@ Prerequisites
 .. warning::
 
     These install steps should be done using a regular user account. They will not
-    work if you are currently logged in as 'root'. If you don't have a
-    regular user account, you should set one up before continuing.
+    work if you are currently logged in as 'root'.
 
-Make sure your existing packages are up to date:
+.. dropdown:: Starting from a fresh cloud server, where root is all you have
+    :color: warning
+
+    A new server from a cloud provider commonly gives you **root and nothing
+    else**, so there is no regular account to use yet. Create one before you begin:
+
+    .. code-block:: bash
+
+        adduser qatrack
+        usermod -aG sudo qatrack
+
+    ``adduser`` asks you to choose a password for the new account and to type it
+    twice, and then offers a handful of optional details -- full name, phone
+    number and so on -- which you can skip by pressing ``Enter`` at each one.
+    Keep the password: ``sudo`` asks for it.
+
+    If you reach the server by SSH key rather than by password, copy your key over
+    to the new account as well, or you will not be able to log in as it:
+
+    .. code-block:: bash
+
+        install -d -m 700 -o qatrack -g qatrack /home/qatrack/.ssh
+        install -m 600 -o qatrack -g qatrack /root/.ssh/authorized_keys \
+            /home/qatrack/.ssh/authorized_keys
+
+    Then log out and back in as ``qatrack`` before continuing. The rest of this
+    guide assumes you are that user and that ``sudo`` works.
+
+Make sure your existing packages are up to date. On a server you reach over SSH,
+start a ``tmux`` session before you begin, so that the upgrade keeps running — and
+stays answerable — if your connection drops. (``tmux`` is already installed on most
+cloud images; ``sudo apt install tmux`` if yours does not have it.)
 
 .. code-block:: bash
 
+    tmux
     sudo apt update
     sudo apt upgrade
+
+.. dropdown:: New to ``tmux``? Everything you need for this guide
+
+    ``tmux`` runs your shell **on the server** rather than inside your SSH client, so
+    nothing running in it depends on your connection staying up. If your laptop sleeps,
+    your network drops, or SSH itself stops answering — which is exactly what the next
+    step does — the commands keep running, and you can pick the session back up when
+    you get back in.
+
+    .. list-table::
+        :header-rows: 1
+        :widths: 22 78
+
+        * - Command
+          - What it does
+        * - ``tmux``
+          - Starts a session and puts you in a shell inside it.
+        * - ``tmux attach``
+          - Puts you back into the session you left. This is the one you run after
+            logging in again.
+        * - ``tmux ls``
+          - Lists the sessions on this server, if you are not sure one is still there.
+        * - ``exit``
+          - Ends the session, once you are finished with it.
+
+    To leave a session running on purpose, press ``Ctrl-b`` and then ``d``, for
+    "detach". ``Ctrl-b`` is how you talk to ``tmux`` itself rather than to the shell
+    inside it, and the only other one worth learning is ``Ctrl-b`` then ``[``, which
+    lets you scroll back through output with the arrow keys — press ``q`` to stop
+    scrolling and return to the shell.
+
+    If your server has ``screen`` instead, it does the same job: ``screen`` to start,
+    ``screen -r`` to get back in, and ``Ctrl-a`` where ``tmux`` uses ``Ctrl-b``.
+
+    Nothing else in this guide requires a session like this, but the longer steps —
+    installing dependencies, running the test suite — are worth the same protection.
+
+.. warning::
+
+    **The upgrade offers to replace** ``/etc/ssh/sshd_config``\ **, and SSH stops
+    accepting new connections before it asks.** Cloud images ship their own
+    ``sshd_config``, so ``openssh-server`` finds a locally modified file and asks
+    what to do about it — as a full-screen dialog, not a one-line prompt.
+
+    Answer it in the session you are already in. **"keep the local version
+    currently installed" is already the selected option, so pressing Enter is the
+    right answer** — and on a fresh server it is the honest one too, since the
+    image's ``sshd_config`` is the only locally modified file there is. SSH starts
+    answering again about five seconds later and the upgrade finishes normally.
+
+    What you cannot do is open a second session to go and look at the question.
+    ``openssh-server`` is unpacked — which stops ``sshd`` — more than a minute
+    before the dialog appears, and the dialog then waits as long as you do, so
+    ``ssh`` reports ``connection refused`` while your provider still reports the
+    server as running. Measured on Linode Ubuntu 24.04 images, 2026-10-28, on
+    1 GB and 2 GB servers alike.
+
+    **Getting back in.** If your connection drops while the question is waiting,
+    port 22 will not come back on its own. Log in through your provider's
+    out-of-band console — Linode calls it Lish, most providers offer a web or
+    serial console, and a local virtual machine has the hypervisor's own window —
+    and pick the session back up:
+
+    .. code-block:: bash
+
+        tmux attach
+
+    You are in front of the same dialog, on the same half-finished upgrade. Answer
+    it and the upgrade carries on from where it stopped.
+
+    **If you were not running under tmux,** the upgrade died with your shell,
+    and the server is left with ``openssh-server`` half-configured and the twenty
+    or so packages behind it unconfigured. From the console, reboot, and then
+    finish the job:
+
+    .. code-block:: bash
+
+        sudo dpkg --configure -a
+
+    Answer the same question the same way, then check the result with
+    ``dpkg --audit``, which prints nothing at all when every package is configured.
+
+    **Adding -y to the upgrade command does not help.** It answers ``apt``'s own
+    *"Do you want to continue?"*, not this one, which comes from ``dpkg``: measured,
+    ``sudo apt -y upgrade`` stops on the same dialog in the same place.
+
+    For an unattended install, answer the question before it is asked:
+
+    .. code-block:: bash
+
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -y \
+            -o Dpkg::Options::="--force-confold" upgrade
+
+    That upgrade runs start to finish without stopping — but note that it still
+    takes ``sshd`` down for about a minute while ``openssh-server`` is replaced
+    (measured: 60 s), so a connection opened during that minute is still refused.
+    The difference is that nothing is waiting for an answer, so the port comes back
+    on its own.
+
 
 You will need to have the `make` command and a few other packages available for
 this deployment. Install install them as follows:
@@ -137,11 +268,29 @@ And then create a readonly user for the SQL query tool:
     sudo -u postgres psql < deploy/postgres/create_ro_role.sql
 
 
-Now edit /etc/postgresql/18/main/pg_hba.conf (use your favourite editor, e.g.
-`sudo nano /etc/postgresql/18/main/pg_hba.conf` (note, if you have a different
-version of Postgres installed, then you would need to change the 18 in that
-path e.g. /etc/postgresql/16/main/pg_hba.conf) and scroll down to the bottom
-and change `peer` to `md5` for the `local all all` entry so it looks like:
+Now edit ``pg_hba.conf``. The path contains the major version of PostgreSQL you
+just installed, which depends on your distribution rather than on QATrack+ —
+**Ubuntu 24.04 installs PostgreSQL 16**, so the path there is
+``/etc/postgresql/16/main/pg_hba.conf``. Check which you have rather than
+assuming:
+
+.. code-block:: bash
+
+    ls /etc/postgresql/
+    # then, substituting the version it printed:
+    sudo nano /etc/postgresql/16/main/pg_hba.conf
+
+.. note::
+
+    This guide uses ``nano`` because it works the way a text editor works in
+    Windows: the arrow keys move the cursor, what you type appears where the cursor
+    is, and the commands are listed along the bottom of the screen — ``Ctrl-o`` then
+    ``Enter`` writes the file, ``Ctrl-x`` leaves it. Ubuntu installs it by default,
+    so it is already there. If you have an editor you prefer, use that instead;
+    nothing in this guide depends on the choice.
+
+Scroll down to the bottom and change ``peer`` to ``md5`` for the ``local all all``
+entry so it looks like:
 
 .. code-block:: bash
 
@@ -260,7 +409,13 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
 .. code-block:: bash
 
     cd ~/web/qatrackplus
-    uv sync --extra postgres
+    uv sync --extra postgres --no-dev
+
+``--no-dev`` keeps the test and documentation tooling out of a deployment.
+Without it ``uv`` installs the ``dev`` dependency group as well - around 220
+packages including pytest, selenium, sphinx and **django-debug-toolbar** - none
+of which a server needs in order to run QATrack+. Leave it off only if you
+intend to run the test suite on this machine; see :ref:`linux_upgrade_from_4_0_1`.
 
 .. dropdown:: For MySQL: Install Requirements
     :color: warning
@@ -284,16 +439,19 @@ At this point you can run the QATrack+ test suite to ensure your environment is 
     cp deploy/sqlite/local_settings.py qatrack/local_settings.py
     make test_simple
 
-This should take a few minutes to run and should exit with output that looks
-similar to the following:
+This takes a couple of minutes and should end with a line like this:
 
 .. code-block:: bash
 
-    Results (88.45s):
+    1354 passed, 3 skipped, 34 deselected, 219 warnings in 152.63s (0:02:32)
 
-        975 passed
-        5 skipped
-        32 deselected
+Measured on a 1 vCPU / 1 GB server running Ubuntu 24.04 against 4.0.1. **Do not
+treat the exact numbers as a target** - they move with every release, and the
+count differs by platform and by which optional dependencies you installed. What
+matters is that nothing *failed*.
+
+The three skips are expected on a standard install: they are the Active Directory
+tests, which need the optional ``python-ldap`` package.
 
 
 Configuration of QATrack+
@@ -318,7 +476,13 @@ Create your `local_settings.py` file by copying the example from `deploy/{postgr
         cp deploy/mysql/local_settings.py qatrack/local_settings.py
 
 
-then open the file in a text editor.  There are many available settings and
+then open the file:
+
+.. code-block:: bash
+
+    nano qatrack/local_settings.py
+
+There are many available settings and
 they are documented within the example file and more completely on :ref:`the
 settings page <qatrack-config>`. Directions for :ref:`setting up email
 <config_email>`  are also included on that page.
@@ -415,12 +579,6 @@ your Test Lists:
 
     python manage.py createsuperuser
 
-and to create a cachetable in the database:
-
-.. code-block:: bash
-
-    python manage.py createcachetable
-
 and finally we need to collect all our static media files in one location for
 Nginx to serve:
 
@@ -429,7 +587,18 @@ Nginx to serve:
     python manage.py collectstatic
 
 If you want to enable internationalization, then you need to compile the
-messages catalogs for the languages you need:
+messages catalogs for the languages you need. ``compilemessages`` is a wrapper
+around GNU gettext's ``msgfmt``, which is not part of Python, so install it
+first:
+
+.. code-block:: bash
+
+    sudo apt install gettext
+
+Without it the command stops with ``CommandError: Can't find msgfmt. Make sure
+you have GNU gettext tools 0.15 or newer installed.`` and no catalogue is
+compiled - QATrack+ then serves every string in English, with nothing else to
+say it is wrong.
 
 .. code-block:: bash
 
@@ -464,6 +633,15 @@ In order for Django Q to run properly and for Nginx to serve uploaded files, we 
     touch logs/{migrate,debug,django-q2,auth}.log
     sudo chown -R www-data:www-data logs qatrack/media
     sudo chmod ug+rwxs logs qatrack/media
+
+.. note::
+
+    ``exec sg`` replaces your shell, so it works when you are typing at a terminal
+    and **cannot work inside a script**: everything after it in the same file is
+    never reached. If you are automating this install, drop that line and either log
+    out and back in, or run the remaining commands with ``sg www-data -c '...'``. The
+    line is only a convenience to avoid logging out - nothing later depends on it
+    having run in the same shell.
 
 
 and then set up the Django Q configuration:
@@ -531,6 +709,51 @@ and finally restart Nginx:
 
 
 You should now be able to log into your server at http://yourserver/!
+
+
+Serving over HTTPS
+------------------
+
+The configuration written by ``make nginx.conf`` serves plain HTTP. For anything
+reachable beyond a trusted network you want TLS, and `Let's Encrypt
+<https://letsencrypt.org>`__ issues free certificates that browsers trust.
+
+.. important::
+
+    **First give nginx a real server name.** ``make nginx.conf`` writes
+    ``server_name _;`` - a catch-all - and certbot's nginx plugin cannot match a
+    catch-all to a certificate, so it will not know which block to edit. Replace it
+    with the host name people will use:
+
+    .. code-block:: bash
+
+        sudo sed -i 's/server_name  *_;/server_name qatrack.example.com;/' \
+            /etc/nginx/sites-available/qatrack.conf
+        sudo nginx -t && sudo systemctl reload nginx
+
+Then obtain and install the certificate. The DNS name must already resolve to this
+server, and port 80 must be reachable from the internet:
+
+.. code-block:: bash
+
+    sudo apt install certbot python3-certbot-nginx
+    sudo certbot --nginx -d qatrack.example.com --agree-tos -m you@example.com --redirect
+
+``--redirect`` adds the HTTP-to-HTTPS redirect. certbot installs a renewal timer at
+the same time; confirm it with ``systemctl is-active certbot.timer`` and check the
+certificate with ``sudo certbot certificates``.
+
+.. note::
+
+    The QATrack+ nginx configuration redirects *everything* on port 80 to HTTPS,
+    including ``/.well-known/acme-challenge/``. Let's Encrypt follows that redirect
+    and does not validate the certificate while doing so, so renewal still works -
+    but if you replace the configuration with one that blocks the path outright,
+    renewal will start failing silently.
+
+Tested on Ubuntu 24.04 with nginx 1.24.0 and certbot 2.9.0.
+
+.. include:: _site_record.rst
 
 
 Next Steps

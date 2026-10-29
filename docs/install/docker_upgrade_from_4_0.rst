@@ -144,6 +144,8 @@ If your QATrack+ folder was first cloned on a Windows computer and copied to
 your Linux server, see :ref:`the note on line endings <docker_line_endings>` in
 the installation guide as well.
 
+
+.. include:: _docker_env_untracked.rst
 .. _docker_upgrade_keep_secret_key:
 
 Keep your users signed in (optional)
