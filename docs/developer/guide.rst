@@ -793,6 +793,18 @@ The version number follows the format `X.Y.Z` where:
 - 4.1.1: Bug fix release
 - 5.0.0: Upgrade to Django 5.2 LTS
 
+**Where the version is written**
+
+The version is set by hand in two files, and they have to agree:
+
+- ``pyproject.toml`` (``version = "..."``) - what the package and ``uv.lock`` report;
+- ``qatrack/settings.py`` (``VERSION = "..."``) - what the page footer, the admin and
+  the built documentation show (``docs/conf.py`` reads it from there).
+
+After changing ``pyproject.toml`` run ``uv lock`` so ``uv.lock`` follows. A test,
+``qatrack/qatrack_core/tests/test_version.py``, fails if the three disagree, and the
+*Requirements* CI job syncs with ``--locked`` so a stale lock file fails there too.
+
 Copyright & Licensing
 ---------------------
 
