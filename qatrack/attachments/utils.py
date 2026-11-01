@@ -40,7 +40,7 @@ def imsave(obj, fname):
         try:
             pixels = obj.pixel_array
         except AttributeError:
-            pixels = pydicom.read_file(obj, force=True).pixel_array
+            pixels = pydicom.dcmread(obj, force=True).pixel_array
         imageio.imwrite(data, pixels, format=fmt)
         reseek(obj, data)
         return data.read()

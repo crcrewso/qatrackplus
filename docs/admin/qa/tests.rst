@@ -638,7 +638,7 @@ DICOM file:
 ::
 
     import pydicom
-    f = pydicom.read_file(BIN_FILE)
+    f = pydicom.dcmread(BIN_FILE)
     mean_value = f.pixel_array.mean()
 
 
