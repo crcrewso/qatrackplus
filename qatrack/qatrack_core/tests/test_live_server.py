@@ -43,6 +43,20 @@ class TestLiveServerClass(SimpleTestCase):
     def test_the_gui_tests_get_the_one_request_at_a_time_server(self):
         assert live.LiveServerSingleThread.server_class is live.OneRequestAtATimeWSGIServer
 
+    def test_the_gui_tests_base_class_actually_uses_it(self):
+        """The test above checks the thread class; this checks that anything reaches it.
+
+        Both were needed. From the headless work until 2026-11-01, SeleniumTests
+        subclassed StaticLiveServerTestCase directly, so LiveServerSingleThread was
+        correctly built, correctly documented, asserted on by the test above - and
+        reached by no test at all. Django's own LiveServerThread served every GUI
+        test, which is the second time this machinery has been inert without a
+        failure to show for it. Nathan Smela found it on review, 2026-10-09 and
+        again 2026-10-30.
+        """
+        assert live.SeleniumTests.server_thread_class is live.LiveServerSingleThread
+        assert issubclass(live.SeleniumTests, live.StaticLiveServerSingleThreadedTestCase)
+
     def test_no_name_mangled_method_is_left_in_the_class(self):
         mangled = [name for name in vars(live.LiveServerSingleThread) if name.startswith('_LiveServerSingleThread__')]
         assert mangled == [], (

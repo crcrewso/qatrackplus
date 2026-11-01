@@ -749,10 +749,16 @@ class TestPerformQC(BaseQATests):
 
     def test_ok_on_load(self):
         """Ensure that no failed tests on load and 3 "NO TOL" tests present"""
-        with transaction.atomic():
-            self.login()
-            self.open(self.url)
-            assert len(self.driver.find_elements(By.CSS_SELECTOR, ".qa-status.btn-danger")) == 0
+        self.login()
+        self.open(self.url)
+        # Prove the form rendered before asserting that nothing on it failed. The
+        # assertion below is an *absence*, and a page QATrack+ never served has no
+        # failed tests on it either: while login() ran inside transaction.atomic(),
+        # the live server could not see the uncommitted session row on a file-backed
+        # database, so this test passed from /accounts/login/?next=... with the title
+        # "Log In". Measured 2026-11-01, before and after.
+        self.wait_for_elements(By.CLASS_NAME, "qa-input", minimum=2)
+        assert len(self.driver.find_elements(By.CSS_SELECTOR, ".qa-status.btn-danger")) == 0
 
     def fill_testlist(self):
 
@@ -1236,61 +1242,59 @@ class TestReviewQC(BaseQATests):
         predicate, which is the whole of its input. Any further clones are left
         visible, which is what the settled page looks like anyway.
         """
-        with transaction.atomic():
-            self.login()
-            self.open(self.url)
-            self.wait.until(bulk_review_initialised, "the bulk review JS to initialise")
+        self.login()
+        self.open(self.url)
+        self.wait.until(bulk_review_initialised, "the bulk review JS to initialise")
 
-            # Only the first two matter: the predicate keys off "not all
-            # visible" and "index 0 visible", so clones beyond index 1 stay as
-            # they are.
-            def set_visibility(first, second):
-                self.driver.execute_script(
-                    "var els = document.getElementsByClassName('test-selected-toggle');"
-                    "els[0].style.display = arguments[0] ? '' : 'none';"
-                    "els[1].style.display = arguments[1] ? '' : 'none';",
-                    first,
-                    second,
-                )
+        # Only the first two matter: the predicate keys off "not all
+        # visible" and "index 0 visible", so clones beyond index 1 stay as
+        # they are.
+        def set_visibility(first, second):
+            self.driver.execute_script(
+                "var els = document.getElementsByClassName('test-selected-toggle');"
+                "els[0].style.display = arguments[0] ? '' : 'none';"
+                "els[1].style.display = arguments[1] ? '' : 'none';",
+                first,
+                second,
+            )
 
-            # Before qabulkreview.js runs: both visible, no change handler
-            # bound yet. This is the state "click the first visible toggle"
-            # would accept, and the click would do nothing.
-            set_visibility(True, True)
-            assert not bulk_review_initialised(self.driver), "accepted the pre-hide state"
+        # Before qabulkreview.js runs: both visible, no change handler
+        # bound yet. This is the state "click the first visible toggle"
+        # would accept, and the click would do nothing.
+        set_visibility(True, True)
+        assert not bulk_review_initialised(self.driver), "accepted the pre-hide state"
 
-            # After the hide, before the reorder: index 0 is the hidden one,
-            # so clicking index 0 is clicking something invisible.
-            set_visibility(False, True)
-            assert not bulk_review_initialised(self.driver), "accepted the mid-window state"
+        # After the hide, before the reorder: index 0 is the hidden one,
+        # so clicking index 0 is clicking something invisible.
+        set_visibility(False, True)
+        assert not bulk_review_initialised(self.driver), "accepted the mid-window state"
 
-            # Settled: the hidden toggle has moved to index 1.
-            set_visibility(True, False)
-            toggles = bulk_review_initialised(self.driver)
-            assert toggles, "rejected the settled state"
-            assert toggles[0].is_displayed()
+        # Settled: the hidden toggle has moved to index 1.
+        set_visibility(True, False)
+        toggles = bulk_review_initialised(self.driver)
+        assert toggles, "rejected the settled state"
+        assert toggles[0].is_displayed()
 
     @override_settings(REVIEW_BULK=True)
     def test_review_ok(self):
         """Ensure that no failed tests on load and 3 "NO TOL" tests present"""
-        with transaction.atomic():
-            self.login()
-            self.open(self.url)
-            self.wait_for_ajax()
-            self.wait.until(
-                bulk_review_initialised,
-                "the bulk review JS to hide the filter row's select-all checkbox",
-            )[0].click()
-            self.select_by_text("bulk-status", "Approved")
-            self.click("submit-review")
-            assert models.TestListInstance.objects.unreviewed().count() == 1
+        self.login()
+        self.open(self.url)
+        self.wait_for_ajax()
+        self.wait.until(
+            bulk_review_initialised,
+            "the bulk review JS to hide the filter row's select-all checkbox",
+        )[0].click()
+        self.select_by_text("bulk-status", "Approved")
+        self.click("submit-review")
+        assert models.TestListInstance.objects.unreviewed().count() == 1
 
-            self.click("confirm-update")
-            self.wait.until(
-                e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')),
-                "the success alert after the save",
-            )
-            assert models.TestListInstance.objects.unreviewed().count() == 0
+        self.click("confirm-update")
+        self.wait.until(
+            e_c.presence_of_element_located((By.CLASS_NAME, 'alert-success')),
+            "the success alert after the save",
+        )
+        assert models.TestListInstance.objects.unreviewed().count() == 0
 
 
 

@@ -293,7 +293,21 @@ def explicit_find_element(driver, orig_find_element, timeout):
 
 
 @pytest.mark.selenium
-class SeleniumTests(StaticLiveServerTestCase):
+class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
+    """Every GUI test's base class, on the one-request-at-a-time server.
+
+    The base class is the point: it was `StaticLiveServerTestCase` until
+    2026-11-01, so `OneRequestAtATimeWSGIServer` above was defined, documented
+    as the fix for Django #29062, and never used by a single test. Nathan Smela
+    found it on review (`live.py:296`, 2026-10-09 and again 2026-10-30): the
+    class existed, the paragraph explaining it existed, and
+    `SeleniumTests.server_thread_class` was Django's own `LiveServerThread`.
+
+    `test_live_server.py` asserts the wiring, because this is the second time
+    this machinery has been silently inert - the first was a `__create_server`
+    method whose name Python mangled, which is what the comment above records.
+    A class attribute that nothing asserts on is how that happens.
+    """
 
     @classmethod
     def setUpClass(cls):
