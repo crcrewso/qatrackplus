@@ -323,25 +323,46 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
         msgs = []
         auto_types = [models.CONSTANT] + list(models.CALCULATED_TYPES)
 
+        # The perform page accepts blank values on an in-progress session and
+        # validates nothing until the session is completed; the API now does
+        # the same rather than forcing every unfinished test to be skipped
+        # (upstream #661).
+        in_progress = validated_data.get('in_progress', False)
+
         for slug, type_, procedure in test_qs:
 
             if slug not in validated_data['tests']:
-                missing.append(slug)
-                continue
+                if in_progress:
+                    validated_data['tests'][slug] = {'value': None}
+                else:
+                    missing.append(slug)
+                    continue
 
             skipped = validated_data['tests'][slug].get("skipped")
             provided_val = post_data.get('tests', {}).get(slug, {}).get("value")
             validated_val = validated_data['tests'][slug].get("value")
-            if not skipped and type_ not in auto_types and not self.type_okay(type_, validated_val):
+            blank_in_progress = in_progress and not skipped and validated_val in (None, "")
+            if not skipped and not blank_in_progress and type_ not in auto_types and not self.type_okay(type_, validated_val):
                 wrong_types.append(slug)
 
             if type_ in auto_types and not self.autovalue_ok(validated_val, provided_val):
                 invalid_autos.append(slug)
-            elif type_ in auto_types and not self.type_okay(type_, validated_val) and not skipped:
+            elif type_ in auto_types and not self.type_okay(type_, validated_val) and not skipped and not blank_in_progress:
                 wrong_types.append(slug)
 
             d = validated_data['tests'][slug]
-            if type_ in models.STRING_TYPES and slug in validated_data['tests']:
+            if blank_in_progress:
+                d['value'] = None
+                if type_ in models.STRING_TYPES:
+                    d['string_value'] = ""
+                elif type_ == models.DATE:
+                    d['date_value'] = None
+                elif type_ == models.DATETIME:
+                    d['datetime_value'] = None
+                elif type_ == models.UPLOAD:
+                    d['string_value'] = ""
+                    d['json_value'] = ""
+            elif type_ in models.STRING_TYPES and slug in validated_data['tests']:
                 d['string_value'] = d.pop('value', "")
             elif type_ == models.DATE and slug in validated_data['tests']:
                 d['date_value'] = parse_date(d.pop('value', ""))
@@ -521,7 +542,10 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
             'meta': {
                 'test_list_name': self.tl.name,
                 'unit_number': self.utc.unit.number,
-                'cycle_day': self.day,
+                # 1-indexed, as on the perform page: perform.py subtracts one when it saves
+                # the day, so a procedure reading META['cycle_day'] sees the same number
+                # whichever way the list was submitted (upstream #808).
+                'cycle_day': self.day + 1,
                 'work_completed': validated_data['work_completed'],
                 'work_started': validated_data['work_started'],
                 'username': self.context['request'].user.username,
@@ -588,7 +612,7 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
         ordered_utis = [utis[uti_tests.index(test)] for test in tests]
         to_save = []
         for order, uti in enumerate(ordered_utis):
-            data = test_instance_data[uti.test.slug]
+            data = test_instance_data.get(uti.test.slug, {})
             ti = models.TestInstance(
                 value=data.get("value"),
                 string_value=data.get("string_value", ""),
@@ -705,7 +729,7 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
             "unit_test_info__tolerance",
         )
         for ti in tis:
-            tid = test_instance_data[ti.unit_test_info.test.slug]
+            tid = test_instance_data.get(ti.unit_test_info.test.slug, {})
             ti.status = status
             ti.modified_by = user
             ti.work_started = instance.work_started
