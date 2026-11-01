@@ -12,7 +12,11 @@ import pydicom
 from django.contrib.auth.models import Permission
 from django.test import TestCase
 from django.urls import reverse
-from django.utils.deprecation import RemovedInDjango50Warning
+
+try:
+    from django.utils.deprecation import RemovedInDjango50Warning
+except ImportError:  # Django 5.x: the warning class is gone, and the behaviour it warned about raises instead
+    RemovedInDjango50Warning = None
 from pydicom.data import get_testdata_file
 
 from qatrack.attachments import utils as attachment_utils
@@ -29,8 +33,11 @@ class TestUnsavedTestSignal(TestCase):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             utils.create_test(name="bool", test_type=models.BOOLEAN)
-        unsaved = [w for w in caught if issubclass(w.category, RemovedInDjango50Warning) and "unsaved" in str(w.message)]
-        assert unsaved == []
+        if RemovedInDjango50Warning is not None:
+            unsaved = [
+                w for w in caught if issubclass(w.category, RemovedInDjango50Warning) and "unsaved" in str(w.message)
+            ]
+            assert unsaved == []
 
 
 class TestLogoutIsAForm(TestCase):
@@ -118,7 +125,8 @@ class TestTableFormRenderer(TestCase):
             warnings.simplefilter("always")
             html = str(F())
         assert "<tr>" in html
-        assert [w for w in caught if issubclass(w.category, RemovedInDjango50Warning)] == []
+        if RemovedInDjango50Warning is not None:
+            assert [w for w in caught if issubclass(w.category, RemovedInDjango50Warning)] == []
 
 
 class TestSupplierWebsiteTag(TestCase):
