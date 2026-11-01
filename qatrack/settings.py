@@ -58,7 +58,12 @@ DATABASES = {
 # -----------------------------------------------------------------------------
 # Backup settings
 # Override these in local_settings.py if you are using the backup_site command.
-BACKUP_DIR = "C:\\deploy\\backups"
+# The default follows the platform: the documented Windows layout, or a
+# `backups` folder beside the code on anything else (it is in .gitignore).
+# Before 4.0.3 the Windows path was the default everywhere, so a Linux site that
+# never set BACKUP_DIR got a folder literally named "C:\deploy\backups" inside
+# its checkout and a success message; `qatrack.W016` now says so.
+BACKUP_DIR = "C:\\deploy\\backups" if os.name == "nt" else os.path.join(BASE_DIR, "backups")
 BACKUP_WEEKLY_DAY = 2  # 0 = Monday, 6 = Sunday (2 = Wednesday)
 BACKUP_MONTHLY_DAY = 3
 

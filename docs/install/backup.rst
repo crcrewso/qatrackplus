@@ -59,11 +59,15 @@ timestamped directory.
     PostgreSQL, MySQL and SQL Server it says so and names the tool to use instead -
     ``pg_dump``, ``mysqldump``, or SQL Server's own ``BACKUP DATABASE``.
 
-    **Check where it wrote.** The directory comes from ``BACKUP_DIR``, which the
-    shipped settings set to a Windows path, ``C:\deploy\backups``. On a Linux
-    server that has not overridden it, the command creates a folder of that literal
-    name inside your QATrack+ directory and reports success. Set ``BACKUP_DIR`` in
-    ``local_settings.py`` before relying on the command, and read the path it prints.
+    **Check where it wrote.** The directory comes from ``BACKUP_DIR``. The default
+    is ``C:\deploy\backups`` on Windows and a ``backups`` folder beside the code
+    (``~/web/qatrackplus/backups`` in the Linux guide's layout) everywhere else.
+    Before 4.0.3 the Windows path was the default on every platform, so a Linux
+    server that never set it got a folder of that literal name inside its QATrack+
+    directory and a success message; ``manage.py check`` now warns about that
+    (``qatrack.W016``). Either way, set ``BACKUP_DIR`` in ``local_settings.py`` to
+    somewhere that is not the server's own disk before relying on the command, and
+    read the path it prints.
 
     **The command exits zero either way.** There is no non-zero exit path in it, so
     a scheduled task that checks only the exit status records a success whatever

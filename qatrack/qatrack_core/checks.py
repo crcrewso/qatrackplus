@@ -6,6 +6,33 @@ from pathlib import Path
 from django.conf import settings
 from django.core.checks import Error, Tags, Warning, register
 
+WINDOWS_PATH = re.compile(r'^[A-Za-z]:[\\\\/]')
+
+
+@register(deploy=False)
+def check_backup_dir(app_configs, **kwargs):
+    """A Windows-style BACKUP_DIR on a host that is not Windows.
+
+    4.0.2 and earlier shipped ``BACKUP_DIR = "C:\\deploy\\backups"`` as the
+    default on every platform. On Linux that is a relative path, so
+    ``backup_site`` made a folder of that literal name inside the checkout and
+    reported success (found by the 2026-10-29 upgrade walk; aviary B175). The
+    default is platform-aware now, but a ``local_settings.py`` copied from the
+    Windows template still carries the Windows path.
+    """
+    backup_dir = getattr(settings, 'BACKUP_DIR', '')
+    if os.name == 'nt' or not WINDOWS_PATH.match(str(backup_dir)):
+        return []
+    return [
+        Warning(
+            "BACKUP_DIR is a Windows path (%r) on a host that is not Windows, so backup_site would write "
+            "into a folder of that literal name inside the QATrack+ directory." % backup_dir,
+            hint="Set BACKUP_DIR in local_settings.py to a directory on this server, ideally one that "
+            "is not on the same disk as the site, e.g. BACKUP_DIR = '/var/backups/qatrackplus'.",
+            id='qatrack.W016',
+        )
+    ]
+
 
 @register()
 def check_media_folder_permissions(app_configs, **kwargs):
