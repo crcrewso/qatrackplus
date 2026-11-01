@@ -6,6 +6,7 @@ every superuser - sees every group's schedules, as #883 arranged for test
 lists. Two places here still narrowed by `user.groups.all()` alone.
 """
 
+from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
@@ -22,9 +23,9 @@ class VisibilitySetup(TestCase):
         self.group = qa_utils.create_group()
         self.schedule = utils.create_service_event_schedule()
         self.schedule.visible_to.set([self.group])
-        self.superuser = qa_utils.create_user(is_superuser=True)
+        self.superuser = qa_utils.create_user(is_superuser=True, uname="super")
         self.superuser.groups.clear()
-        self.member = qa_utils.create_user(is_superuser=False)
+        self.member = qa_utils.create_user(is_superuser=False, uname="member")
         self.member.groups.set([self.group])
 
 
@@ -44,9 +45,12 @@ class TestScheduleList(VisibilitySetup):
         assert self.queryset_for(self.member) == [self.schedule]
 
     def test_a_plain_user_in_no_groups_does_not(self):
-        plain = qa_utils.create_user(is_superuser=False)
+        # The factory returns an existing user of the same name, and the other
+        # factories create a superuser called "user", so the name matters.
+        plain = qa_utils.create_user(is_superuser=False, uname="plain")
         plain.groups.clear()
         plain.user_permissions.clear()  # the factory grants every permission, including the exemption
+        plain = User.objects.get(pk=plain.pk)  # drop the cached permission set
         assert self.queryset_for(plain) == []
 
 
