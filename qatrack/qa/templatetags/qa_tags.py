@@ -111,16 +111,16 @@ def tolerance_for_reference(tol, ref):
 def history_display(history, unit, test_list, test, frequency=None):
     template = get_template("qa/history.html")
 
-    # Set start / end dates of 1 year, or the span of the history elements, whichever is larger
+    # The chart runs from one year ago, or from the oldest history element if
+    # that is older, up to today. It used to end at the newest *history*
+    # element, but on a review page the history is everything before the
+    # instance being reviewed, so the chart stopped one result short of the one
+    # the reviewer was looking at (upstream #658).
     one_year = timezone.timedelta(days=365)
     end_date = end_of_day(timezone.now())
     start_date = start_of_day(end_date - one_year)
     if history:
-        start_date = history[-1][0].work_completed
-        end_date = history[0][0].work_completed
-        hist_covers_less_than_1_year = end_date - start_date < one_year
-        if hist_covers_less_than_1_year:
-            start_date = end_date - one_year
+        start_date = min(start_date, history[-1][0].work_completed)
     date_range = "%s - %s" % (format_as_date(start_date), format_as_date(end_date))
 
     c = {
