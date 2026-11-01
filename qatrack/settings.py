@@ -916,9 +916,10 @@ else:
                 "    cp deploy/dev/local_settings.dev.py qatrack/local_settings.py\n\n"
                 "For a real deployment, copy the template matching your database "
                 "instead: deploy/sqlite, deploy/postgres, deploy/mysql or "
-                "deploy/win (MS SQL Server). See the 'local_settings.py "
-                "templates' table in docs/developer/guide.rst, and "
-                "docs/install/ for full deployment instructions."
+                "deploy/win (MS SQL Server). docs/install/ has the full "
+                "deployment instructions; the developer guide's "
+                "'local_test_settings.py templates' section covers the test "
+                "ones."
             ) from None
         # A bare `pytest` run gets a disposable in-memory database rather
         # than needing the setup a real deployment does. Reached only when

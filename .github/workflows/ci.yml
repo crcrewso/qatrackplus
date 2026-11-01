@@ -1681,22 +1681,9 @@ jobs:
       # --tb=line holds a failure to one line. A full traceback for a browser
       # test is mostly Selenium's own frames, and the screenshot is better
       # evidence than any of it.
-      # WHY continue-on-error, and WHAT TURNS IT OFF.
-      #
-      # The GUI suite has unquantified flakiness: tests that fail in a full run
-      # pass in isolation, including ones untouched by the change under review.
-      # Blocking every PR on that would make the check meaningless in the other
-      # direction - people would start ignoring a red tick.
-      #
-      # But a green tick that hides five failing tests is its own problem, and
-      # it is the one this raised in review. So the failures are surfaced as
-      # GitHub *annotations* by the report step below - they appear on the PR
-      # itself, not only in the job summary - while still not failing the build.
-      #
-      # REMOVE `continue-on-error` when the flake rate is measured and the suite
-      # passes 10 consecutive full runs per browser on the same commit. Until
-      # someone has that number, "CI is green" means nothing for this suite and
-      # the annotation is the only honest signal.
+      # WHY continue-on-error: the same reasoning as the Linux Selenium job above,
+      # including what has to be true before it is removed. Kept in one place so the
+      # two jobs cannot drift apart on it.
       - name: Run Selenium Tests
         id: selenium
         continue-on-error: true

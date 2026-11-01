@@ -206,6 +206,40 @@ class BaseQATests(SeleniumTests, TransactionTestCase):
 
 
 @pytest.mark.selenium
+class TestLoginPage(BaseQATests):
+    """The one test that drives QATrack+'s real login form.
+
+    Every other browser test calls login(), which builds the session server
+    side and hands the browser its cookie, so it never touches the login page -
+    deliberately: typing a password Chrome believes was in a data breach brings
+    up the browser's own dialog, which WebDriver cannot see (see force_login()).
+    That leaves form rendering, the POST handler and the redirect with no
+    browser coverage, and nothing outside the browser covers them either -
+    no test posts to the login view, and the non-browser tests use
+    client.login() or client.force_login().
+
+    login_through_form()'s docstring said the tests that use it "are added with
+    the rest of the Selenium work". This is that test; Nathan Smela asked for it
+    on 2026-10-30, having noticed the helper had no caller.
+    """
+
+    def test_signing_in_through_the_form_leaves_the_login_page(self):
+        """The form must authenticate and redirect, not re-render itself.
+
+        login_through_form() already waits for a logout link, which proves the
+        POST was handled and a logged-in page rendered. This adds the assertion
+        that the browser is no longer on /accounts/login/ - the failure mode a
+        logout link alone would not catch is the login page rendering one, which
+        it does not, but the URL is the thing a reader of this test wants to see
+        asserted.
+        """
+        self.login_through_form()
+        assert "/accounts/login/" not in self.driver.current_url, (
+            "still on the login page after submitting the form: %s" % self.driver.current_url
+        )
+
+
+@pytest.mark.selenium
 class LiveQATests(BaseQATests):
 
     def setUp(self):
@@ -298,8 +332,12 @@ class LiveQATests(BaseQATests):
             # NOT wait_for_ajax(): choosing the test type re-renders the
             # type-dependent fields client side with no request in flight, so
             # an AJAX wait returns immediately and the fields below are filled
-            # before they exist.
-            self.wait_for_ajax()
+            # before they exist. The call that used to sit here did exactly
+            # that, directly under this comment saying not to - which is how
+            # the sleep below came to be load-bearing rather than belt and
+            # braces. It stays, and is the last sleep in this file: replacing
+            # it needs a per-type condition to wait on, which is a change to
+            # the admin form's JS rather than to this test.
             time.sleep(0.1)
 
             if the_test['choices']:

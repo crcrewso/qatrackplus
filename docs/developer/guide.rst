@@ -119,17 +119,17 @@ QATrack+ uses a layered approach to Django settings, with each file serving a sp
 
 **Settings File Hierarchy (Highest to Lowest Precedence):**
 
-1. **`local_test_settings.py`** - Your custom test environment overrides
+1. ``local_test_settings.py`` - Your custom test environment overrides
    - Contains all essential development and test settings in one place
    - This is the main file you'll customize for your testing needs
 
-2. **`local_settings.py`** - Your custom development environment overrides
+2. ``local_settings.py`` - Your custom development environment overrides
    - Contains development-specific settings like database configuration
 
-3. **`test_settings.py`** - Default test environment settings
+3. ``test_settings.py`` - Default test environment settings
    - Contains test-specific defaults like password hashers and notification settings
 
-4. **`settings.py`** - Base Django application settings
+4. ``settings.py`` - Base Django application settings
    - Contains core Django configuration, installed apps, middleware, etc.
 
 Creating your development database
@@ -144,12 +144,54 @@ files from the deploy subdirectory and then create your database:
 .. code-block:: shell
 
     cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
-    cp deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
+    cp deploy/dev/local_test_settings.sqlite.py qatrack/local_test_settings.py
     mkdir db
     python manage.py migrate
 
 
 this will put a database called `default.db` in the `db` subdirectory.
+
+.. _local_test_settings_templates:
+
+``local_test_settings.py`` templates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``deploy/dev/`` carries one template per engine. Copy the one you want to
+``qatrack/local_test_settings.py``; the last column is what each asks of you.
+
+.. list-table::
+    :header-rows: 1
+    :widths: 26 26 48
+
+    * - template
+      - test database
+      - what it needs
+    * - ``local_test_settings.sqlite.py``
+      - ``db/test_default.db``, a file
+      - the ``db`` directory, which the step above creates. The only one that
+        leaves a database you can open after a run.
+    * - ``local_test_settings.memory.py``
+      - in-memory SQLite
+      - nothing, and it is the fastest. Every SQLite row of CI runs this one.
+    * - ``local_test_settings.postgres.py``
+      - PostgreSQL
+      - a reachable server and a role that may create databases; edit the
+        credentials in the file.
+    * - ``local_test_settings.mysql.py``
+      - MySQL
+      - the same, plus ``uv sync --extra mysql``.
+    * - ``local_test_settings.mssql.py``
+      - SQL Server
+      - the same, plus ``uv sync --extra mssql`` and ODBC Driver 17 or 18.
+
+``make test-<engine>`` runs the suite against one of these without disturbing
+the ``local_test_settings.py`` you work with day to day; the Makefile's own
+comment says what it swaps and restores.
+
+For a *deployment* rather than a test run the templates are elsewhere -
+``deploy/sqlite/``, ``deploy/postgres/``, ``deploy/mysql/`` and ``deploy/win/``
+(SQL Server), each holding a ``local_settings.py``. ``docs/install/`` covers
+those.
 
 Loading Default Data (Fixtures)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -410,8 +452,9 @@ runs.
 
     Earlier versions of this guide described ``flake8``, ``yapf`` and ``isort``, and
     ``make flake8`` / ``make yapf`` targets. None of those tools is installed any
-    more and neither target exists; ``setup.cfg`` still carries their configuration
-    sections, which are dead and will be removed separately.
+    more, neither target exists, and ``setup.cfg`` - which carried their
+    configuration - has been removed. ``ruff`` does all three jobs now, configured
+    in ``pyproject.toml``.
 
 Import Order
 ^^^^^^^^^^^^
@@ -475,6 +518,7 @@ QATrack+ includes a Makefile with convenient shortcuts for common development ta
     make help
 
 For detailed information about using make and understanding Makefiles, refer to the `GNU Make Manual <https://www.gnu.org/software/make/manual/>`_.
+
 Setting Up Selenium Browser Testing
 -----------------------------------
 
@@ -592,42 +636,36 @@ useful for a one-off ("just this run, watch it in Chromium instead"):
 Running The Test Suite
 ----------------------
 
-Once you have QATrack+ and its dependencies installed (and optionally configured
-Selenium browser testing above), you can run the test suite from the root
-QATrack+ directory using the `py.test` command:
-
-
-.. code-block:: sh
-
-    ./qatrackplus> py.test
-    Test session starts (platform: linux, Python 3.6.5, pytest 3.5.0, pytest-sugar 0.9.1)
-    Django settings: qatrack.settings (from ini file)
-    rootdir: /home/dev/projects/qatrackplus, inifile: pytest.ini
-    plugins: django-4.5.2, cov-3.0.0
-
-    qatrack/accounts/tests.py ✓✓✓
-
-**Running Different Types of Tests**
-
-Run all tests (including Selenium):
+Once you have QATrack+ and its dependencies installed, run the suite from the
+root QATrack+ directory:
 
 .. code-block:: shell
 
-    py.test
+    pytest
 
-Run only Selenium tests:
+**The GUI tests are left out unless you ask for them.** They drive a real
+browser, they are the slowest part of the suite, and they need the setup in
+*Setting Up Selenium Browser Testing* above; ``conftest.py`` deselects them so
+that a bare ``pytest`` is the fast, no-setup run. The summary line says how many
+were deselected.
+
+**Running different parts of the suite**
 
 .. code-block:: shell
 
-    pytest -m selenium
+    pytest                        # everything except the GUI tests
+    pytest --run-selenium         # those, and the GUI tests as well
+    pytest -m selenium --run-selenium   # only the GUI tests
 
-Run only non-Selenium tests (faster):
+.. note::
 
-.. code-block:: shell
+    ``pytest -m "not selenium"`` still works and is **deprecated**: it was how
+    you skipped the GUI tests when they ran by default, and it now excludes
+    tests that were already excluded. ``conftest.py`` warns when it sees it, and
+    the expression will stop being special-cased in a later release. A bare
+    ``pytest`` is the replacement.
 
-    pytest -m "not selenium"
-
-For more information on using py.test, refer to the `py.test documentation
+For more on pytest itself, see the `pytest documentation
 <https://pytest.org>`__.
 
 New code should come with tests covering as much of it as you can manage. You can
@@ -762,8 +800,8 @@ Copyright & Licensing
 
 The author of the code (or potentially their employer) retains the copyright of
 their work even when contributing code to QATrack+.  However, unless specified
-otherwies, by submitting code to the QATrack+ project you agree to have it
-distributed using the same `MIT license
+otherwise, by submitting code to the QATrack+ project you agree to have it
+distributed using the same `Apache License 2.0
 <https://github.com/qatrackplus/qatrackplus/blob/master/LICENSE>`__ as
 QATrack+ uses.
 

@@ -173,11 +173,28 @@ with no further setup. See [Running the tests](#running-the-tests) for
 > nsmela measured `TestReviewQC::test_review_ok` failing 5 of 5 runs with
 > `database is locked` on the bulk-review save, where the in-memory template
 > passed 4 of 4, and crane reproduced it on Windows at 8/8 in the suite and
-> 0/12 alone. CI does not see it, because every CI row runs in-memory.
+> 0/12 alone. CI does not see it, because every SQLite CI row runs in-memory.
 >
-> This is a real gap rather than a preference, and it is not fixed here: a
-> file-backed test database needs the live-server request serialisation, and
-> that travels with the per-engine test-database work. Until then:
+> **The `TestReviewQC` half of that is fixed as of 2026-11-01.** The live-server
+> request serialisation this needed was already written and simply not wired in -
+> `SeleniumTests` subclassed `StaticLiveServerTestCase`, so the
+> one-request-at-a-time server served nothing - and three tests logged in inside
+> `transaction.atomic()`, where the live server cannot see the session row on a
+> file-backed database. With both fixed, `TestReviewQC` passes 5 of 5 runs on the
+> `sqlite` template with no `database is locked` at all.
+>
+> **The full GUI suite on that template still does not run, for a different
+> reason.** Measured 2026-11-01: 35 failed, 7 passed, 34 errors, and no
+> `database is locked` anywhere - instead 106 of `attempt to write a readonly
+> database` on `db/test_sqlite.db`, and 54 of `Database db/test_sqlite.db
+> couldn't be flushed`. Both templates end with
+> `DATABASES['readonly'] = DATABASES['default']`, which makes the two aliases
+> the same dict; with `:memory:` they are also the same database and the flush
+> is harmless, while with a file the second alias is set up and flushed in its
+> own right. That is template work rather than harness work - a
+> `TEST: {'MIRROR': 'default'}` on the readonly alias is the likely answer - and
+> it travels with the per-engine test-database work. So for the GUI tests, use
+> the in-memory template:
 >
 > ```bash
 > cp deploy/dev/local_test_settings.memory.py qatrack/local_test_settings.py

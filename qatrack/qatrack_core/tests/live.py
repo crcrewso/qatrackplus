@@ -59,8 +59,9 @@ def retry_if_exception(ex, max_retries, sleep_time=None, reraise=True):
 # run. 0, the default, is off and costs one float comparison per action.
 #
 # Read from the environment on purpose rather than exposed as a setting beside
-# the other SELENIUM_* ones: the supported way to turn this on is the poe task,
-# and this is a debugging aid, not a test mode. Inserting delays can turn a race
+# the other SELENIUM_* ones: this is a debugging aid, not a test mode.
+# (A `poe` task for it is waiting on the poethepoet work in #868; until that
+# lands, the environment variable is the only way in.) Inserting delays can turn a race
 # that fails at full speed into a pass, so a slow run's results must never be
 # quoted as a normal run's - setUpClass() says so out loud when it is on.
 try:
@@ -398,8 +399,8 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
 
             # Turn the password manager off, including the breach check.
             #
-            # Every browser test logs in through the real login form as `user`
-            # with the password `password` - see create_user() in
+            # Every browser test used to log in through the real login form as
+            # `user` with the password `password` - see create_user() in
             # qatrack/accounts/tests/utils.py - and Chrome recognises that as a
             # credential found in a data breach, so it answers the login with
             # its "Change your password" dialog. That dialog is a browser-level
@@ -854,10 +855,12 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
     def wait_for_elements(self, by, value, minimum=1):
         """Wait until at least `minimum` matching elements exist, then return them.
 
-        driver.find_elements() is not a safe thing to index into. The
-        implicit wait makes it return as soon as *one* element matches, so
-        a page still rendering can hand back a shorter list than the test
-        expects - or, if nothing has rendered yet, an empty one. Indexing
+        driver.find_elements() is not a safe thing to index into. With the
+        implicit wait off it returns whatever matches at that instant, so a
+        page still rendering can hand back a shorter list than the test
+        expects - or, if nothing has rendered yet, an empty one. (It was no
+        safer with the implicit wait on: that returned as soon as *one*
+        element matched.) Indexing
         that then raises IndexError from a line that looks nothing like a
         timeout, which is exactly how the Chromium CI failures presented
         (`inputs[0]` on an empty qa-input list).
