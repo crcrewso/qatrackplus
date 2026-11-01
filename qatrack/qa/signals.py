@@ -171,7 +171,9 @@ def on_test_save(*args, **kwargs):
     if not loaded_from_fixture(kwargs):
 
         test = kwargs["instance"]
-        if test.type is not models.BOOLEAN:
+        if test.type != models.BOOLEAN or test.pk is None:
+            # A test that has never been saved has no unit assignments yet, and
+            # filtering on an unsaved instance is an error from Django 5.0.
             return
 
         unit_assignments = models.UnitTestInfo.objects.filter(test=test)
