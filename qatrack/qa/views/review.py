@@ -248,12 +248,14 @@ class TestListInstanceDelete(PermissionRequiredMixin, DeleteView):
     def get_success_url(self):
         return self.request.GET.get("next", reverse("home"))
 
-    def delete(self, request, *args, **kwargs):
-        service_events = ServiceEvent.objects.filter(returntoserviceqa__test_list_instance_id=kwargs['pk'])
-        delete = super().delete(request, *args, **kwargs)
+    def form_valid(self, form):
+        # Since Django 4.0 a POST to a DeleteView runs form_valid(), not
+        # delete(), so the service log entries have to be written here.
+        service_events = list(ServiceEvent.objects.filter(returntoserviceqa__test_list_instance_id=self.object.pk))
+        res = super().form_valid(form)
         for se in service_events:
-            ServiceLog.objects.log_rtsqa_changes(request.user, se)
-        return delete
+            ServiceLog.objects.log_rtsqa_changes(self.request.user, se)
+        return res
 
 
 class UTCReview(PermissionRequiredMixin, UTCList):
