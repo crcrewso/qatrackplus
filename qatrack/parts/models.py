@@ -57,11 +57,10 @@ class Supplier(models.Model):
     def get_website_tag(self):
         if self.website:
             return format_html(
-                '<a href="%s" title="%s">%s</a>' % (
-                    self.website,
-                    _("Click to visit this suppliers website"),
-                    self.website,
-                )
+                '<a href="{}" title="{}">{}</a>',
+                self.website,
+                _("Click to visit this suppliers website"),
+                self.website,
             )
         return ""
 
