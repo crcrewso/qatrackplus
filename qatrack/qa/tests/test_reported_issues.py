@@ -230,7 +230,7 @@ class TestIssue713AccentedFilter(TestCase):
         resp = self.client.get(
             reverse("all_lists"),
             {'sEcho': 1, 'iDisplayStart': 0, 'iDisplayLength': 10, 'sSearch_3': '^(H%F4pital%20X)$'},
-            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            headers={"x-requested-with": 'XMLHttpRequest'}
         )
 
         assert resp.status_code == 200
