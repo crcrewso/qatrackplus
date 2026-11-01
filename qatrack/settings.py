@@ -34,6 +34,12 @@ LOCALE_PATHS = [
     os.path.join(PROJECT_ROOT, 'locale'),
 ]
 VERSION = "4.0.2"
+# The published manual for this release line. Read the Docs builds one copy per
+# release branch (releases-4.0 for every 4.0.z) and has no "stable" or
+# "latest" alias that resolves, so links follow VERSION's major.minor rather
+# than pinning a release that drifts: the footer linked the 3.1.0 guide from a
+# 4.0.2 site (aviary B181).
+DOCS_URL = "https://docs.qatrackplus.com/en/releases-%s/" % ".".join(VERSION.split(".")[:2])
 BUG_REPORT_URL = "https://github.com/qatrackplus/qatrackplus/issues/new"
 FEATURE_REQUEST_URL = BUG_REPORT_URL
 
