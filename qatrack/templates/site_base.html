@@ -902,10 +902,14 @@
                 </a>
               </li>
               <li>
-                <a href="{% url 'auth_logout' %}" class="margin-left-10 control-sidebar-subheading">
-                  <i class="fa fa-sign-out fa-fw"></i>
-                  {% trans "Logout" %}
-                </a>
+                {# Django 5 only accepts logout by POST, so this is a form rather than a link #}
+                <form method="post" action="{% url 'auth_logout' %}" class="logout-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-link margin-left-10 control-sidebar-subheading">
+                    <i class="fa fa-sign-out fa-fw"></i>
+                    {% trans "Logout" %}
+                  </button>
+                </form>
               </li>
             </ul>
 

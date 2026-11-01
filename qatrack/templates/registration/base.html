@@ -87,10 +87,14 @@
                 {% if user.is_authenticated %}
                   <li role="separator" class="divider"></li>
                   <li>
-                    <a href="{% url "auth_logout" %}">
-                      <i class="fa fa-power-off fa-fw danger" aria-hidden="true"></i>
-                      {% trans "Log Out" %}
-                    </a>
+                    {# Django 5 only accepts logout by POST, so this is a form rather than a link #}
+                    <form method="post" action="{% url "auth_logout" %}" class="logout-form">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-link">
+                        <i class="fa fa-power-off fa-fw danger" aria-hidden="true"></i>
+                        {% trans "Log Out" %}
+                      </button>
+                    </form>
                   </li>
                 {% elif SELF_REGISTER %}
                   <li {% block register_active %}{% endblock register_active %}>
