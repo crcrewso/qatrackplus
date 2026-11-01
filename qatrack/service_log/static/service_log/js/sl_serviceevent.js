@@ -670,7 +670,16 @@ require(['jquery', 'lodash', 'moment', 'autosize', 'select2', 'flatpickr', 'sl_u
         });
         disable_units();
 
+        // A file input forgets its previous selection every time the picker is
+        // used, so files chosen in two goes were silently reduced to the second
+        // go (upstream #668). Keep every pick in one DataTransfer and hand the
+        // accumulated list back to the input.
+        var picked = (typeof DataTransfer !== "undefined") ? new DataTransfer() : null;
         $attachInput.on("change", function(){
+            if (picked !== null) {
+                _.each(this.files, function(f){ picked.items.add(f); });
+                try { this.files = picked.files; } catch (e) { /* older browsers: keep the last pick */ }
+            }
             var fnames = _.map(this.files, function(f){
                 return '<tr><td><i class="fa fa-paperclip fa-fw" aria-hidden="true"></i>' + f.name + '</td></tr>';
             }).join("");
