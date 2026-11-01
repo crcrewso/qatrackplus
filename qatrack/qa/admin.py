@@ -1448,7 +1448,9 @@ class FrequencyForm(forms.ModelForm):
             self.add_error(
                 'recurrences', 'This frequency has zero occurences. Please adjust the schedule and try again'
             )
-        elif recurrences and len(recurrences.rrules) == 0:
+        elif recurrences and not recurrences.rrules and not recurrences.rdates:
+            # A schedule made only of specific dates (RDATE) is fine; only a schedule
+            # with nothing but exclusions has no occurrences to offer (upstream #654).
             self.add_error(
                 'recurrences', 'This frequency has exclusion rules only. Please adjust the schedule and try again'
             )
