@@ -286,6 +286,10 @@ TEMPLATES = [
     },
 ]
 
+# Django 5.0 switches the default form layout from table rows to divs. Keep
+# today's layout by naming it, so the upgrade changes nothing on screen.
+FORM_RENDERER = "qatrack.qatrack_core.forms.TableFormRenderer"
+
 # ------------------------------------------------------------------------------
 # Fixtures
 # you can add more default fixture locations here

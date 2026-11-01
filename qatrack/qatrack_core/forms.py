@@ -1,5 +1,19 @@
 from django import forms
+from django.forms.renderers import DjangoTemplates
 from django.utils.safestring import mark_safe
+
+
+class TableFormRenderer(DjangoTemplates):
+    """Render ``{{ form }}`` and ``{{ formset }}`` as table rows, explicitly.
+
+    Django 4.2 renders them through ``django/forms/default.html``, a proxy for
+    the table templates that warns it will become ``div.html`` in 5.0. Naming
+    the table templates here keeps today's markup on 4.2 and on 5.x alike,
+    with no warning on either (aviary backlog B121).
+    """
+
+    form_template_name = "django/forms/table.html"
+    formset_template_name = "django/forms/formsets/table.html"
 
 
 class MultipleCharField(forms.CharField):
