@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
@@ -54,7 +55,14 @@ def get_notification_recipients(fault):
 
     from qatrack.notifications.faults import models
 
-    unit = fault.unit
+    try:
+        unit = fault.unit
+    except ObjectDoesNotExist:
+        # The fault's unit is not in the database - a fixture being loaded with
+        # its faults before its units, which `loaddata` allows. This receiver
+        # runs on m2m_changed, which carries no `raw` flag to check, so it has
+        # to cope. A fault nobody can place has nobody to notify (aviary B124).
+        return set()
 
     subs = models.FaultNotice.objects.filter(
         Q(units=None) | Q(units__units=unit)
