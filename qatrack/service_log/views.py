@@ -272,19 +272,18 @@ class ServiceEventUpdateCreate(
         se_schedule_id = self.request.GET.get('se_schedule')
         self.se_schedule = None
         if se_schedule_id:
-            self.se_schedule = get_object_or_404(
-                sl_models.ServiceEventSchedule.objects.select_related(
-                    "unit_service_area",
-                    "unit_service_area__unit",
-                    "unit_service_area__service_area",
-                    "frequency",
-                    "last_instance",
-                ).filter(
-                    active=True,
-                    visible_to__in=self.request.user.groups.all(),
-                ).distinct(),
-                pk=se_schedule_id
-            )
+            schedules = sl_models.ServiceEventSchedule.objects.select_related(
+                "unit_service_area",
+                "unit_service_area__unit",
+                "unit_service_area__service_area",
+                "frequency",
+                "last_instance",
+            ).filter(active=True)
+            # None means the user sees every group's schedules (aviary B76)
+            groups = qa_models.visible_groups_for(self.request.user)
+            if groups is not None:
+                schedules = schedules.filter(visible_to__in=groups)
+            self.se_schedule = get_object_or_404(schedules.distinct(), pk=se_schedule_id)
 
     def get_context_data(self, *args, **kwargs):
         context_data = super().get_context_data(**kwargs)
@@ -1851,9 +1850,10 @@ class ServiceEventScheduleList(BaseListableView):
         qs = super().get_queryset().order_by("pk")
 
         if self.visible_only:
-            qs = qs.filter(
-                visible_to__in=self.request.user.groups.all(),
-            ).distinct()
+            # None means the user sees every group's schedules (aviary B76)
+            groups = qa_models.visible_groups_for(self.request.user)
+            if groups is not None:
+                qs = qs.filter(visible_to__in=groups).distinct()
 
         return qs
 

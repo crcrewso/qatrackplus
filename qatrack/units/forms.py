@@ -169,11 +169,20 @@ def unit_site_unit_type_choices(include_empty=False, serviceable_only=False, vis
 
 
 def units_visible_to_user(user: User):
-    """Return a queryset containing the units which the user can view QC on"""
-    units = u_models.Unit.objects.filter(
-        active=True, unittestcollection__active=True, unittestcollection__visible_to__in=user.groups.all()
-    ).distinct()
-    return units
+    """Return a queryset containing the units which the user can view QC on.
+
+    A user who holds `qa.can_review_non_visible_tli` (every superuser does) is
+    not narrowed by group, the same exemption #883 gave the QC views. Narrowing
+    by `user.groups.all()` alone left a superuser in no groups with an empty
+    Unit list on the fault form, so the form could not be saved (aviary B76).
+    """
+    from qatrack.qa.models import visible_groups_for
+
+    units = u_models.Unit.objects.filter(active=True, unittestcollection__active=True)
+    groups = visible_groups_for(user)
+    if groups is not None:
+        units = units.filter(unittestcollection__visible_to__in=groups)
+    return units.distinct()
 
 
 def unit_site_service_area_choices(include_empty=False, include_unspecified=False):
