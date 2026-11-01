@@ -328,6 +328,23 @@ def cleanup_matplotlib():
         pass
 
 
+def upload_error_message(exc):
+    """What the browser shows when an uploaded file could not be processed.
+
+    An OSError at this point almost always means the web server cannot write
+    to the media directory, so say that plainly rather than hand the person at
+    the console a traceback whose last line is the only useful part (upstream
+    #662). Anything else keeps the short traceback, which is what a broken
+    calculation procedure needs.
+    """
+    if isinstance(exc, OSError):
+        return _(
+            "The uploaded file could not be saved: %(error)s. Check that the media "
+            "directory (%(media_root)s) exists and is writable by the web server."
+        ) % {'error': exc.strerror or str(exc), 'media_root': settings.MEDIA_ROOT}
+    return traceback.format_exc(limit=5, chain=True)
+
+
 class UploadHandler:
 
     def __init__(self, user, data, fp):
@@ -356,8 +373,8 @@ class UploadHandler:
                 self.handle_upload()
 
             results = self.run_calc()
-        except Exception:
-            msg = traceback.format_exc(limit=5, chain=True)
+        except Exception as e:
+            msg = upload_error_message(e)
             results = {
                 'success': False,
                 'errors': [msg],
@@ -497,8 +514,8 @@ class Upload(JSONResponseMixin, View):
                 self.handle_upload()
 
             resp = self.run_calc()
-        except Exception:
-            msg = traceback.format_exc(limit=5, chain=True)
+        except Exception as e:
+            msg = upload_error_message(e)
             results = {
                 'success': False,
                 'errors': [msg],
@@ -739,8 +756,10 @@ class CompositePerformer:
             raw_procedure = self.composite_tests[slug]
             procedure = process_procedure(raw_procedure)
             tb_limit = 5
+            compiled = False
             try:
                 code = compile(procedure, "__QAT+COMP_%s" % slug, "exec")
+                compiled = True
                 exec(code, self.calculation_context)
                 key = "result" if "result" in self.calculation_context else slug
                 result = self.calculation_context[key]
@@ -787,7 +806,10 @@ class CompositePerformer:
                     'user_attached': [],
                 }
 
-                for s in self.all_dependencies[slug]:
+                # A procedure that did not even compile cannot be failing because one
+                # of its inputs is still blank, so that error is always shown; only a
+                # runtime error is put down to incomplete dependencies (upstream #570).
+                for s in (self.all_dependencies[slug] if compiled else []):
                     incomplete_composite = (
                         s in self.composite_tests and
                         (results.get(s) is None or results[s]['value'] is None or results[s]['error'])
