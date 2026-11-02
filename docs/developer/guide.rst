@@ -1187,7 +1187,7 @@ For more information about Eff Ver, see the `Eff Ver documentation
 The version number follows the format `X.Y.Z` where:
 
 - **X (Major)**: Corresponds to the Django LTS release version
-  - Currently at 4.0.1 (Django 4.2 LTS)
+  - Currently at 4.0.2 (Django 4.2 LTS)
   - When upgrading to Django 5.2 LTS, version will become 5.0.0
   - This ensures compatibility and upgrade path alignment with Django
 

@@ -300,7 +300,7 @@ When your script (calculation procedure) is executed, it has access to
 #. the current value of all the tests in the current test list being performed
 
 #. A number of Python modules including the `Python math
-   module <http://docs.python.org/2/library/math.html>`__, along with
+   module <https://docs.python.org/3/library/math.html>`__, along with
    `NumPy <http://www.numpy.org/>`__,
    `SciPy <http://www.scipy.org/>`__,
    `matplotlib <http://www.matplotlib.org/>`__ and,
@@ -547,7 +547,7 @@ snippet similar to the composite tests above.
 If the file you uploaded is a binary file type (image, dicom etc) then you can
 access the uploaded file object (more information on file objects is available
 `in the Python documentation
-<http://docs.python.org/2/library/stdtypes.html#file-objects>`__) using the
+<https://docs.python.org/3/glossary.html#term-file-object>`__) using the
 `BIN_FILE` context variable.  Likewise, if you upload a file with a text format
 you can access the file object through the `FILE` context variable.
 
