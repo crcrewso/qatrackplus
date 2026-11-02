@@ -251,6 +251,7 @@ To change the alt text:
 - Add translations to your locale files if using multiple languages
 
 **Note:** The logo functionality is designed to be easily customizable without requiring code changes to the core application.
+
 Date and Time Format Settings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

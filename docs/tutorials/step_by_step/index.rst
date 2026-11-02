@@ -130,8 +130,8 @@ Set the **Name** field to `Physics` and choose the following set of permissions:
 
 * **attachments | attachment | Can add attachment**
 * **qa | frequency | Choose QC by Frequency**
-* **qa | test instance | Can review &amp; approve tests**
-* **qa | test instance | Can review &amp; approve self-performed tests**
+* **qa | test instance | Can review & approve tests**
+* **qa | test instance | Can review & approve self-performed tests**
 * **qa | test instance | Can skip tests without comment**
 * **qa | test instance | Can view charts of test history**
 * **qa | test instance | Can see test history when performing QC**
@@ -267,7 +267,7 @@ main admin page and then click on **Add test** in the top right hand corner.
 Give our first test the name *Temperature °C* and the macro name of
 *temperature*.  We will leave the description blank for now.
 
-Since we haven't created any [categories](../categories.md) yet we will do so
+Since we haven't created any :ref:`categories <qa_categories>` yet we will do so
 now.  Click the green cross next to the **Category:** drop down and create a
 *Dosimetry* category.
 
@@ -395,7 +395,7 @@ link under the **QC** section from the main admin page and then click on **Add
 unit test collection** in the top right hand corner.
 
 Select the *Test Unit* from the **Unit:** dropdown, and then create a new
-[frequency](../frequencies) by clicking on the green cross next to the
+:ref:`frequency <qa_frequencies>` by clicking on the green cross next to the
 **Frequency** dropdown.  Give the frequency the name *Monthly*, slug *monthly*
 and enter *28*, *28*, *35* for **Nominal interval**, **Due Interval** and for
 **Overdue interval**, respectively.
