@@ -788,8 +788,11 @@ for path in chrome_paths:
 # anything a settings file set here was silently discarded.
 
 # Selenium Browser Configuration
-# Options: 'firefox' (default) or 'chromium'. Override for a single run from
-# the environment rather than editing a settings file:
+# Options: 'firefox' (default), 'chromium', or 'chrome' as an alias for
+# 'chromium'. Anything else raises ImproperlyConfigured when the GUI suite
+# starts - it used to run Firefox and pass, which hid chromium-only defects.
+# Override for a single run from the environment rather than editing a settings
+# file:
 #
 #     SELENIUM_BROWSER=chromium pytest --run-selenium           # bash/zsh
 #     $env:SELENIUM_BROWSER='chromium'; pytest --run-selenium   # PowerShell

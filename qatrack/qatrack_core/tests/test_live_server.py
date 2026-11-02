@@ -1,8 +1,10 @@
+import pathlib
 import socket
 import threading
 import time
 import urllib.request
 
+from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse
 from django.test import SimpleTestCase, override_settings
 from django.urls import path
@@ -62,6 +64,75 @@ class TestLiveServerClass(SimpleTestCase):
         assert mangled == [], (
             '%s: a double-underscore method name is mangled inside a class body and overrides nothing' % mangled
         )
+
+
+class TestBrowserSetting(SimpleTestCase):
+    """SELENIUM_BROWSER must pick a browser or stop the run, never fall through.
+
+    Every branch in live.py tested `== 'chromium'`, so any other value ran Firefox
+    and the suite passed - which is how a Windows reader asking for `chrome` got a
+    Firefox run on 2026-11-01 and no indication of it.
+    """
+
+    def test_the_two_real_values_resolve_to_themselves(self):
+        assert live.resolve_browser_setting('firefox') == 'firefox'
+        assert live.resolve_browser_setting('chromium') == 'chromium'
+
+    def test_chrome_is_accepted_as_chromium(self):
+        """Same driver, same handling, and the natural spelling on Windows."""
+        assert live.resolve_browser_setting('chrome') == 'chromium'
+
+    def test_case_and_surrounding_space_do_not_matter(self):
+        """It usually arrives from the environment, where both are easy to add."""
+        assert live.resolve_browser_setting('  Chromium \n') == 'chromium'
+        assert live.resolve_browser_setting('FIREFOX') == 'firefox'
+
+    def test_an_unrecognised_value_stops_the_run(self):
+        for value in ('safari', 'chrom', 'edge', '', None):
+            with self.subTest(value=value):
+                with self.assertRaises(ImproperlyConfigured):
+                    live.resolve_browser_setting(value)
+
+    def test_the_message_names_what_was_asked_for_and_what_is_allowed(self):
+        """The whole point is that the reader learns which value was wrong."""
+        with self.assertRaises(ImproperlyConfigured) as caught:
+            live.resolve_browser_setting('safari')
+        message = str(caught.exception)
+        assert 'safari' in message
+        for allowed in ('firefox', 'chromium', 'chrome'):
+            assert allowed in message, '%r is accepted but not offered: %s' % (allowed, message)
+
+    def test_the_setting_is_read_in_exactly_one_place(self):
+        """Guard the guard: a new branch on the raw setting would undo this.
+
+        The resolver only helps while every branch runs on its output. A second
+        `getattr(settings, 'SELENIUM_BROWSER')` anywhere in the module would put the
+        unvalidated string back into a comparison, which is the shape that let
+        `chrome` run Firefox. Asserted on the settings read itself, not on mentions
+        of the name, so comments and the error message do not register.
+        """
+        source = pathlib.Path(live.__file__).read_text(encoding='utf-8').splitlines()
+        reads = [
+            (n, line.strip())
+            for n, line in enumerate(source, 1)
+            if "getattr(settings, 'SELENIUM_BROWSER'" in line
+        ]
+        assert reads, 'live.py no longer reads SELENIUM_BROWSER at all - has it moved?'
+        unresolved = [(n, line) for n, line in reads if 'resolve_browser_setting' not in line]
+        assert not unresolved, (
+            'live.py reads SELENIUM_BROWSER without passing it through '
+            'resolve_browser_setting(): %r' % unresolved
+        )
+
+    def test_no_branch_compares_against_a_value_the_resolver_cannot_return(self):
+        """`== 'chrome'` would be dead code, since the resolver maps it to 'chromium'."""
+        source = pathlib.Path(live.__file__).read_text(encoding='utf-8').splitlines()
+        dead = [
+            (n, line.strip())
+            for n, line in enumerate(source, 1)
+            if "browser_setting ==" in line and "'chromium'" not in line and "'firefox'" not in line
+        ]
+        assert not dead, 'these comparisons can never be true: %r' % dead
 
 
 @override_settings(ROOT_URLCONF=__name__, MIDDLEWARE=[])

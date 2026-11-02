@@ -10,6 +10,7 @@ import pytest
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.core.exceptions import ImproperlyConfigured
 from django.core.servers.basehttp import ThreadedWSGIServer
 from django.test.testcases import LiveServerThread
 from selenium import webdriver
@@ -151,6 +152,43 @@ WebElement.send_keys = WebElement_send_keys  # noqa: E305
 # connections before it has a request to send, and one thread waits on the
 # first of them while serving nothing else. What is here instead reads every
 # connection on its own thread and serialises only the application call.
+
+
+# Accepted values for SELENIUM_BROWSER, mapped to the two the harness branches on.
+#
+# `chrome` is an alias rather than an error because Chrome and Chromium are driven
+# the same way by the same driver, and `chrome` is the natural spelling on Windows,
+# where Chrome is what is installed.
+SELENIUM_BROWSERS = {
+    'firefox': 'firefox',
+    'chromium': 'chromium',
+    'chrome': 'chromium',
+}
+
+
+def resolve_browser_setting(value):
+    """Map SELENIUM_BROWSER onto 'firefox' or 'chromium', or refuse to run.
+
+    Every branch in this module tested `== 'chromium'`, so **any** other value ran
+    Firefox - including `chrome`, which a Windows reader guessed on 2026-11-01 and
+    got a Firefox run reporting a pass. That is the same failure this harness
+    already removed twice: `shutil.which('geckodriver')` was dropped because
+    another browser ran "and still reported a pass", and SELENIUM_HEADLESS is read
+    so that a typo stays headless instead of opening a browser unattended.
+
+    A GUI suite that silently drives a browser nobody asked for is worse than one
+    that will not start, so an unrecognised value raises here rather than being
+    quietly treated as Firefox.
+    """
+    key = (value or '').strip().lower()
+    if key in SELENIUM_BROWSERS:
+        return SELENIUM_BROWSERS[key]
+    raise ImproperlyConfigured(
+        "SELENIUM_BROWSER is %r, which this harness does not recognise. Use one of: "
+        "%s. Until this check existed, an unrecognised value ran Firefox and the "
+        "run passed, so a chromium-only defect could not be found."
+        % (value, ', '.join(sorted(SELENIUM_BROWSERS)))
+    )
 
 
 class OneRequestAtATimeWSGIServer(ThreadedWSGIServer):
@@ -315,7 +353,7 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
         # Native headless, not a virtual display, so no display server is
         # needed anywhere. SELENIUM_HEADLESS = False to watch a run.
         headless = getattr(settings, 'SELENIUM_HEADLESS', True)
-        browser_setting = getattr(settings, 'SELENIUM_BROWSER', 'firefox')
+        browser_setting = resolve_browser_setting(getattr(settings, 'SELENIUM_BROWSER', 'firefox'))
 
         if SLOW_MO:
             # A warning, not a print. The whole risk of this switch is a slow
