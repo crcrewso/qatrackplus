@@ -603,7 +603,7 @@ urls as well:
 MAX_TESTS_PER_TESTLIST
 ......................
 
-Sets the maximum number of tests per test list. Default is `MAX_TESTS_PER_TESTLIST = 200`
+Sets the maximum number of tests per test list. Default is `MAX_TESTS_PER_TESTLIST = 250`
 
 
 NHIST
@@ -680,7 +680,7 @@ you are using SQL Server for your database, you may also need to set
             # default connection settings...
         },
         'readonly': {
-            'ENGINE': 'sql_server.pyodbc',
+            'ENGINE': 'mssql',
             'AUTOCOMMIT': False,
             # rest of db settings
         }

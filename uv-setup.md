@@ -41,6 +41,7 @@ uv sync --frozen
 Once you have the requirements installed, copy the debug `local_settings.py` file from the deploy subdirectory and then create your database:
 
 ```bash
+source .venv/bin/activate   # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
 mkdir db
 python manage.py migrate

@@ -17,7 +17,7 @@ _e.g. "Closes #1234", "Refs #1234". Write "None" if not applicable._
 
 ## Target Branch
 
-_Confirm which branch this targets (e.g. master)._
+_Confirm which branch this targets (it should be `develop`)._
 
 ## AI Usage Disclosure
 
