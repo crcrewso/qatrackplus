@@ -275,9 +275,15 @@ class LiveQATests(BaseQATests):
         it look like flakiness. On a UTC-6 workstation against a Toronto
         server that window is 22:00-00:00 local, every night.
 
-        setUpClass passes TZ to the driver's Service environment to remove the
-        difference. This asserts it took effect, because the failure it
-        prevents is invisible outside that window.
+        `set_browser_timezone()` in live.py is what removes the difference - CDP
+        for Chromium, BiDi for Firefox. `TZ` goes into the driver's Service
+        environment too, but it is not the mechanism and this test does not
+        check it: live.py records both browsers ignoring it on Windows, where
+        this assertion then failed 24 runs out of 24. On POSIX Django has
+        already set `TZ` itself, so it changes nothing there either.
+
+        This asserts the override took effect, because the failure it prevents
+        is invisible outside that window.
         """
         browser_tz = self.driver.execute_script(
             "return Intl.DateTimeFormat().resolvedOptions().timeZone"
