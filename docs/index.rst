@@ -145,6 +145,7 @@ email directly:
    self
    glossary
    release_notes
+   security
    install/install
    admin/guide
    user/guide
