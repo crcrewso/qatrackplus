@@ -308,8 +308,6 @@ edit it from there. For full deployment instructions see the
 :doc:`installation guides </install/install>`, not this page.
 
 
-.. _local_test_settings_templates:
-
 ``local_test_settings.py`` templates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
