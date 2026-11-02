@@ -396,9 +396,12 @@ unit test collection** in the top right hand corner.
 
 Select the *Test Unit* from the **Unit:** dropdown, and then create a new
 :ref:`frequency <qa_frequencies>` by clicking on the green cross next to the
-**Frequency** dropdown.  Give the frequency the name *Monthly*, slug *monthly*
-and enter *28*, *28*, *35* for **Nominal interval**, **Due Interval** and for
-**Overdue interval**, respectively.
+**Frequency** dropdown.  Give the frequency the name *Monthly* and slug
+*monthly*.  Leave **QC Window Start** blank, enter *7* for **QC Window End**,
+and under **Recurrences** add a rule that repeats every *28* days.  That
+schedules the list 28 days after each time it is performed and marks it
+overdue a week after that; see :ref:`qa_frequencies` for how the QC window
+works.
 
 .. figure:: images/new_frequency.png
     :alt: creating a new frequency
