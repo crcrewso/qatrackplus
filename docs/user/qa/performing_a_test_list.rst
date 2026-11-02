@@ -34,7 +34,7 @@ On the next page, all the test lists with the chosen frequency will be
 displayed along with relevant information about the last time that test
 list was performed and when the test list is next due on this unit.
 
-Click on the **Perform QC** button next to the list that you would like
+Click on the **Perform** button next to the list that you would like
 to complete.
 
 .. figure:: images/choose_test_list.png

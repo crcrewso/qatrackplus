@@ -2,7 +2,7 @@ Viewing The History Of A Test List
 ==================================
 
 The easiest method of viewing the hsitory for a test list is to visit the
-**Your Test Lists By Unit** page from the **Review Data** dropdown at the top
+**Your Test Lists By Unit** page from the **Review QC** dropdown at the top
 of the page.
 
 .. figure:: images/test_lists_by_unit_menu.png
