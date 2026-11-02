@@ -34,7 +34,7 @@ This is a Free and Open Source (FOSS) project. The goal is to provide a tool for
 
 ### Out-of-Scope
 
-- Security Model - QATrack+ is designed to be an intranet solution, and should therefore not be directly open to the world wide web.
+- Internet-facing deployment - QATrack+ is designed for a trusted internal network and should not be exposed directly to the internet. Security problems themselves are very much in scope: please see [SECURITY.md](SECURITY.md) for how to report one privately, and the Security page of the documentation for how reports are handled.
 - Backup - Maintaining day-to-day backups should be handled by best practices of the deployment and the tools available to the site.
 - Supporting community solutions - Limited developer resources means that while we will endeavor to support as much as possible, we do not have access to recreate all issues, and thus cannot test
 
