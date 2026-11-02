@@ -14,7 +14,21 @@ DATABASES = {
         'PORT': '5432',  # PostgreSQL default
     }
 }
-DATABASES['readonly'] = DATABASES['default']
+# `readonly` must be a *copy* that mirrors `default`, not the same dict object.
+# Django's test runner sets up every alias in DATABASES, so an alias which *is*
+# `default` is created and flushed twice. With `:memory:` both names resolve to
+# one database and the second pass is harmless, which is why this went unnoticed;
+# file-backed, it is not. Measured 2026-11-01 on the GUI suite against a file:
+# 35 failures, 34 errors and 106 occurrences of `attempt to write a readonly
+# database`, with zero lock errors - the second setup leaves the shared file
+# read-only for the connection the first one is still using.
+#
+# `TEST: {'MIRROR': 'default'}` is Django's own answer for a replica: no second
+# test database is built, and `readonly` is routed to `default`'s connection.
+DATABASES['readonly'] = dict(
+    DATABASES['default'],
+    TEST={**DATABASES['default'].get('TEST', {}), 'MIRROR': 'default'},
+)
 
 # Test-specific settings
 NOTIFICATIONS_ON = False

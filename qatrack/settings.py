@@ -930,7 +930,13 @@ else:
                 'NAME': ':memory:',
             }
         }
-        DATABASES['readonly'] = DATABASES['default']
+        # A copy that mirrors `default`, not the same dict - see the note in
+        # deploy/dev/local_test_settings.memory.py. Harmless in memory, wrong
+        # against a file, and this fallback should not teach the broken shape.
+        DATABASES['readonly'] = dict(
+            DATABASES['default'],
+            TEST={**DATABASES['default'].get('TEST', {}), 'MIRROR': 'default'},
+        )
         ALLOWED_HOSTS = ['*']
 
 TEMPLATES[0]['OPTIONS']['debug'] = DEBUG
