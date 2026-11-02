@@ -1564,15 +1564,10 @@ jobs:
       # suite only (bypasses the skip-by-default via -m selenium), against
       # one browser per matrix entry, headless (this branch's default).
       #
-      # A GUI failure does not fail the build. The suite has residual timing
-      # flakiness that is still being worked through, and a red X that is
-      # usually noise teaches people to stop reading it. The outcome is still
-      # reported, in the summary step below, so it stays visible without
-      # gating anything.
-      #
       # --tb=line holds a failure to one line. A full traceback for a browser
       # test is mostly Selenium's own frames, and the screenshot is better
       # evidence than any of it.
+      #
       # WHY continue-on-error, and WHAT TURNS IT OFF.
       #
       # The GUI suite has unquantified flakiness: tests that fail in a full run

@@ -515,7 +515,9 @@ class SeleniumTests(StaticLiveServerSingleThreadedTestCase):
             ff_options.set_preference('layout.css.devPixelsPerPx', '1.0')
 
             # Firefox's counterpart to the Chromium prefs above: suppress the
-            # "Save login?" prompt, since every test logs in for real.
+            # "Save login?" prompt. Only one test posts the login form now - see
+            # login_through_form() - but the prompt belongs to the browser profile,
+            # not to the test, so it is suppressed for every run.
             #
             # A precaution rather than a measured fix. No Firefox prompt has
             # been reported during these runs, and neither crane nor jackdaw has

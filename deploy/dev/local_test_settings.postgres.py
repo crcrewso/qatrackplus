@@ -14,17 +14,23 @@ DATABASES = {
         'PORT': '5432',  # PostgreSQL default
     }
 }
-# `readonly` must be a *copy* that mirrors `default`, not the same dict object.
-# Django's test runner sets up every alias in DATABASES, so an alias which *is*
-# `default` is created and flushed twice. With `:memory:` both names resolve to
-# one database and the second pass is harmless, which is why this went unnoticed;
-# file-backed, it is not. Measured 2026-11-01 on the GUI suite against a file:
-# 35 failures, 34 errors and 106 occurrences of `attempt to write a readonly
-# database`, with zero lock errors - the second setup leaves the shared file
-# read-only for the connection the first one is still using.
+# `readonly` is a *copy* of `default` carrying `TEST: {'MIRROR': 'default'}`,
+# rather than the same dict object. Django's test runner dedupes aliases by
+# connection signature, so an alias which *is* `default` does **not** build a
+# second test database - measured with `get_unique_databases_and_mirrors()`:
+# one database either way, with `readonly` recorded as a second alias of it.
 #
-# `TEST: {'MIRROR': 'default'}` is Django's own answer for a replica: no second
-# test database is built, and `readonly` is routed to `default`'s connection.
+# What `MIRROR` does change is the flush. Without it a `TransactionTestCase`
+# flushes `default` and `readonly` both, which is the same database twice -
+# measured with `_databases_names(include_mirrors=False)`:
+# `['default', 'readonly']` aliased against `['default']` mirrored. In practice
+# that costs time rather than correctness; the GUI suite passes 43/43 against a
+# file either way (nsmela and jackdaw, both on 2026-11-02).
+#
+# `MIRROR` is kept because it is Django's own shape for a replica, and because
+# it is the one that stays right if `readonly` is ever pointed at another host
+# or database - there the signatures differ and the runner really would build,
+# and flush, a second test database.
 DATABASES['readonly'] = dict(
     DATABASES['default'],
     TEST={**DATABASES['default'].get('TEST', {}), 'MIRROR': 'default'},

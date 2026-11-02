@@ -167,12 +167,17 @@ this will put a database called `default.db` in the `db` subdirectory.
       - test database
       - what it needs
     * - ``local_test_settings.sqlite.py``
-      - ``db/test_default.db``, a file
+      - ``db/test_sqlite.db``, a file
       - the ``db`` directory, which the step above creates. The only one that
         leaves a database you can open after a run.
     * - ``local_test_settings.memory.py``
       - in-memory SQLite
-      - nothing, and it is the fastest. Every SQLite row of CI runs this one.
+      - nothing, and it is the fastest. No CI row copies it, but every SQLite
+        row of CI ends up in-memory anyway, by a different route: one has no
+        ``local_settings.py`` at all and takes ``settings.py``'s fallback, and the
+        other imports ``DATABASES`` from ``deploy/sqlite/local_settings.py``, which
+        names no test database, so Django gives SQLite an in-memory one. See the
+        comment above the SQLite row in ``ci.yml``.
     * - ``local_test_settings.postgres.py``
       - PostgreSQL
       - a reachable server and a role that may create databases; edit the
@@ -645,9 +650,11 @@ root QATrack+ directory:
 
 **The GUI tests are left out unless you ask for them.** They drive a real
 browser, they are the slowest part of the suite, and they need the setup in
-*Setting Up Selenium Browser Testing* above; ``conftest.py`` deselects them so
-that a bare ``pytest`` is the fast, no-setup run. The summary line says how many
-were deselected.
+*Setting Up Selenium Browser Testing* above; ``conftest.py`` marks them skipped so
+that a bare ``pytest`` is the fast, no-setup run. They are counted with the other
+skips in the summary line, and ``-rs`` prints the reason. (The older
+``-m "not selenium"`` form deselects them instead, which is why you may see them
+counted either way; it still works and now warns, and goes in 4.2.)
 
 **Running different parts of the suite**
 
@@ -739,10 +746,12 @@ artifact.
 or a misleading pass, that had nothing to do with the change under test:
 
 - A driver found on ``PATH`` launching a different browser. A Firefox-derived
-  fork has been driven this way and reported a pass; pin the browser with
-  ``SELENIUM_FIREFOX_BINARY_PATH`` or ``SELENIUM_CHROMIUM_BINARY_PATH`` and the
-  driver with the matching ``..._DRIVER_PATH`` setting if you are unsure which
-  one ran.
+  fork has been driven this way and reported a pass. On Chromium, pin both the
+  browser and the driver: ``SELENIUM_CHROMIUM_BINARY_PATH`` and
+  ``SELENIUM_CHROMIUM_DRIVER_PATH``. On Firefox this branch has only
+  ``SELENIUM_FIREFOX_DRIVER_PATH``; the matching ``SELENIUM_FIREFOX_BINARY_PATH``
+  is written but waiting on the harness work in #868, so until that lands, pin the
+  driver and check what ``firefox --version`` on your ``PATH`` actually is.
 - Another window of the same browser already open, which on Chromium can make a
   headless run reuse it. The harness uses a throwaway profile to prevent this;
   if you see a visible window during a headless run, say so in the report.

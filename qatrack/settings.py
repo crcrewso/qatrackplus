@@ -934,8 +934,9 @@ else:
             }
         }
         # A copy that mirrors `default`, not the same dict - see the note in
-        # deploy/dev/local_test_settings.memory.py. Harmless in memory, wrong
-        # against a file, and this fallback should not teach the broken shape.
+        # deploy/dev/local_test_settings.memory.py. The two shapes behave the
+        # same on one database, and this fallback should teach the one that goes
+        # on behaving when `readonly` points somewhere else.
         DATABASES['readonly'] = dict(
             DATABASES['default'],
             TEST={**DATABASES['default'].get('TEST', {}), 'MIRROR': 'default'},
