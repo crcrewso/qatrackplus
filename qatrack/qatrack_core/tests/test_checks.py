@@ -1,10 +1,16 @@
+import importlib.util
 import os
 from pathlib import Path
+from unittest import skipUnless
 from unittest.mock import Mock, patch
 
 from django.test import SimpleTestCase, override_settings
 
 from qatrack.qatrack_core.checks import _running_user_name, check_media_folder_permissions
+
+# `pwd` and `os.geteuid` are POSIX-only, and the defect these cases cover - a uid
+# with no passwd entry - cannot be created without them.
+HAS_PWD = importlib.util.find_spec('pwd') is not None
 
 
 class TestCheckMediaFolderPermissions(SimpleTestCase):
@@ -163,9 +169,11 @@ class TestCheckMediaFolderPermissions(SimpleTestCase):
         `$USER` expands to `root` in a root shell, so pasting the hint would chown the
         media tree to root and make the original failure worse.
 
-        Both user-resolution paths are pinned to `root`: `pwd` is unavailable on
-        Windows, where the check falls back to `getpass.getuser()` and never reads
-        the patched `os.geteuid`.
+        Every user-resolution path is pinned to `root`, because which one runs is
+        platform-dependent: on POSIX `pwd.getpwuid(os.geteuid())` answers, and on
+        Windows there is no `pwd` and no `os.geteuid`, so the environment does.
+        Patching only one of them left this test passing on Linux and failing on
+        Windows the moment `getpass.getuser()` stopped being the fallback.
         """
         import tempfile
 
@@ -174,7 +182,7 @@ class TestCheckMediaFolderPermissions(SimpleTestCase):
             with override_settings(MEDIA_ROOT=str(media_path)):
                 with (
                     patch('os.geteuid', return_value=0, create=True),
-                    patch('getpass.getuser', return_value='root'),
+                    patch.dict(os.environ, {'LOGNAME': 'root', 'USER': 'root', 'USERNAME': 'root'}, clear=False),
                     patch('os.access', return_value=False),
                 ):
                     errors = check_media_folder_permissions(None)
@@ -345,6 +353,7 @@ class TestRunningUserName(SimpleTestCase):
     def test_the_passwd_database_is_used_when_it_has_an_entry(self):
         assert _running_user_name()
 
+    @skipUnless(HAS_PWD, 'no pwd module: a uid with no passwd entry cannot be created here')
     def test_a_uid_with_no_passwd_entry_falls_back_to_the_environment(self):
         """`getpass.getuser()` was the old fallback and is not one: on 3.12 it is
         the same `pwd.getpwuid(os.getuid())` call, so it raised the same KeyError."""
@@ -352,6 +361,7 @@ class TestRunningUserName(SimpleTestCase):
             with patch.dict(os.environ, {'LOGNAME': 'qatrack'}, clear=False):
                 assert _running_user_name() == 'qatrack'
 
+    @skipUnless(HAS_PWD, 'no pwd module: a uid with no passwd entry cannot be created here')
     def test_with_neither_passwd_nor_environment_it_returns_the_uid(self):
         """A number is still useful: `chown 1001:www-data` works."""
         env = {k: '' for k in ('LOGNAME', 'USER', 'LNAME', 'USERNAME')}
@@ -359,6 +369,7 @@ class TestRunningUserName(SimpleTestCase):
             with patch.dict(os.environ, env, clear=False):
                 assert _running_user_name() == str(os.geteuid())
 
+    @skipUnless(HAS_PWD, 'no pwd module: a uid with no passwd entry cannot be created here')
     def test_the_check_itself_does_not_raise_for_such_a_uid(self):
         """The regression, asserted on the check rather than on the helper."""
         with patch('pwd.getpwuid', side_effect=KeyError('uid not found: 1001')):
