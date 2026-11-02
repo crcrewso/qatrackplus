@@ -119,17 +119,17 @@ QATrack+ uses a layered approach to Django settings, with each file serving a sp
 
 **Settings File Hierarchy (Highest to Lowest Precedence):**
 
-1. **`local_test_settings.py`** - Your custom test environment overrides
+1. ``local_test_settings.py`` - Your custom test environment overrides
    - Contains all essential development and test settings in one place
    - This is the main file you'll customize for your testing needs
 
-2. **`local_settings.py`** - Your custom development environment overrides
+2. ``local_settings.py`` - Your custom development environment overrides
    - Contains development-specific settings like database configuration
 
-3. **`test_settings.py`** - Default test environment settings
+3. ``test_settings.py`` - Default test environment settings
    - Contains test-specific defaults like password hashers and notification settings
 
-4. **`settings.py`** - Base Django application settings
+4. ``settings.py`` - Base Django application settings
    - Contains core Django configuration, installed apps, middleware, etc.
 
 Creating your development database
@@ -144,12 +144,54 @@ files from the deploy subdirectory and then create your database:
 .. code-block:: shell
 
     cp deploy/dev/local_settings.dev.py qatrack/local_settings.py
-    cp deploy/dev/local_test_settings.dev.py qatrack/local_test_settings.py
+    cp deploy/dev/local_test_settings.sqlite.py qatrack/local_test_settings.py
     mkdir db
     python manage.py migrate
 
 
 this will put a database called `default.db` in the `db` subdirectory.
+
+.. _local_test_settings_templates:
+
+``local_test_settings.py`` templates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``deploy/dev/`` carries one template per engine. Copy the one you want to
+``qatrack/local_test_settings.py``; the last column is what each asks of you.
+
+.. list-table::
+    :header-rows: 1
+    :widths: 26 26 48
+
+    * - template
+      - test database
+      - what it needs
+    * - ``local_test_settings.sqlite.py``
+      - ``db/test_default.db``, a file
+      - the ``db`` directory, which the step above creates. The only one that
+        leaves a database you can open after a run.
+    * - ``local_test_settings.memory.py``
+      - in-memory SQLite
+      - nothing, and it is the fastest. Every SQLite row of CI runs this one.
+    * - ``local_test_settings.postgres.py``
+      - PostgreSQL
+      - a reachable server and a role that may create databases; edit the
+        credentials in the file.
+    * - ``local_test_settings.mysql.py``
+      - MySQL
+      - the same, plus ``uv sync --extra mysql``.
+    * - ``local_test_settings.mssql.py``
+      - SQL Server
+      - the same, plus ``uv sync --extra mssql`` and ODBC Driver 17 or 18.
+
+``make test-<engine>`` runs the suite against one of these without disturbing
+the ``local_test_settings.py`` you work with day to day; the Makefile's own
+comment says what it swaps and restores.
+
+For a *deployment* rather than a test run the templates are elsewhere -
+``deploy/sqlite/``, ``deploy/postgres/``, ``deploy/mysql/`` and ``deploy/win/``
+(SQL Server), each holding a ``local_settings.py``. ``docs/install/`` covers
+those.
 
 Loading Default Data (Fixtures)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -410,8 +452,9 @@ runs.
 
     Earlier versions of this guide described ``flake8``, ``yapf`` and ``isort``, and
     ``make flake8`` / ``make yapf`` targets. None of those tools is installed any
-    more and neither target exists; ``setup.cfg`` still carries their configuration
-    sections, which are dead and will be removed separately.
+    more, neither target exists, and ``setup.cfg`` - which carried their
+    configuration - has been removed. ``ruff`` does all three jobs now, configured
+    in ``pyproject.toml``.
 
 Import Order
 ^^^^^^^^^^^^
@@ -476,45 +519,153 @@ QATrack+ includes a Makefile with convenient shortcuts for common development ta
 
 For detailed information about using make and understanding Makefiles, refer to the `GNU Make Manual <https://www.gnu.org/software/make/manual/>`_.
 
+Setting Up Selenium Browser Testing
+-----------------------------------
+
+QATrack+ includes Selenium tests that simulate user interactions with the web interface and are marked with the `@pytest.mark.selenium` decorator.
+
+**Browser Requirements**
+
+You need a browser installed - either Firefox or Chrome/Chromium, whichever
+you prefer. You do not normally need to install or configure a matching
+driver (geckodriver/chromedriver): Selenium Manager, built into Selenium
+4.6+, detects whichever browser you have and fetches a driver to match the
+first time a Selenium test runs. No display server is needed either, since
+tests run the browser in its own native headless mode by default - so this
+behaves the same on a workstation, a CI runner or a sandbox.
+
+There is one case that does need a path set. If a ``geckodriver`` or
+``chromedriver`` is already on ``PATH`` and does not match the installed
+browser, Selenium Manager prints an incompatibility warning and uses it
+anyway. Whether that matters depends on how far apart they are - measured
+against Chrome 153, one major version behind still starts a session with
+nothing worse than the warning, while three behind fails with
+``SessionNotCreatedException``. Rather than work out where your own line is,
+treat the warning itself as the signal: either take
+the stale driver off ``PATH``, or point
+``SELENIUM_FIREFOX_DRIVER_PATH`` / ``SELENIUM_CHROMIUM_DRIVER_PATH`` at one
+that matches.
+
+.. code-block:: shell
+
+    # Linux - install whichever browser you don't already have
+    sudo apt install firefox
+    # - or -
+    sudo apt install chromium
+
+On Windows and macOS, install the browser the usual way; Selenium Manager
+locates it just the same.
+
+**Configuring Selenium Tests**
+
+Set `SELENIUM_BROWSER` in `qatrack/local_test_settings.py` - or in
+`qatrack/local_settings.py`, either is honoured - to pick which browser
+drives the tests:
+
+.. code-block:: python
+
+    SELENIUM_BROWSER = 'firefox'   # the default
+    # SELENIUM_BROWSER = 'chromium'
+
+That's the only setting most people need. A couple of others (all defined
+in `qatrack/settings.py`, overridable the same way) are there if you need
+them:
+
+* `SELENIUM_HEADLESS` - `True` by default (native headless mode, no display
+  needed). Set to `False`, on a machine with a real display, to watch a
+  test execute in a visible browser window - useful when debugging a
+  failing Selenium test.
+* `SELENIUM_FIREFOX_DRIVER_PATH` / `SELENIUM_CHROMIUM_DRIVER_PATH` - only
+  needed if you want to pin a specific driver binary instead of letting
+  Selenium Manager resolve one automatically.
+
+Viewport size, and why headless is the reference
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The suite lays out at **1920x1080 CSS pixels**, and
+``TestPerformQC::test_perform_qc_viewport_sizes`` additionally checks the
+perform-QC page at three widths - 960x1080 (half of a 1080p display, for
+someone working side by side), 1366x768 (a common laptop) and 1920x1080. That
+is one ordinary test with three ``subTest`` cases; it is not opt-in and runs in
+every Selenium run, including CI's.
+
+Both browsers are launched pinned to a **1:1 device pixel ratio**
+(``layout.css.devPixelsPerPx`` for Firefox, ``--force-device-scale-factor``
+for Chromium). Without that, a *visible* browser inherits the desktop's
+display scaling: on a HiDPI desktop scaled to 187.5% a window that renders
+1920x1080 headless reports a CSS viewport of only 1536x997. The pages are laid
+out for the wider viewport, so at 1536 CSS pixels controls overlap and clicks
+land on whatever is covering them.
+
+**Headless is the reference configuration.** It has no window manager and no
+desktop scaling, so the viewport is exactly what was asked for, every time,
+on every machine. That is what CI runs and what a layout assertion should be
+trusted from.
+
+**Visible mode cannot always control the viewport.** Narrowing to a specific
+size needs a viewport override - WebDriver BiDi for Firefox, CDP for
+Chromium. The Firefox one is not guaranteed to succeed, and when it fails it
+fails by *hanging*: the BiDi command times out after about 30 seconds, once per
+test class. That was observed on a HiDPI desktop where the browser laid out in a
+mis-scaled coordinate space; pinning the device pixel ratio fixed it, and the
+override now applies on that same machine, Wayland included. The guard is kept
+because the failure mode costs a whole suite run, not because any platform is
+known to need it. When it does fail, ``set_viewport_size()`` returns ``False``
+after that one timeout rather than repeating it per class, and
+``test_perform_qc_viewport_sizes`` **skips the profiles it cannot honour**
+rather than measuring whatever size the window happened to be. A skip that
+names the profile is the honest result; silently testing one size three times
+and reporting three is not.
+
+So: use visible mode to *watch* a test, and headless to *believe* a layout
+result.
+
+Both `SELENIUM_BROWSER` and `SELENIUM_HEADLESS` can also be set from the
+command line for a single run, instead of edited into a settings file -
+useful for a one-off ("just this run, watch it in Chromium instead"):
+
+.. code-block:: shell
+
+    # bash/zsh
+    SELENIUM_BROWSER=chromium SELENIUM_HEADLESS=False pytest --run-selenium
+
+    # PowerShell - the inline form above is a parse error here
+    $env:SELENIUM_BROWSER='chromium'; $env:SELENIUM_HEADLESS='False'; pytest --run-selenium
+
+
 Running The Test Suite
 ----------------------
 
-Once you have QATrack+ and its dependencies installed (and optionally configured
-Selenium browser testing above), you can run the test suite from the root
-QATrack+ directory using the `py.test` command:
-
-
-.. code-block:: sh
-
-    ./qatrackplus> py.test
-    Test session starts (platform: linux, Python 3.6.5, pytest 3.5.0, pytest-sugar 0.9.1)
-    Django settings: qatrack.settings (from ini file)
-    rootdir: /home/dev/projects/qatrackplus, inifile: pytest.ini
-    plugins: django-4.5.2, cov-3.0.0
-
-    qatrack/accounts/tests.py ✓✓✓
-
-**Running Different Types of Tests**
-
-Run all tests (including Selenium):
+Once you have QATrack+ and its dependencies installed, run the suite from the
+root QATrack+ directory:
 
 .. code-block:: shell
 
-    py.test
+    pytest
 
-Run only Selenium tests:
+**The GUI tests are left out unless you ask for them.** They drive a real
+browser, they are the slowest part of the suite, and they need the setup in
+*Setting Up Selenium Browser Testing* above; ``conftest.py`` deselects them so
+that a bare ``pytest`` is the fast, no-setup run. The summary line says how many
+were deselected.
+
+**Running different parts of the suite**
 
 .. code-block:: shell
 
-    pytest -m selenium
+    pytest                        # everything except the GUI tests
+    pytest --run-selenium         # those, and the GUI tests as well
+    pytest -m selenium --run-selenium   # only the GUI tests
 
-Run only non-Selenium tests (faster):
+.. note::
 
-.. code-block:: shell
+    ``pytest -m "not selenium"`` still works and is **deprecated**: it was how
+    you skipped the GUI tests when they ran by default, and it now excludes
+    tests that were already excluded. ``conftest.py`` warns when it sees it, and
+    the expression will stop being special-cased in a later release. A bare
+    ``pytest`` is the replacement.
 
-    pytest -m "not selenium"
-
-For more information on using py.test, refer to the `py.test documentation
+For more on pytest itself, see the `pytest documentation
 <https://pytest.org>`__.
 
 New code should come with tests covering as much of it as you can manage. You can
@@ -532,154 +683,82 @@ measure coverage with:
     were hard is worth less to everyone than one that arrives and gets finished
     together.
 
-Setting Up Selenium Browser Testing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Reporting A GUI Test Failure
+----------------------------
 
-QATrack+ includes Selenium tests that simulate user interactions with the web interface and are marked with the `@pytest.mark.selenium` decorator.
+The GUI tests drive a real browser, so when one fails the traceback alone rarely
+says why: it reports that an element was not found, not what the page looked like.
+This section is for anyone who needs to run the suite and hand a failure to
+somebody else - you do not have to be a QATrack+ developer to do either.
 
-**This setup should be completed before running the test suite if you want to see the Selenium tests in action.**
-
-**Browser Requirements**
-
-You will need to have both a browser and its corresponding driver installed on your system:
-
-* Option 1. **Firefox + geckodriver**
-* Option 2. **Chromium + chromedriver**
-
-If you are unsure whether or not you have both a browser and its corresponding driver installed, you can run the following commands to check:
-
-**Finding Browser and Driver Paths:**
+**Running one test, one class, or all of them.** A first run needs a browser
+installed and nothing else; Selenium Manager fetches the matching driver itself.
+Use the in-memory test settings template.
 
 .. code-block:: shell
 
-    # Check for Firefox browser
-    which firefox
-    
-    # Check for geckodriver
-    which geckodriver
-    
-    # Check for Chromium browser
-    which chromium
-    
-    # Check for chromedriver
-    which chromedriver
+    pytest --run-selenium -m selenium                                  # all of them
+    pytest --run-selenium qatrack/qa/tests/test_selenium.py            # one file
+    pytest --run-selenium -k test_perform_and_review                   # one test
 
-**Example Output:**
-
-.. code-block::
-
-    /usr/bin/firefox
-    /snap/bin/geckodriver
-    /snap/bin/chromium
-    /usr/bin/chromedriver
-
-**Installing Missing Components**
-
-If you do not have both firefox and geckodriver or both chromium and chromedriver,
-you can install either pair using the following commands:
+Pick the browser and whether you can see it with two settings, either in
+``local_test_settings.py`` or from the environment for a single run:
 
 .. code-block:: shell
 
-    # Option 1: Install Firefox and geckodriver
-    sudo apt install firefox geckodriver
-    
-    # Option 2: Install Chromium and chromedriver
-    sudo apt install chromium-browser chromium-chromedriver
+    SELENIUM_BROWSER=chromium SELENIUM_HEADLESS=False pytest --run-selenium -m selenium
 
-**Manual Downloads (Alternative Installation)**
+.. code-block:: powershell
 
-If the package manager installation doesn't work or you need a specific version, you can download the drivers manually:
+    $env:SELENIUM_BROWSER='chromium'; $env:SELENIUM_HEADLESS='False'; pytest --run-selenium -m selenium
 
-* **geckodriver**: Download from the `official Mozilla website <https://firefox-source-docs.mozilla.org/testing/geckodriver/>`_
-* **chromedriver**: Download from the `official Chrome releases <https://chromedriver.chromium.org/downloads>`_
+``SELENIUM_BROWSER`` accepts ``firefox`` (the default), ``chromium``, and
+``chrome`` as an alias for ``chromium``. Anything else stops the run rather than
+quietly falling back, because a suite that drives a browser nobody asked for
+produces evidence about the wrong thing.
 
-After downloading, make the driver executable and verify the path.
+**Seeing which test is running.** ``addopts`` includes ``-q``, so ``-v`` only
+cancels that; pass ``-vv`` to get test names in the console.
 
+**When a test fails, the evidence is a screenshot.** It is written to
+``selenium-screenshots/`` in the repository root, named after the pytest node id
+with ``/`` replaced by ``_`` and ``::`` by ``__``:
 
-**Configuring Selenium Tests**
+.. code-block:: text
 
-You'll need to configure your browser settings in two files. First, update the Selenium configuration in `qatrack/settings.py`:
+    selenium-screenshots/qatrack_qa_tests_test_selenium.py__TestPerformQC__test_perform_and_review.png
 
-.. code-block::
+It is captured as the test ends, before the browser navigates away, and kept only
+when the test failed in ``setUp``/``setUpClass`` or in the test itself. **The next
+failure of the same test overwrites it**, so copy it somewhere else before
+re-running. In CI the same directory is uploaded as the run's
+``selenium-screenshots-linux-<browser>`` or ``selenium-screenshots-windows-<browser>``
+artifact.
 
-    # Selenium Browser Configuration
-    # Options: 'firefox', 'chromium'
-    SELENIUM_BROWSER = ''
-    
-    # Browser Driver Paths
-    SELENIUM_FIREFOX_DRIVER_PATH = ''  # Path to geckodriver as shown above
-    SELENIUM_CHROMIUM_DRIVER_PATH = ''   # Path to chromedriver as shown above
-    
-    # Leave this False in 4.0 - see the note below
-    SELENIUM_VIRTUAL_DISPLAY = False
+**Rule out the known false alarms first.** Each of these has produced a failure,
+or a misleading pass, that had nothing to do with the change under test:
 
-Then also set `SELENIUM_VIRTUAL_DISPLAY` in `qatrack/test_settings.py`:
+- A driver found on ``PATH`` launching a different browser. A Firefox-derived
+  fork has been driven this way and reported a pass; pin the browser with
+  ``SELENIUM_FIREFOX_BINARY_PATH`` or ``SELENIUM_CHROMIUM_BINARY_PATH`` and the
+  driver with the matching ``..._DRIVER_PATH`` setting if you are unsure which
+  one ran.
+- Another window of the same browser already open, which on Chromium can make a
+  headless run reuse it. The harness uses a throwaway profile to prevent this;
+  if you see a visible window during a headless run, say so in the report.
+- The hours either side of a daylight-saving change, and the last hour of the
+  local day. Date-sensitive tests can fail in those windows and pass the rest of
+  the day. They are real defects, but they are not the reporter's.
 
-.. code-block::
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False
+**What to put in the report.** With these, somebody else can act on it without
+your machine:
 
-**Configuration Examples**
-
-**Firefox with visible browser:**
-
-.. code-block::
-
-    # In qatrack/settings.py:
-    SELENIUM_BROWSER = 'firefox'
-    SELENIUM_VIRTUAL_DISPLAY = False
-    SELENIUM_FIREFOX_DRIVER_PATH = '/snap/bin/geckodriver' 
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False
-
-**Chromium with visible browser:**
-
-.. code-block::
-
-    # In qatrack/settings.py:
-    SELENIUM_BROWSER = 'chromium'
-    SELENIUM_VIRTUAL_DISPLAY = False
-    SELENIUM_CHROMIUM_DRIVER_PATH = '/usr/bin/chromedriver'
-    
-    # In qatrack/test_settings.py:
-    SELENIUM_VIRTUAL_DISPLAY = False
-
-.. note::
-
-    **Headless running in 4.0 needs a system package, and cannot work on Windows.**
-    It is being replaced properly in 4.1.
-
-    ``SELENIUM_VIRTUAL_DISPLAY = True`` does not mean the browser's own headless
-    mode. It means a virtual X display driven through ``xvfb``, so the browser still
-    renders into a real X server - just one with no screen attached. The Python
-    wrapper, ``PyVirtualDisplay``, **is** a declared dependency and arrives with
-    ``uv sync``; ``xvfb`` itself is a **system** package and does not. Without it,
-    enabling the setting fails when the display is started, and nothing in the error
-    names the missing package.
-
-    **On Debian and Ubuntu:**
-
-    .. code-block:: bash
-
-        sudo apt install xvfb
-
-    On Fedora or RHEL the package is ``xorg-x11-server-Xvfb``.
-
-    **On Windows there is no xvfb at all, so headless cannot be made to work.**
-    Leave ``SELENIUM_VIRTUAL_DISPLAY = False`` and let the browser be visible.
-
-    With ``xvfb`` installed, headless does work on Linux - the full browser suite
-    passes - and it keeps the test browser off your desktop, which a visible run
-    cannot. If you are on a Wayland session, note that it is the *visible* path that
-    is the awkward one: Firefox with ``MOZ_ENABLE_WAYLAND=1`` ignores ``DISPLAY``
-    and renders through the compositor, so window-geometry behaviour differs from
-    X11.
-
-    **4.1 removes this whole question.** The browser's own headless mode is used
-    instead of a virtual display, so no display server is needed on any operating
-    system, and headless becomes the default rather than something to configure.
+- the exact command you ran, and the operating system;
+- the browser and its version, and whether the run was headless;
+- the test id, as pytest prints it;
+- the traceback;
+- the screenshot, attached;
+- whether it fails again when that test is run on its own.
 
 Writing Documentation
 ---------------------
@@ -798,8 +877,8 @@ Copyright & Licensing
 
 The author of the code (or potentially their employer) retains the copyright of
 their work even when contributing code to QATrack+.  However, unless specified
-otherwies, by submitting code to the QATrack+ project you agree to have it
-distributed using the same `MIT license
+otherwise, by submitting code to the QATrack+ project you agree to have it
+distributed using the same `Apache License 2.0
 <https://github.com/qatrackplus/qatrackplus/blob/master/LICENSE>`__ as
 QATrack+ uses.
 
