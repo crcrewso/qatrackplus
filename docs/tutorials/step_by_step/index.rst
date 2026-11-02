@@ -144,9 +144,9 @@ Set the **Name** field to `Physics` and choose the following set of permissions:
 * **qa | unit test collection | Can view tli and utc not visible to user's groups**
 * **qa | unit test collection | Can view program overview**
 * **qa | unit test info | Can view Refs and Tols**
-* **service_log | return to service qa | Can add return to service qa**
-* **service_log | return to service qa | Can perform return to service qa**
-* **service_log | return to service qa | Can view return to service qa**
+* **service_log | return to service qc | Can add return to service qc**
+* **service_log | return to service qc | Can perform return to service qc**
+* **service_log | return to service qc | Can view return to service qc**
 * **service_log | service event | Can add service event**
 * **service_log | service event | Can review service event**
 * **service_log | service event | Can view service event**
@@ -506,7 +506,7 @@ their status to either **Approved** or **Rejected** (note rejected is to be
 used if a Test was performed incorrectly, not if it was performed correctly but
 failing).
 
-Select the `Unreviewed - All Groups` menu item from the `Review Data` menu and
+Select the `Unreviewed - All Groups` menu item from the `Review QC` menu and
 then click `Review` beside the Test List Instance we just performed:
 
 
