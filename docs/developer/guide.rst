@@ -683,6 +683,83 @@ measure coverage with:
     were hard is worth less to everyone than one that arrives and gets finished
     together.
 
+Reporting A GUI Test Failure
+----------------------------
+
+The GUI tests drive a real browser, so when one fails the traceback alone rarely
+says why: it reports that an element was not found, not what the page looked like.
+This section is for anyone who needs to run the suite and hand a failure to
+somebody else - you do not have to be a QATrack+ developer to do either.
+
+**Running one test, one class, or all of them.** A first run needs a browser
+installed and nothing else; Selenium Manager fetches the matching driver itself.
+Use the in-memory test settings template.
+
+.. code-block:: shell
+
+    pytest --run-selenium -m selenium                                  # all of them
+    pytest --run-selenium qatrack/qa/tests/test_selenium.py            # one file
+    pytest --run-selenium -k test_perform_and_review                   # one test
+
+Pick the browser and whether you can see it with two settings, either in
+``local_test_settings.py`` or from the environment for a single run:
+
+.. code-block:: shell
+
+    SELENIUM_BROWSER=chromium SELENIUM_HEADLESS=False pytest --run-selenium -m selenium
+
+.. code-block:: powershell
+
+    $env:SELENIUM_BROWSER='chromium'; $env:SELENIUM_HEADLESS='False'; pytest --run-selenium -m selenium
+
+``SELENIUM_BROWSER`` accepts ``firefox`` (the default), ``chromium``, and
+``chrome`` as an alias for ``chromium``. Anything else stops the run rather than
+quietly falling back, because a suite that drives a browser nobody asked for
+produces evidence about the wrong thing.
+
+**Seeing which test is running.** ``addopts`` includes ``-q``, so ``-v`` only
+cancels that; pass ``-vv`` to get test names in the console.
+
+**When a test fails, the evidence is a screenshot.** It is written to
+``selenium-screenshots/`` in the repository root, named after the pytest node id
+with ``/`` replaced by ``_`` and ``::`` by ``__``:
+
+.. code-block:: text
+
+    selenium-screenshots/qatrack_qa_tests_test_selenium.py__TestPerformQC__test_perform_and_review.png
+
+It is captured as the test ends, before the browser navigates away, and kept only
+when the test failed in ``setUp``/``setUpClass`` or in the test itself. **The next
+failure of the same test overwrites it**, so copy it somewhere else before
+re-running. In CI the same directory is uploaded as the run's
+``selenium-screenshots-linux-<browser>`` or ``selenium-screenshots-windows-<browser>``
+artifact.
+
+**Rule out the known false alarms first.** Each of these has produced a failure,
+or a misleading pass, that had nothing to do with the change under test:
+
+- A driver found on ``PATH`` launching a different browser. A Firefox-derived
+  fork has been driven this way and reported a pass; pin the browser with
+  ``SELENIUM_FIREFOX_BINARY_PATH`` or ``SELENIUM_CHROMIUM_BINARY_PATH`` and the
+  driver with the matching ``..._DRIVER_PATH`` setting if you are unsure which
+  one ran.
+- Another window of the same browser already open, which on Chromium can make a
+  headless run reuse it. The harness uses a throwaway profile to prevent this;
+  if you see a visible window during a headless run, say so in the report.
+- The hours either side of a daylight-saving change, and the last hour of the
+  local day. Date-sensitive tests can fail in those windows and pass the rest of
+  the day. They are real defects, but they are not the reporter's.
+
+**What to put in the report.** With these, somebody else can act on it without
+your machine:
+
+- the exact command you ran, and the operating system;
+- the browser and its version, and whether the run was headless;
+- the test id, as pytest prints it;
+- the traceback;
+- the screenshot, attached;
+- whether it fails again when that test is run on its own.
+
 Writing Documentation
 ---------------------
 
