@@ -145,8 +145,21 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies (Memory SQLite)
+        # This row carries the `ldap` extra, and it is the only Linux row that
+        # does. The Active Directory sign-in tests
+        # (qatrack/accounts/tests/test_ldap_backend.py) are guarded by
+        # `pytest.importorskip("ldap")`, so without python-ldap installed
+        # somewhere they are skipped in every job and the coverage is
+        # decorative. One row is enough: what they exercise is our LDAP calls
+        # and group rows, which are the same whatever the database engine.
+        #
+        # libldap2-dev and libsasl2-dev are the build dependencies - python-ldap
+        # publishes no manylinux wheel - and are the same two the `requirements`
+        # job already installs.
         if: matrix.db == 'memory'
-        run: uv sync --locked
+        run: |
+          sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+          uv sync --extra ldap --locked
 
       - name: Install dependencies (SQLite)
         if: matrix.db == 'sqlite'
@@ -1552,7 +1565,17 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync --locked
+        # With the `ldap` extra, because the Active Directory sign-in tests in
+        # qatrack/accounts/tests/test_selenium.py drive the real login form and
+        # are guarded by `pytest.importorskip("ldap")` - without python-ldap
+        # here they are skipped and this job reports green on two tests it
+        # never ran. The Windows Selenium job deliberately does not do this:
+        # python-ldap on Windows comes from a pinned wheel that no CI job has
+        # ever installed, and making this job the first to try it belongs in a
+        # change of its own.
+        run: |
+          sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+          uv sync --extra ldap --locked
 
       - name: Activate virtual environment
         run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"

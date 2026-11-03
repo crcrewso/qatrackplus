@@ -153,6 +153,20 @@ class BaseQATests(SeleniumTests, TransactionTestCase):
         """Authenticate without the login form - see force_login()."""
         self.force_login(self.user)
 
+    def submit_login_form(self, username, password):
+        """Fill the real login form with these credentials and submit it.
+
+        Assumes nothing about the outcome, so a test can wait for a landed page
+        or for a form error. login_through_form() below is the success case;
+        the Active Directory tests in qatrack/accounts/tests/test_selenium.py
+        use this directly, because a refused sign-in never reaches a landed
+        page to wait for.
+        """
+        self.open("/accounts/login/")
+        self.send_keys("id_username", username)
+        self.send_keys("id_password", password)
+        self.driver.find_element(By.CSS_SELECTOR, 'button').click()
+
     def login_through_form(self):
         """Log in by filling the real login form, as a user does.
 
@@ -166,14 +180,11 @@ class BaseQATests(SeleniumTests, TransactionTestCase):
         browser test goes through login(), so a second caller here would be a
         second place a password is typed for no coverage gained.
 
-        A test that uses this is also the only place the browser's password
-        manager can still interfere, since it is the only place a password is
-        typed.
+        This and submit_login_form() are the only places the browser's password
+        manager can still interfere, since they are the only places a password
+        is typed.
         """
-        self.open("/accounts/login/")
-        self.send_keys("id_username", self.user.username)
-        self.send_keys("id_password", self.password)
-        self.driver.find_element(By.CSS_SELECTOR, 'button').click()
+        self.submit_login_form(self.user.username, self.password)
 
         # The logout link is inside {% if user.is_authenticated %}, so its
         # presence proves both that the POST was handled and that the redirect
