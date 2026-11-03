@@ -43,8 +43,21 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
-      - name: Install system dependencies for python-ldap
-        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+      - name: Install system build dependencies
+        # libldap2-dev and libsasl2-dev build python-ldap. python3-dev provides
+        # the Python.h that mysqlclient 2.0.3 needs: it publishes no cp312
+        # wheel, so the `uv sync --all-extras` below compiles it from source.
+        #
+        # GitHub's hosted Ubuntu image already carries python3-dev, so naming it
+        # changes nothing here. It is for local runs. This job pins no
+        # python-version for setup-uv - unlike linux-tests and windows-tests,
+        # which are handed a uv-managed interpreter that brings its own headers -
+        # so uv uses the runner image's own /usr/bin/python3.12, and act's image
+        # ships that without the headers. Without this line the build dies on
+        # `MySQLdb/_mysql.c:46:10: fatal error: Python.h: No such file or
+        # directory`, and because act honours `needs`, it dies here rather than
+        # in the job the developer asked for: `act -j linux-tests` never starts.
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
