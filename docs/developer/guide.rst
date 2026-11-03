@@ -764,6 +764,19 @@ without them act runs every combination: the ``memory``, ``sqlite``,
 further releases. One row is the quick check before a push; the whole matrix is
 what the real run on GitHub is for.
 
+.. warning::
+
+    **Run act from an ordinary clone, not from a** ``git worktree``. In a linked
+    worktree ``.git`` is a file pointing at the main repository, which is outside
+    the directory act mounts into the container, so pre-commit cannot find a
+    repository and the ``lint`` job fails with::
+
+        An error has occurred: FatalError: git failed. Is it installed, and are
+        you in a Git repository directory?
+
+    git is installed and you are in a repository; the container cannot see it.
+    Nothing about the message points at the worktree.
+
 Two jobs do not reproduce locally:
 
 - ``windows-tests``, because act has no Windows runner image.
