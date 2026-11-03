@@ -162,10 +162,9 @@ class BaseQATests(SeleniumTests, TransactionTestCase):
         client.force_login(), both of which bypass it. This is the only path
         that covers form rendering, the POST handler and the redirect.
 
-        Nothing on this branch calls it. The tests that do are added with the
-        rest of the Selenium work, so between this change landing and those
-        arriving the login page has no browser coverage - a gap worth knowing
-        about rather than discovering.
+        TestLoginPage below is the caller, and the only one. Every other
+        browser test goes through login(), so a second caller here would be a
+        second place a password is typed for no coverage gained.
 
         A test that uses this is also the only place the browser's password
         manager can still interfere, since it is the only place a password is
