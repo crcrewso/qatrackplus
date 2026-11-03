@@ -711,3 +711,25 @@ table ul.multiselect-container.dropdown-menu {
     display: inline-block;
     vertical-align: top;
 }
+
+/* #818: alternating backgrounds on form rows, so a long form reads as rows
+   rather than a wall of fields. Applied by qatrack/templates/_form.html and
+   _form_horizontal.html, which every form that uses them inherits.
+
+   A translucent black rather than a fixed grey, so the tint sits on whatever is
+   behind it - the admin's white, the dashboard's grey panel, a modal - instead
+   of only on one of them. 2.5% is deliberately faint: it has to group rows
+   without competing with the colours that carry meaning elsewhere in QATrack+,
+   where a background says pass, tolerance or action. */
+.form-group.form-row-even {
+    background-color: rgba(0, 0, 0, 0.025);
+}
+
+/* The one layout change: a row needs a little room inside the tint, or the
+   text sits on its edge. Applied to both classes so odd and even rows stay the
+   same height. */
+.form-group.form-row-odd,
+.form-group.form-row-even {
+    padding: 4px 6px;
+    border-radius: 2px;
+}
