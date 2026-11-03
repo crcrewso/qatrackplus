@@ -16,6 +16,7 @@ See ``ldap_fake.py`` for what the stand-in does and does not prove.
 
 import pytest
 from django.conf import settings as django_settings
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.test.utils import override_settings
@@ -342,3 +343,175 @@ class TestTLSOptions(ADTestCase):
     def test_the_connection_is_pinned_to_protocol_version_3(self):
         _, directory = self.attempt("jdoe", "s3cret")
         assert (ldap.OPT_PROTOCOL_VERSION, 3) in directory.connection.options
+
+
+# The two backends a site running AD actually configures: the shipped
+# AUTHENTICATION_BACKENDS lists QATrackAccountBackend and has the AD backend
+# commented out below it, so switching AD on means having both.
+BOTH_BACKENDS = [
+    'qatrack.accounts.backends.QATrackAccountBackend',
+    'qatrack.accounts.backends.ActiveDirectoryGroupMembershipSSLBackend',
+]
+
+
+@override_settings(AUTHENTICATION_BACKENDS=BOTH_BACKENDS)
+class TestTheLocalSideDoor(ADTestCase):
+    """A locally created account must keep working once AD is switched on.
+
+    This is the door a site needs when the directory is the thing that is
+    broken. A clinic whose AD server is down, or whose network path to it is
+    down, still has QC to review and service events to close, and the only way
+    back in is an account QATrack+ holds itself - which in practice is the
+    superuser made by `createsuperuser` during the install, plus whatever local
+    accounts an administrator has added.
+
+    It is not obvious that it works, and it is the kind of thing that breaks
+    silently: nothing fails until the day the directory is unreachable, which
+    is the worst day to find out. What makes it work is that
+    `ActiveDirectoryGroupMembershipSSLBackend.authenticate()` returns None for
+    every failure rather than raising - including `SERVER_DOWN` and anything
+    its bare `except Exception` catches - so Django moves on to the next
+    backend in the list. Each test below therefore checks that the directory
+    really was consulted and really did fail, so that a pass cannot come from
+    the AD backend having been skipped.
+
+    Asked for by Cody, 2026-11-03, as the "side door" sites rely on.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.admin = User.objects.create_superuser('local-admin', 'admin@example.com', 'localpw')
+        self.operator = User.objects.create_user('local-op', 'op@example.com', 'localpw')
+
+    def sign_in(self, username, password, users=None, **directory_kwargs):
+        """Through django.contrib.auth.authenticate, so the whole chain runs.
+
+        The other classes in this file call one backend directly, which is
+        right for testing that backend. It is wrong here: what is under test is
+        the fall-through from one backend to the next, which only
+        `authenticate()` does.
+        """
+        directory = FakeDirectory(
+            users if users is not None else [self.jdoe],
+            settings=django_settings,
+            **directory_kwargs,
+        )
+        with directory.patch():
+            user = authenticate(None, username=username, password=password)
+        return user, directory
+
+    def test_the_backends_are_both_configured(self):
+        """The fixture itself, asserted - every test below depends on it."""
+        assert django_settings.AUTHENTICATION_BACKENDS == BOTH_BACKENDS
+
+    def test_a_local_superuser_signs_in_with_ad_configured(self):
+        user, _ = self.sign_in('local-admin', 'localpw')
+
+        assert user is not None
+        assert user.username == 'local-admin'
+        assert user.is_superuser
+
+    def test_a_local_regular_user_signs_in_with_ad_configured(self):
+        user, _ = self.sign_in('local-op', 'localpw')
+
+        assert user is not None
+        assert user.username == 'local-op'
+        assert not user.is_superuser
+
+    def test_a_local_superuser_signs_in_while_the_directory_is_down(self):
+        """The scenario this exists for: AD is unreachable and an admin needs in.
+
+        In the shipped order the local backend comes first, so a local account
+        is not merely admitted during an outage - the directory is never
+        consulted at all. That is the strongest form of the guarantee, and it
+        is what the assertion says. The AD-first order, where the backend does
+        run and has to fail quietly, is tested below.
+        """
+        user, directory = self.sign_in('local-admin', 'localpw', server_down=True)
+
+        assert user is not None and user.is_superuser
+        assert directory.initialize_calls == [], (
+            "the directory was consulted for a local account that had already "
+            "authenticated - harmless in itself, but it means this test is no "
+            "longer measuring what its docstring claims"
+        )
+
+    @override_settings(AUTHENTICATION_BACKENDS=list(reversed(BOTH_BACKENDS)))
+    def test_a_local_user_signs_in_when_the_directory_cannot_be_opened_at_all(self):
+        """A step earlier than SERVER_DOWN: ldap.initialize() itself raising.
+
+        A bad AD_LDAP_URL, or DNS failure, raises before there is a connection
+        object - which also means the backend's `finally` clause calls
+        `unbind_s()` on a name that was never assigned. That NameError is
+        swallowed by the bare `except Exception` around it, and this is the
+        test that says so: a change to that `finally` could otherwise turn an
+        AD outage into a total lockout.
+
+        Needs the directory listed first. With the local backend first the AD
+        backend is never reached, and the test would pass without the failure
+        path ever running.
+        """
+        user, directory = self.sign_in(
+            'local-admin', 'localpw', initialize_raises=OSError('no route to host'))
+
+        assert user is not None and user.is_superuser
+        # initialize() raised, so there is no connection to inspect. That it
+        # was *called* is what distinguishes this from a backend that was never
+        # reached, which is the only way this test means anything.
+        assert directory.initialize_calls == ['ldap://ad.example.com:389']
+        assert directory.connections == []
+
+    def test_a_local_password_is_tried_before_the_directory(self):
+        """A name that exists in both places: the local account answers first.
+
+        Only true for this backend order, which is the shipped one. The test
+        below covers the other order.
+        """
+        both = FakeUser('local-admin', 'the-ad-password')
+
+        user, directory = self.sign_in('local-admin', 'localpw', users=[both])
+
+        assert user is not None and user.is_superuser
+        assert directory.connections == [], "the directory was consulted unnecessarily"
+
+    @override_settings(AUTHENTICATION_BACKENDS=list(reversed(BOTH_BACKENDS)))
+    def test_the_side_door_works_with_the_directory_listed_first(self):
+        """Some sites put AD first. The local account must still get in.
+
+        With AD first the directory is asked about every sign-in, so a local
+        account only works because the AD backend returns None instead of
+        raising. That makes this the stricter of the two orders, and the one
+        where an unhandled exception would lock everybody out.
+        """
+        user, directory = self.sign_in('local-admin', 'localpw', server_down=True)
+
+        assert user is not None and user.is_superuser
+        assert directory.connection.binds, "the directory was never contacted"
+
+    def test_an_ad_account_cannot_use_the_side_door(self):
+        """The control, and the reason the side door is not a hole.
+
+        An account the directory created has no usable password - the backend
+        calls set_unusable_password() precisely so that it cannot be signed
+        into locally. So when the directory is down, AD users are out, which is
+        correct: their credentials live in the directory. If this ever passed,
+        it would mean an AD account could be signed into with something other
+        than the directory's password.
+        """
+        user, _ = self.sign_in('jdoe', 's3cret')
+        assert user is not None, "the AD user could not sign in while AD was up"
+        assert not User.objects.get(username='jdoe').has_usable_password()
+
+        during_outage, directory = self.sign_in('jdoe', 's3cret', server_down=True)
+
+        assert during_outage is None
+        assert directory.connection.binds, "the directory was never contacted"
+
+    def test_the_side_door_still_refuses_a_wrong_local_password(self):
+        """It is a door, not an absence of one."""
+        user, _ = self.sign_in('local-admin', 'not-the-password', server_down=True)
+        assert user is None
+
+    def test_an_unknown_name_is_refused_during_an_outage(self):
+        user, _ = self.sign_in('nobody-at-all', 'whatever', server_down=True)
+        assert user is None

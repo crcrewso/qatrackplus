@@ -156,12 +156,18 @@ class FakeDirectory:
         self.server_down = server_down
         self.initialize_raises = initialize_raises
         self.connections = []
+        # Every initialize() call, recorded before it may raise. Without this
+        # there is no way to tell "the directory was asked and could not be
+        # opened" from "the backend was never reached", and a fall-through test
+        # cannot prove it is testing a fall-through.
+        self.initialize_calls = []
         # ldap.set_option is called on the *module*, before any connection
         # exists - it is how AD_CERT_FILE reaches OPT_X_TLS_CACERTFILE - so it
         # is recorded separately from the per-connection options.
         self.module_options = []
 
     def initialize(self, url, *args, **kwargs):
+        self.initialize_calls.append(url)
         if self.initialize_raises is not None:
             raise self.initialize_raises
         connection = FakeConnection(self, url)
