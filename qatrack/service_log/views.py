@@ -872,10 +872,22 @@ class DeleteServiceEvent(PermissionRequiredMixin, DeleteView, FormView):
         return HttpResponseRedirect(success_url)
 
     def form_invalid(self, form):
+        """A view returns a response, and this returned the URL as a string.
+
+        `reason` is a required ChoiceField over settings.DELETE_REASONS, so a
+        POST without it - or with a value outside the choices - takes this
+        path, and Django has nothing to do with a `str` from a view: the
+        request ended as a 500 for what is really a rejected input.
+
+        Redirecting with the warning is what the code already meant to do; the
+        URL was built and then not wrapped. Re-rendering the form with its
+        errors would be the more conventional answer and a larger change, and
+        is not what this line was written to do.
+        """
         messages.add_message(
             self.request, messages.WARNING, f'Could not delete service event {form.instance.id}'
         )
-        return reverse('sl_dash')
+        return HttpResponseRedirect(reverse('sl_dash'))
 
     def get_success_url(self):
         return reverse('sl_dash')
