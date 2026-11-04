@@ -300,7 +300,23 @@ def delete_schedule(request):
 
         report.schedule.delete()
 
-    except (ValueError, models.ReportSchedule.DoesNotExist):
+    except (ValueError, models.SavedReport.DoesNotExist, models.ReportSchedule.DoesNotExist):
+        # SavedReport.DoesNotExist covers a post with no `schedule-report` at
+        # all, which `get(pk=None)` raises. This is defensive handling of a
+        # missing or stale report id, not of a race a user can reach: the
+        # schedule dialog inserts its form *before* it is shown
+        # (`reports.js`, `setupScheduleForm(data.form)` then
+        # `$scheduleModal.modal("show")`), so the footer button is never
+        # available while the form is empty.
+        #
+        # The malformed post that exposed the 500 came from the test suite:
+        # `live.py`'s `click` helper falls back to
+        # `execute_script("arguments[0].click();")` when an ordinary click
+        # raises, which clicks the button whether or not a user could. It is
+        # still worth handling - a stale page, or a second submit after the
+        # schedule has gone, arrives the same way - and it is treated like the
+        # other two cases: there is no schedule to clear, and the response
+        # already says the schedule is cleared.
         pass
 
     resp = {'error': False, 'message': _("Schedule cleared")}
