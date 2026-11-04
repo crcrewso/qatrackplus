@@ -555,20 +555,6 @@ wheels = [
 ]
 
 [[package]]
-name = "django-auth-ldap"
-version = "4.8.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "python-ldap", version = "3.4.5", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
-    { name = "python-ldap", version = "3.4.5", source = { url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" }, marker = "sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9b/68/e8741f1f9616183351ffb9e52c2e830f7204086ffe2ab00f73a655786190/django-auth-ldap-4.8.0.tar.gz", hash = "sha256:604250938ddc9fda619f247c7a59b0b2f06e53a7d3f46a156f28aa30dd71a738", size = 53906, upload-time = "2024-04-04T12:46:24.201Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/e9/a559ddd9748c8a1c33e244697408779a425ce082c8ce417354d4c02fd382/django_auth_ldap-4.8.0-py3-none-any.whl", hash = "sha256:4b4b944f3c28bce362f33fb6e8db68429ed8fd8f12f0c0c4b1a4344a7ef225ce", size = 20584, upload-time = "2024-04-04T12:46:22.452Z" },
-]
-
-[[package]]
 name = "django-braces"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2258,10 +2244,7 @@ ldap = [
     { name = "python-ldap", version = "3.4.5", source = { url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" }, marker = "sys_platform == 'win32'" },
 ]
 mssql = [
-    { name = "django-auth-ldap" },
     { name = "mssql-django" },
-    { name = "python-ldap", version = "3.4.5", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
-    { name = "python-ldap", version = "3.4.5", source = { url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" }, marker = "sys_platform == 'win32'" },
 ]
 mysql = [
     { name = "mysqlclient" },
@@ -2321,7 +2304,6 @@ requires-dist = [
     { name = "concurrent-log-handler", specifier = "==0.9.19" },
     { name = "django", specifier = ">=4.2.30,<4.3" },
     { name = "django-auth-adfs", specifier = ">=1.7.0" },
-    { name = "django-auth-ldap", marker = "extra == 'mssql'", specifier = "<4.9" },
     { name = "django-braces", specifier = ">=1.17,<1.18" },
     { name = "django-contrib-comments", specifier = ">=2.2,<3.0" },
     { name = "django-crispy-forms", specifier = ">=1.14.0,<2.0" },
@@ -2361,9 +2343,7 @@ requires-dist = [
     { name = "pyreadline", marker = "sys_platform == 'win32' and extra == 'win'" },
     { name = "python-dateutil", specifier = ">=2.8.1,<3.0" },
     { name = "python-ldap", marker = "python_full_version == '3.12.*' and sys_platform == 'win32' and extra == 'ldap'", url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" },
-    { name = "python-ldap", marker = "python_full_version == '3.12.*' and sys_platform == 'win32' and extra == 'mssql'", url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" },
     { name = "python-ldap", marker = "(python_full_version != '3.12.*' and extra == 'ldap') or (sys_platform != 'win32' and extra == 'ldap')" },
-    { name = "python-ldap", marker = "(python_full_version != '3.12.*' and extra == 'mssql') or (sys_platform != 'win32' and extra == 'mssql')" },
     { name = "pywin32", marker = "sys_platform == 'win32' and extra == 'win'", specifier = ">=300" },
     { name = "reportlab", specifier = ">=4.0.0,<5.0" },
     { name = "requests", specifier = ">=2.25.0,<3.0" },

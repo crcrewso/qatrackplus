@@ -117,10 +117,20 @@ Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``
      an interpreter for you -- so this is an extra prerequisite rather than
      a substitution. Check it with ``python --version`` before creating the
      virtual environment.
-   * **If you use Active Directory**, the ``python_ldap`` wheel step in
-     :ref:`auth_backends` is written as ``uv pip install``. Use plain
-     ``pip install C:\path\to\python_ldap-...whl`` instead, with the
-     virtual environment activated.
+   * **If you use Active Directory, the wheel step is required, not optional.**
+     ``[mssql]`` installs the SQL Server driver and nothing else, so neither it
+     nor ``[win]`` brings ``python-ldap`` with it. Install it yourself: the
+     ``python_ldap`` wheel step in :ref:`auth_backends` is written as
+     ``uv pip install``, so use plain ``pip install
+     C:\path\to\python_ldap-...whl`` instead, with the virtual environment
+     activated.
+
+     This is why ``[mssql]`` does not list it. ``python-ldap`` has no wheel on
+     PyPI for Windows; the one this project uses is pinned by URL in
+     ``pyproject.toml``'s ``[tool.uv.sources]``, and **plain** ``pip`` **does not
+     read that table**. While ``[mssql]`` carried ``python-ldap``, the command
+     above could not finish for *any* SQL Server site, whether or not it used
+     Active Directory.
 
    This is a minimally-supported fallback path. It resolves dependency
    versions at install time rather than from ``uv.lock``, so two sites

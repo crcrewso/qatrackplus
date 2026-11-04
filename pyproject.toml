@@ -99,10 +99,18 @@ mysql = [
     "mysqlclient==2.0.3",
 ]
 
+# SQL Server, and nothing else. `python-ldap` and `django-auth-ldap` used to be
+# here, which is why `pip install ".[win,mssql]"` - the fallback path in
+# docs/install/win.rst - could not complete: `python-ldap` publishes no Windows
+# wheel, the one this project uses is pinned by URL in [tool.uv.sources] below,
+# and **pip does not read that table**. So pip fell back to a source build on the
+# one platform the instruction is written for, whether or not the site used
+# Active Directory. A SQL Server site that also uses AD wants `--extra ldap` as
+# well; see docs/install/authentication_backends.rst.
+#
+# `django-auth-ldap` went rather than moved: nothing under qatrack/ imports it.
 mssql = [
     "mssql-django>=1.5",
-    "python-ldap",
-    "django-auth-ldap<4.9",
 ]
 
 postgres = [
