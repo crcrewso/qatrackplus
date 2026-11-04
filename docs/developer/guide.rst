@@ -729,6 +729,60 @@ measure coverage with:
     were hard is worth less to everyone than one that arrives and gets finished
     together.
 
+Running The CI Checks Locally
+-----------------------------
+
+The pull request checks in ``.github/workflows/ci.yml`` can be run on your own
+machine with `act <https://github.com/nektos/act>`__, which executes a workflow
+job inside a Docker container. It does not replace the real run - there is no
+Windows runner image, and service containers behave a little differently - but
+it answers *"will the Linux tests pass?"* without spending a push.
+
+You need Docker and act. act must be told which image stands in for each runner
+label, because its own defaults are deliberately minimal and carry almost no
+tooling:
+
+.. code-block:: shell
+
+    act -j linux-tests \
+      --matrix os:ubuntu-24.04 --matrix db:sqlite \
+      -P ubuntu-latest=catthehacker/ubuntu:act-24.04 \
+      -P ubuntu-24.04=catthehacker/ubuntu:act-24.04 \
+      -P ubuntu-22.04=catthehacker/ubuntu:act-24.04
+
+.. note::
+
+    **act honours** ``needs``. ``linux-tests`` needs ``lint`` and
+    ``requirements``, so the command above runs all three and the job you asked
+    for is the last of them. That is usually what you want, and it is also why a
+    failure in either of the first two looks like the Linux tests never starting.
+
+**The two** ``--matrix`` **flags are the difference between one job and six.**
+``linux-tests`` is a matrix over operating system and database engine, so
+without them act runs every combination: the ``memory``, ``sqlite``,
+``postgres`` and ``mysql`` rows on ubuntu-24.04, and ``sqlite`` again on two
+further releases. One row is the quick check before a push; the whole matrix is
+what the real run on GitHub is for.
+
+.. warning::
+
+    **Run act from an ordinary clone, not from a** ``git worktree``. In a linked
+    worktree ``.git`` is a file pointing at the main repository, which is outside
+    the directory act mounts into the container, so pre-commit cannot find a
+    repository and the ``lint`` job fails with::
+
+        An error has occurred: FatalError: git failed. Is it installed, and are
+        you in a Git repository directory?
+
+    git is installed and you are in a repository; the container cannot see it.
+    Nothing about the message points at the worktree.
+
+Two jobs do not reproduce locally:
+
+- ``windows-tests``, because act has no Windows runner image.
+- ``docker-check``, which builds and starts the entire stack and then needs host
+  port 80, usually already taken on a development machine.
+
 Reporting A GUI Test Failure
 ----------------------------
 
