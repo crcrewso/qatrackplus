@@ -78,30 +78,76 @@ jobs:
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
       - name: Install
         run: uv sync
+      # The seed is decided here, before pytest runs, and passed in explicitly.
+      #
+      # It used to be left to pytest when no seed was given, and read back out
+      # of the log afterwards with `grep -oE 'randomly-seed=[0-9]+'`. That did
+      # not work: `addopts` carries `-q`, which suppresses the report header
+      # where pytest-randomly announces the seed it chose, so the grep found
+      # nothing and the summary below said ``Seed: `unknown` ``. Measured on
+      # this branch by running exactly what the job runs. The failing case was
+      # the generated-seed one, which is the only case that needs the seed
+      # reported - if you dispatched with a seed you already had it.
+      #
+      # Choosing it here fixes that and removes the dependence on pytest's
+      # output format, which is the part that broke. @copilot raised it on c#27.
+      - name: Choose the seed
+        id: seed
+        env:
+          # Through the environment, not `${{ inputs.seed }}` inside the script.
+          # GitHub substitutes an expression into the shell source *before* bash
+          # runs it, and command substitution happens inside double quotes, so a
+          # dispatch input of `$(...)` would execute on the runner before pytest
+          # saw it. As an environment variable the value is only ever data.
+          # Dispatching needs write access, so this is not a path in from
+          # outside - it is still an input, and an input should not be
+          # executable. Also @copilot, on the same review.
+          REQUESTED_SEED: ${{ inputs.seed }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REQUESTED_SEED" ]; then
+            case "$REQUESTED_SEED" in
+              *[!0-9]*)
+                echo "::error::seed must be digits only; got '$REQUESTED_SEED'"
+                exit 1
+                ;;
+            esac
+            seed="$REQUESTED_SEED"
+            echo "Reproducing seed $seed"
+          else
+            # Two draws, because $RANDOM alone is 0-32767 and a seed space that
+            # small would repeat orders often enough to hide an ordering bug.
+            seed=$(( RANDOM * 32768 + RANDOM ))
+            echo "New shuffle, seed $seed"
+          fi
+          echo "seed=$seed" >> "$GITHUB_OUTPUT"
+
       - name: Run the suite in a shuffled order
         id: shuffled
         run: |
           set -o pipefail
-          seed="${{ inputs.seed }}"
-          if [ -n "$seed" ]; then
-            echo "Reproducing seed $seed"
-            uv run pytest -m "not selenium" -p randomly --randomly-seed="$seed" 2>&1 | tee run.log
-          else
-            uv run pytest -m "not selenium" -p randomly 2>&1 | tee run.log
-          fi
+          uv run pytest -m "not selenium" -p randomly \
+            --randomly-seed="${{ steps.seed.outputs.seed }}" 2>&1 | tee run.log
+
       - name: Say how to reproduce it
         if: failure()
+        env:
+          USED_SEED: ${{ steps.seed.outputs.seed }}
         run: |
-          used=$(grep -oE 'randomly-seed=[0-9]+' run.log | head -1 | cut -d= -f2)
+          set -euo pipefail
+          # No `${used:-unknown}` fallback any more. The seed comes from the
+          # step above, which always sets it, so there is no case where it is
+          # not known - and printing "unknown" is what this summary used to do
+          # on every generated-seed failure.
           {
             echo "### The suite failed in a shuffled order"
             echo
-            echo "Seed: \`${used:-unknown}\`"
+            echo "Seed: \`$USED_SEED\`"
             echo
             echo "Reproduce locally:"
             echo
             echo '```bash'
-            echo "uv run pytest -m \"not selenium\" -p randomly --randomly-seed=${used:-SEED}"
+            echo "uv run pytest -m \"not selenium\" -p randomly --randomly-seed=$USED_SEED"
             echo '```'
             echo
             echo "A failure here is a test depending on another test, not a flaky"
