@@ -711,6 +711,33 @@ counted either way; it still works and now warns, and goes in 4.2.)
     expression will stop being special-cased in a later release. ``uv run
     pytest`` on its own is the replacement.
 
+**Tests that need the LDAP extra**
+
+The Active Directory sign-in tests need ``python-ldap``, which QATrack+ declares
+as an extra rather than a base dependency. Without it they are skipped - both
+the backend tests and the two that drive the login form in a browser:
+
+.. code-block:: shell
+
+    sudo apt-get install libldap2-dev libsasl2-dev   # Debian/Ubuntu
+    uv sync --extra ldap
+
+On Windows the wheel is pinned in ``pyproject.toml``, so the two system packages
+above are not part of that route.
+
+They do **not** need a directory server. ``qatrack/accounts/tests/ldap_fake.py``
+stands in for one, in the test's own process, which is also what lets the
+browser tests work - the live server runs in a thread of that same process.
+python-ldap has to be installed all the same, because
+``qatrack/accounts/backends.py`` reads real constants and real exception classes
+off the module; that is deliberate, since a stand-in that faked the module too
+would be asserting our own guesses about python-ldap's API.
+
+.. note::
+
+    These report as *skipped* without the extra, not as passed. ``-rs`` prints
+    the reason, as it does for the GUI tests.
+
 For more on pytest itself, see the `pytest documentation
 <https://pytest.org>`__.
 
