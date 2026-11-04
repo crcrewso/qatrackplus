@@ -18,8 +18,8 @@ survived four years.
 
 import ast
 import os
-import textwrap
 import re
+import textwrap
 
 import pytest
 from django.conf import settings
