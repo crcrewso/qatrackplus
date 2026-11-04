@@ -16,7 +16,9 @@ names have no caller the suite reaches: ``np.NaN`` sat in
 survived four years.
 """
 
+import ast
 import os
+import textwrap
 import re
 
 import pytest
@@ -95,15 +97,41 @@ FORBIDDEN = re.compile(
 )
 
 
-def _strip_comment(line):
-    """Everything before the first ``#``.
+def _removed_api_uses(path):
+    """Every *use* of a removed NumPy name in one file, found with `ast`.
 
-    Crude on purpose. A ``#`` inside a string literal truncates the line early,
-    which can only ever hide a match, and the names here appear in code far more
-    often than in strings. The reason to strip at all is that the two fixes this
-    file came with explain themselves in comments that name what they replaced.
+    This was line-based, stripping everything after the first ``#``, and the
+    docstring said so: *"crude on purpose ... the names here appear in code far
+    more often than in strings."* That held until a file arrived whose whole job
+    is to name them. `qa/calculation_check.py` scans a site's stored calculation
+    procedures for exactly these APIs, so it mentions `np.NaN` and `np.product`
+    in its module docstring, in a comment about NumPy 1.26's deprecation, and -
+    in its tests - as the input strings being scanned. All eight were reported as
+    violations, and none was one.
+
+    A mention is not a use, and only a parser can tell them apart. This yields
+    attribute accesses on `np`/`numpy` and `from numpy import <name>`, and
+    ignores comments, docstrings and string literals by construction.
+
+    A file that cannot be parsed is reported rather than skipped: a syntax error
+    in the tree is worth knowing about on its own.
     """
-    return line.split('#', 1)[0]
+    with open(path, encoding='utf-8') as f:
+        source = f.read()
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        yield exc.lineno or 0, '<unparseable: %s>' % exc.msg
+        return
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in REMOVED_IN_NUMPY_2:
+            base = node.value
+            if isinstance(base, ast.Name) and base.id in ('np', 'numpy'):
+                yield node.lineno, node.attr
+        elif isinstance(node, ast.ImportFrom) and node.module == 'numpy':
+            for alias in node.names:
+                if alias.name in REMOVED_IN_NUMPY_2:
+                    yield node.lineno, alias.name
 
 
 def _source_files():
@@ -128,12 +156,10 @@ class TestNoRemovedNumpyApis:
     def test_no_source_file_uses_an_api_numpy_2_removed(self):
         offenders = []
         for path in _source_files():
-            with open(path, encoding='utf-8') as f:
-                for n, line in enumerate(f, 1):
-                    for name in FORBIDDEN.findall(_strip_comment(line)):
-                        rel = os.path.relpath(path, settings.BASE_DIR)
-                        hint = REPLACEMENTS.get(name, 'see the numpy 2 migration guide')
-                        offenders.append('%s:%d uses np.%s - use %s' % (rel, n, name, hint))
+            for n, name in _removed_api_uses(path):
+                rel = os.path.relpath(path, settings.BASE_DIR)
+                hint = REPLACEMENTS.get(name, 'see the numpy 2 migration guide')
+                offenders.append('%s:%d uses np.%s - use %s' % (rel, n, name, hint))
 
         assert not offenders, (
             "numpy 2.0 removed these, and the pin on numpy<2.0 is the only reason "
@@ -183,7 +209,47 @@ class TestNoRemovedNumpyApis:
         assert FORBIDDEN.findall('np.sctypes["float"]') == ['sctypes']
         assert FORBIDDEN.findall('np.bytes0') == ['bytes0']
 
-    def test_comments_may_name_what_they_replaced(self):
-        """Both fixes explain themselves by naming the removed alias."""
-        assert FORBIDDEN.findall(_strip_comment('x = 1  # np.NaN was here')) == []
-        assert FORBIDDEN.findall(_strip_comment('# np.float_ was an alias')) == []
+    def test_a_mention_is_not_a_use(self, tmp_path):
+        """Comments, docstrings and string literals may all name a removed alias.
+
+        Comments could before, by truncating each line at the first `#`.
+        Docstrings and string literals could not, and that is what reported
+        eight violations in `qa/calculation_check.py` and its tests - a file
+        whose job is to scan a site's procedures for these very names.
+        """
+        f = tmp_path / 'mentions.py'
+        f.write_text(textwrap.dedent("""
+            \"\"\"Scans for np.NaN and np.product, which numpy 2 removed.\"\"\"
+            x = 1  # np.NaN was here
+            PATTERN = 'result = numpy.NaN'
+            MESSAGE = "use np.prod instead of np.product"
+            def scan(src):
+                \"\"\"Reports np.float_ by name.\"\"\"
+                return src
+        """), encoding='utf-8')
+
+        assert list(_removed_api_uses(str(f))) == []
+
+    def test_a_real_use_is_still_caught(self, tmp_path):
+        """The control. A guard that reports nothing would pass the test above."""
+        f = tmp_path / 'uses.py'
+        f.write_text(textwrap.dedent("""
+            import numpy as np
+            from numpy import NaN
+            a = np.NaN
+            b = numpy.product([1, 2])
+            c = np.prod([1, 2])
+        """), encoding='utf-8')
+
+        found = sorted(name for _, name in _removed_api_uses(str(f)))
+
+        assert found == ['NaN', 'NaN', 'product'], found
+
+    def test_an_unparseable_file_is_reported_rather_than_skipped(self, tmp_path):
+        """Otherwise a syntax error would read as a clean bill of health."""
+        f = tmp_path / 'broken.py'
+        f.write_text('def f(:\n', encoding='utf-8')
+
+        found = list(_removed_api_uses(str(f)))
+
+        assert len(found) == 1 and 'unparseable' in found[0][1], found
