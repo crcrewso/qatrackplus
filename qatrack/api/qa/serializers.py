@@ -11,6 +11,7 @@ from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.db.transaction import atomic
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django_comments.models import Comment
 from rest_framework import serializers
 from rest_framework.reverse import reverse
@@ -253,7 +254,7 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
         content = data['value']
         if data.get("encoding", "base64") == "base64":
             if not BASE64_RE.match(content):
-                raise serializers.ValidationError("base64 encoding requested but content does not appear to be base64")
+                raise serializers.ValidationError(_("base64 encoding requested but content does not appear to be base64"))
 
             content = base64.b64decode(content)
 
@@ -413,18 +414,20 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
             if self.utc.content_type.model == "testlist" and self.day is None:
                 self.day = 0
             elif self.utc.content_type.model == "testlistcycle" and self.day is None:
-                raise serializers.ValidationError("You must include the 'day' key when performing a Test List Cycle")
+                raise serializers.ValidationError(_("You must include the 'day' key when performing a Test List Cycle"))
 
             try:
                 self.day = int(self.day)
             except TypeError:
-                raise serializers.ValidationError("The 'day' key must be an integer")
+                raise serializers.ValidationError(_("The 'day' key must be an integer"))
 
             min_day, max_day = 0, len(self.utc.tests_object) - 1
             if not (min_day <= self.day <= max_day):
                 raise serializers.ValidationError(
-                    "'%s' is not a valid day for this Test Collection.  "
-                    "Day must be between %s & %s" % (self.day, min_day, max_day)
+                    _(
+                        "'%s' is not a valid day for this Test Collection.  "
+                        "Day must be between %s & %s"
+                    ) % (self.day, min_day, max_day)
                 )
 
             self.day, self.tl = self.utc.get_list(day=self.day)
@@ -441,7 +444,7 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
                 d = validated_data['tests'].get(slug, {})
                 v = d.get("value")
                 if v not in ("", None) and v != cv:
-                    raise serializers.ValidationError("Incorrect constant value passed for %s" % slug)
+                    raise serializers.ValidationError(_("Incorrect constant value passed for %s") % slug)
                 d['value'] = cv
                 validated_data['tests'][slug] = d
             elif type_ == models.UPLOAD:
@@ -467,21 +470,23 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
                 try:
                     fname = d['filename']
                 except KeyError:
-                    raise serializers.ValidationError("%s is missing the filename field" % slug)
+                    raise serializers.ValidationError(_("%s is missing the filename field") % slug)
 
                 content = d['value']
 
                 if d.get("encoding", "base64") == "base64":
                     if not (content and BASE64_RE.match(content)):
                         raise serializers.ValidationError(
-                            "base64 encoding requested but content does not appear to be base64"
+                            _("base64 encoding requested but content does not appear to be base64")
                         )
                     content = base64.b64decode(content)
 
                 f = ContentFile(content, fname)
                 test_data = UploadHandler(user, comp_calc_data, f).process()
                 if test_data['errors']:
-                    raise serializers.ValidationError("Error with %s test: %s" % (slug, '\n'.join(test_data['errors'])))
+                    raise serializers.ValidationError(
+                        _("Error with %s test: %s") % (slug, '\n'.join(test_data['errors']))
+                    )
 
                 self.ti_attachments[slug].append(test_data['attachment_id'])
                 self.ti_attachments[slug].extend([a['attachment_id'] for a in test_data['user_attached']])
@@ -500,7 +505,9 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
 
                 for slug, test_data in results['results'].items():
                     if test_data['error']:
-                        raise serializers.ValidationError("Error with %s test: %s" % (slug, test_data['error']))
+                        raise serializers.ValidationError(
+                            _("Error with %s test: %s") % (slug, test_data['error'])
+                        )
 
                     data = validated_data['tests'].get(slug, {})
                     data['comment'] = '\n'.join(c for c in [data.get("comment", ""), test_data.get("comment")] if c)
@@ -551,7 +558,7 @@ class TestListInstanceCreator(serializers.HyperlinkedModelSerializer):
         user_set_status = validated_data.pop('status', None)
         status = user_set_status or models.TestInstanceStatus.objects.default()
         if status is None:
-            raise serializers.ValidationError("No test instance status available")
+            raise serializers.ValidationError(_("No test instance status available"))
 
         # related return to service
         rtsqa = validated_data.pop('return_to_service_qa', None)
