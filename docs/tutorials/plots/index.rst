@@ -71,7 +71,7 @@ Then fill out the Test fields as follows:
     import matplotlib.style
     import numpy as np
 
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use("seaborn-v0_8")
 
     # read the data and put the x, y values in xs, ys
     xs = []
