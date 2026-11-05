@@ -420,6 +420,12 @@ First, install `uv`:
 
     curl -LsSf https://astral.sh/uv/install.sh | sh
     source $HOME/.local/bin/env
+    uv --version
+
+QATrack+ needs **uv 0.4.27 or later**. Older versions misread QATrack+'s list of
+dependencies, and rather than stopping they quietly rewrite ``uv.lock``, which can
+then get in the way of your next ``git pull``. If ``uv --version`` shows something
+older, update it with ``uv self update``, or with whatever you used to install it.
 
 Creating our virtual environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

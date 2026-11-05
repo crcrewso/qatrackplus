@@ -30,7 +30,12 @@ First, install uv globally:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="/home/$USER/.local/bin:$PATH"
+uv --version
 ```
+
+**QATrack+ needs uv 0.4.27 or later.** An older uv does not stop - it rewrites
+`uv.lock` instead - and the developer guide's *Installing uv* section says what
+that looks like and how to update.
 
 QATrack+ currently runs with the python 3.12 interpreter, as indicated in the `.python-version` file.
 uv considers this file when running commands.

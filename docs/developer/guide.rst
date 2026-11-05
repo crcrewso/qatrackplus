@@ -81,6 +81,14 @@ Install uv using the official installer (recommended):
 
 For other installation methods or troubleshooting, see the full installation guide at https://docs.astral.sh/uv/getting-started/installation/
 
+QATrack+ needs **uv 0.4.27 or later** - the first release that reads the ``dev``
+dependency group in ``pyproject.toml``. An older uv does not stop: it resolves
+without that group and rewrites ``uv.lock``, so a ``git diff`` full of lockfile
+changes you did not make is the sign. ``uv --version`` shows yours, and ``uv self
+update`` (or ``pip install --upgrade uv``) updates it. ``uv sync --locked`` refuses
+instead of rewriting, which is the safer habit when you are not changing
+dependencies.
+
 Setting up your development environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

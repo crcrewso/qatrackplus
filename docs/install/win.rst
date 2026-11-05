@@ -62,6 +62,12 @@ Managing python dependencies and virtual environments can be a bit tricky on Win
    >>  uv --version # this should print the version of uv installed, e.g. 0.11.20
    # Close this PowerShell window we won't need it anymore, and open a new PowerShell window (without Administrator privileges) to continue with the installation.
 
+QATrack+ needs **uv 0.4.27 or later**. Older versions misread QATrack+'s list of
+dependencies, and rather than stopping they quietly rewrite ``uv.lock``, which can
+then get in the way of your next ``git pull``. If ``uv --version`` shows something
+older, update it with ``uv self update``, or with whatever you used to install it
+(for example ``pip install --upgrade uv``).
+
 .. _`install_application_win`:
 
 Setting up the QATrack+ Application
