@@ -698,3 +698,186 @@ To set an initial value for a Datetime test you could use someting like this:
 
     from django.utils import timezone
     your_date_test = timezone.now()  # or some other datetime.datetime instance
+
+
+.. _qa_check_calculations:
+
+Checking Calculation Procedures After an Upgrade
+------------------------------------------------
+
+Calculation procedures run with NumPy, SciPy, pandas, pydicom and the other
+Python libraries that come with QATrack+. That means upgrading QATrack+, or
+just one of those libraries, can break a procedure (or quietly change its
+result) without anything in the procedure itself changing. NumPy 2, for
+example, removed ``np.NaN`` and ``np.product``, and prints its numbers
+differently inside strings.
+
+Rather than performing every test list by hand to find out, you can have
+QATrack+ check all of your procedures for you. Use the **Check Calculation
+Procedures** button at the top of the *Tests* page of the admin, or run this
+from the command line:
+
+.. code-block:: console
+
+    python manage.py check_calculations
+
+Both make the same checks, and neither saves anything.
+
+What is checked
+~~~~~~~~~~~~~~~
+
+Every composite, string composite and file upload test is checked, along with
+any other test whose calculation procedure sets a :ref:`default value
+<qa_default_values>`. Two kinds of check are made:
+
+**Scan.** Each procedure's source code is checked for anything NumPy 2 removed
+or changed, with a suggestion for what to use instead. The scan needs no data,
+takes a moment, and works *before* you upgrade, so you can fix procedures ahead
+of time.
+
+**Recalculate.** The most recent saved result of each test, on each unit it is
+assigned to, is calculated again from the values that were saved with it (just
+as if that test list had been opened for editing) and compared with the result
+that was saved. This is the definitive check once an upgrade is installed, and
+it catches changes that no scan can, like a string composite whose text now
+reads ``np.float64(1.5)`` instead of ``1.5``. While procedures run, any warning
+a library gives about something it is going to remove or change is reported
+too. pandas, for example, warns about many of its version 3 changes this way.
+
+Upload tests are recalculated from the file that was uploaded. To check an
+upload test that has never been performed, or whose uploaded files have since
+been deleted, open the test in the admin and add a sample file under
+*Attachments*, with a *Label* that starts with ``check_calculations``. Every file
+labelled this way is run through the test's procedure. Like any file attached to
+a test, it will also be listed with the test's procedure when QC is performed.
+
+Understanding the results
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Each test is given one of these statuses:
+
+Broken
+    The procedure isn't valid Python, failed when it was recalculated, or uses
+    something that the installed NumPy doesn't have. This test will fail when
+    QC is performed.
+
+Changed
+    The procedure ran, but gave a different result from the one that was saved.
+    Numbers are compared to about nine significant figures. Check that the new
+    result is still correct before the test is next performed.
+
+Warning
+    The procedure uses something NumPy 2 removed or changed, or a library warned
+    about it while it ran. It works now, but will probably break (or give a
+    different result) after the next upgrade.
+
+Not recalculated
+    There was nothing to recalculate it from. It has never been performed on a
+    unit it is currently assigned to, its recent results were all skipped, or
+    the file uploaded for it is gone.
+
+OK
+    Nothing was found.
+
+A result can also show as *Changed* for reasons that have nothing to do with an
+upgrade: the procedure, or a reference or tolerance it uses, may have been
+edited since the result was saved, or the procedure may depend on the current
+date and time.
+
+A good routine for any upgrade is to run the check first and fix what it warns
+about, then upgrade (on a test server first, if you have one) and run it again.
+Saving the report with ``--output`` gives you a list to work through while you
+edit the tests in the admin:
+
+.. code-block:: console
+
+    python manage.py check_calculations --output calculation-check.txt
+
+Common NumPy 2 changes
+~~~~~~~~~~~~~~~~~~~~~~
+
+The scan suggests a replacement for everything it finds. The changes most
+likely to affect QA procedures are:
+
+========================================= =====================================
+NumPy 1                                   NumPy 2
+========================================= =====================================
+``np.NaN``                                ``np.nan``
+``np.Inf``, ``np.infty``, ``np.PINF``     ``np.inf``
+``np.float_``                             ``np.float64``
+``np.product``, ``np.cumproduct``         ``np.prod``, ``np.cumprod``
+``np.trapz``                              ``scipy.integrate.trapezoid``
+``np.round_``                             ``np.round``
+``np.alltrue``, ``np.sometrue``           ``np.all``, ``np.any``
+``np.in1d``                               ``np.isin``
+``arr.ptp()``                             ``np.ptp(arr)``
+``np.array(values, copy=False)``          ``np.asarray(values)``
+========================================= =====================================
+
+NumPy 2 also prints its numbers differently inside lists and other containers:
+``str([np.float64(1.5)])`` gives ``[np.float64(1.5)]`` rather than ``[1.5]``.
+This changes the text of any string composite that puts NumPy numbers into a
+string that way, so convert them to plain Python numbers first, with
+``arr.tolist()`` or ``float(x)``. Printing a single number, e.g. with
+``"%.2f" % x`` or ``str(x)``, is unaffected.
+
+Command line options
+~~~~~~~~~~~~~~~~~~~~
+
+``python manage.py check_calculations`` lists every test that has a problem,
+followed by a summary. It exits with status 1 if any test is broken, so it can
+be used in an upgrade script. Useful options include:
+
+``--scan-only``
+    Only scan the procedures, without recalculating anything.
+
+``--test TEST``
+    Only check one test, given by its ID, macro name or name. May be repeated.
+
+``--test-list ID``
+    Only check the tests in one test list (including its sublists). May be
+    repeated.
+
+``--type TYPE``
+    Only check one type of test: ``composite``, ``scomposite``, ``upload``, or
+    ``default`` for other tests whose procedure sets a default value. May be
+    repeated.
+
+``--unit NUMBER``
+    Only recalculate results saved for one unit. May be repeated.
+
+``--output FILE``
+    Save the report to a file instead of printing it, so you have something to
+    work from while you fix the tests in the admin. Only a summary is printed.
+
+``--format csv`` or ``--format json``
+    Write the results as CSV or JSON instead of text, e.g. to open in a
+    spreadsheet, or to compare the results from before and after an upgrade.
+
+``--strict``
+    Also exit with status 1 when a result changed or a warning was found.
+
+``--rtol`` and ``--atol``
+    The relative and absolute tolerances used to compare numbers (by default
+    ``1e-9`` and ``1e-12``).
+
+``-v 2``
+    List every test and every result, including those that are OK, along with
+    the full traceback of any error.
+
+Things to be aware of
+~~~~~~~~~~~~~~~~~~~~~
+
+* Nothing is saved: no results are changed, files written with
+  ``UTILS.write_file`` are thrown away, and anything a procedure does to the
+  database is undone. However, procedures run exactly as they do when QC is
+  performed, so anything a procedure does outside of QATrack+, like writing a
+  file to a network share, will happen again.
+
+* Recalculating upload tests can take a while if their analysis is slow. The
+  admin page recalculates one result at a time and shows its progress, so it
+  can be left to run.
+
+* Only the most recent result on each unit is recalculated. A procedure with a
+  branch that only runs for unusual values may not have that branch tested, so
+  pay attention to the warnings from the scan as well.

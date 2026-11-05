@@ -117,6 +117,12 @@ class CompositeUtils:
         # tests that were skipped by calculation procedure
         self.changed_skips = {}
 
+        # A saved test list instance to leave out of the history lookups
+        # below. Set when an existing instance is recalculated (see
+        # qatrack.qa.calculation_check), so that it isn't found as its own
+        # "previous" result.
+        self.exclude_test_list_instance_id = None
+
     def set_comment(self, comment):
         self.context["__comment__"] = self.comment_text(comment)
 
@@ -180,6 +186,8 @@ class CompositeUtils:
         )
         if not include_in_progress:
             qs = qs.exclude(in_progress=True)
+        if self.exclude_test_list_instance_id is not None:
+            qs = qs.exclude(pk=self.exclude_test_list_instance_id)
 
         try:
             return qs.latest("work_completed")
@@ -210,6 +218,8 @@ class CompositeUtils:
             qs = qs.exclude(test_list_instance__in_progress=True)
         if exclude_skipped:
             qs = qs.exclude(skipped=True)
+        if self.exclude_test_list_instance_id is not None:
+            qs = qs.exclude(test_list_instance_id=self.exclude_test_list_instance_id)
 
         try:
             return qs.latest("work_completed")
@@ -261,6 +271,9 @@ class CompositeUtils:
             unit_number = self.unit.number
 
         qs = qs.filter(unit_test_info__unit__number=unit_number)
+
+        if self.exclude_test_list_instance_id is not None:
+            qs = qs.exclude(test_list_instance_id=self.exclude_test_list_instance_id)
 
         try:
             return qs.latest("work_completed")
