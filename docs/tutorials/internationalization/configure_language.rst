@@ -66,8 +66,6 @@ Create or edit your ``qatrack/local_settings.py`` file to configure the language
         # Add more languages as needed
     ]
 
-    # Optional: Set default language for new users
-    DEFAULT_LANGUAGE = 'en'
 
 Step 3: Language Detection
 --------------------------

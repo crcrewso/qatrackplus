@@ -13,7 +13,7 @@ assurance <https://aapm.onlinelibrary.wiley.com/doi/abs/10.1118/1.2001209>`__).
     data
 
 To access the chart interface choose the **Charts** menu item from the
-**Review Data** dropdown menu at the top of any page.
+**Trends and Analysis** dropdown menu at the top of any page.
 
 .. figure:: images/charts_menu.png
    :alt: Charts option of the Trends and Analysis menu
