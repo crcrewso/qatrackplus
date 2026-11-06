@@ -587,7 +587,7 @@ def check_migrations(argv: list[str]) -> int:
     return status.returncode
 
 
-def ci_reminder(argv: list[str]) -> int:
+def pre_push_reminder(argv: list[str]) -> int:
     _say(
         '',
         'Locally green. Still only run by CI:',
@@ -783,7 +783,7 @@ VERBS = {
     'lint': lint,
     'format-changed': format_changed,
     'check-migrations': check_migrations,
-    'ci-reminder': ci_reminder,
+    'pre-push-reminder': pre_push_reminder,
     'dev-init': dev_init,
     'dev-clean': dev_clean,
     'dump-data': dump_data,

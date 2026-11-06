@@ -67,7 +67,7 @@ accountability this whole policy is about.
 | **Frontend** | Server-rendered Django templates with HTMX and jQuery. No build step, no Node.js — a Vue/Vite bundle was retired and is expected back no earlier than 4.1 |
 | **Linter / formatter** | [ruff](https://docs.astral.sh/ruff/) |
 | **Test runner** | pytest (`uv run pytest` — GUI tests are skipped by default, see [Running the tests](#running-the-tests)) |
-| **Task runner** | [poe](https://poethepoet.natn.io/) (poethepoet), in the `dev` dependency group — `uv run poe` lists the tasks; `uv run poe ci` is the pre-push check |
+| **Task runner** | [poe](https://poethepoet.natn.io/) (poethepoet), in the `dev` dependency group — `uv run poe` lists the tasks; `uv run poe pre-push` is the pre-push check |
 | **Docs** | Sphinx — `uv run poe docs` from repo root (fails on any warning, as CI does) |
 | **Target branch** | `develop` (not `master`) |
 
@@ -198,7 +198,7 @@ task with a one-line description; `uv run poe <task>` runs one. Tasks are
 defined in `poe_tasks/*.toml`, one file per theme, and `pyproject.toml` only
 lists those files under `[tool.poe] include`. The ones an agent needs:
 
-- `uv run poe ci` - the pre-push check: pre-commit over every file, the
+- `uv run poe pre-push` - the pre-push check: pre-commit over every file, the
   lockfile check, the strict docs build, then the suite. Run it before saying
   a change is ready.
 - `uv run poe test` - the suite with the GUI tests skipped; `uv run poe docs` -
@@ -249,7 +249,7 @@ Import ordering is enforced (`ruff` rule set `I`).
 Before opening a PR, run the checks CI will run, in one command:
 
 ```bash
-uv run poe ci     # pre-commit over every file, lockfile check, strict docs build, full suite
+uv run poe pre-push     # pre-commit over every file, lockfile check, strict docs build, full suite
 ```
 
 ---

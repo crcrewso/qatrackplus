@@ -244,7 +244,7 @@ generated from those same help lines at every docs build:
 
    * - Task
      - What it does
-   * - ``poe ci``
+   * - ``poe pre-push``
      - **Run before you push.** The CI checks that work on a dev machine, in
        order: the pre-commit suite over every file, the lockfile check, the
        documentation build, then the test suite.
@@ -965,8 +965,8 @@ Task definitions live under ``poe_tasks/``, one file per theme, rather than
 directly in ``pyproject.toml``: ``dev.toml`` (dev environment setup),
 ``tests.toml`` (running the suite, GUI/Selenium variants), ``coverage.toml``,
 ``docs.toml`` (Sphinx and the schema diagram), ``data.toml`` (fixtures and
-destructive data commands), ``ci.toml`` (the ``poe ci`` pre-push check and its
-parts), ``test_databases.toml`` (throwaway database servers for
+destructive data commands), ``pre_push.toml`` (the ``poe pre-push`` check and
+its parts), ``test_databases.toml`` (throwaway database servers for
 ``test-engine``) and ``translations.toml`` (the gettext catalogues).
 ``pyproject.toml`` itself only lists them, via ``[tool.poe] include``; it
 never grew a ``[tool.poe.tasks.*]`` table of its own. This split exists purely
@@ -1032,7 +1032,7 @@ helper: ``django-postgres-extra`` has public ``lint``, ``lint_fix`` and
 
 - **public task, purpose name:** ``lint``, ``format-changed``, ``test``,
   ``docs``, ``deps``;
-- **private helper, tool name if it helps:** ``_ci-reminder``, ``_dev-clean``,
+- **private helper, tool name if it helps:** ``_pre-push-reminder``, ``_dev-clean``,
   ``_extract-messages``, and anything else a composite task calls but nobody
   runs directly.
 
@@ -1568,7 +1568,7 @@ browser (at http://127.0.0.1:8008) by running one of the following commands:
     sphinx-autobuild docs docs/_build/html --port 8008
 
 The documentation build treats warnings as errors, so a build that reports a
-warning fails. ``poe docs`` is that build, and ``poe ci`` runs it; run one of
+warning fails. ``poe docs`` is that build, and ``poe pre-push`` runs it; run one of
 them before you push. The command underneath is:
 
 .. code-block:: shell

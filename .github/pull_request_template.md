@@ -33,11 +33,11 @@ _Confirm which branch this targets (e.g. master)._
 ### Coder Tasks
 
 - [ ] Rebased / merged `develop` branch; no merge conflicts.
-- [ ] `uv run poe ci` passes. It is four tasks in order, cheapest first, so a
+- [ ] `uv run poe pre-push` passes. It is four tasks in order, cheapest first, so a
   failure can be re-run on its own: `poe lint` (the pre-commit suite over every
   file), `poe deps` (the lockfile and installed packages), `poe docs` (the
   documentation build, failing on any warning) and `poe test` (the suite).
-- [ ] Lint and formatting fixes, if `poe ci` reported any:
+- [ ] Lint and formatting fixes, if `poe pre-push` reported any:
   - `uv run poe lint --fix` applies ruff's automatic lint fixes.
   - `uv run poe format-changed` formats only what this branch changed. It works
     the file list out from git — this branch's commits plus anything

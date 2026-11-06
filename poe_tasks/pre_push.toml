@@ -1,11 +1,14 @@
 # ==========================================================================
-# CI checks
+# The pre-push check
 # ==========================================================================
 #
-# `ci` exists so that "will CI pass?" has an answer you can get before
-# pushing. It is deliberately not all of CI: the workflow also runs the suite
-# against postgres/mysql/mssql, on Windows, against a built Docker stack, and
-# through Selenium on two browsers. Those need services, another operating
+# `pre-push` exists so that "will CI pass?" has an answer you can get before
+# pushing. It is not named `ci`, because it is not CI but the local
+# approximation of it - Cody, 2026-11-06: `ci` is reserved for driving the real
+# workflows, and `check` would read as `manage.py check`. It is deliberately
+# not all of CI: the workflow also runs the suite against postgres/mysql/mssql,
+# on Windows, against a built Docker stack, and through Selenium on two
+# browsers. Those need services, another operating
 # system or a browser, so they stay where they are and get their own tasks
 # (test-engine, test-integration, test-gui-*). What is left - lint, the
 # dependency check, the docs build and the suite on the default database - is
@@ -24,9 +27,9 @@
 # this file holds names, help lines and declared arguments. See *Adding a new
 # poe task* in docs/developer/guide.rst for why.
 
-[tasks.ci]
-help = "Run the CI checks a dev machine can: lint, deps, docs, then the suite"
-sequence = ["lint", "deps", "docs", "test", "_ci-reminder"]
+[tasks.pre-push]
+help = "Run before you push: lint, deps, docs, then the suite, in CI's order"
+sequence = ["lint", "deps", "docs", "test", "_pre-push-reminder"]
 
 
 # `lint` runs pre-commit; `lint --fix` runs ruff's automatic fixes instead.
@@ -76,13 +79,13 @@ sequence = [
 ]
 
 
-[tasks._ci-reminder]
-help = "(internal) printed after a green `poe ci`"
-cmd = "python -m poe_tasks ci-reminder"
+[tasks._pre-push-reminder]
+help = "(internal) printed after a green `poe pre-push`"
+cmd = "python -m poe_tasks pre-push-reminder"
 
 
 # The two checks the pull request template asks an author to run by hand. They
-# are deliberately NOT in the `ci` sequence: `ci` is the part of GitHub Actions
+# are deliberately NOT in the `pre-push` sequence: that is the part of GitHub Actions
 # you can reproduce locally, and the workflow runs neither of these. Both are
 # named `check-<thing>` after `check-messages`, and both report rather than
 # merely exit.

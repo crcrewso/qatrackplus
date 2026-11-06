@@ -192,7 +192,7 @@ that does: the shipped templates name a separate test database on purpose.
 Before opening a PR, run the checks CI will run, in one command:
 
 ```bash
-uv run poe ci     # pre-commit over every file, lockfile check, strict docs build, full suite
+uv run poe pre-push     # pre-commit over every file, lockfile check, strict docs build, full suite
 ```
 
 `poe` (poethepoet) is the project's task runner, in the `dev` dependency

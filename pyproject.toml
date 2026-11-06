@@ -303,7 +303,7 @@ quote-style = "single"
 # `pytest`/`python` directly rather than re-prefixing with `uv run`.
 #
 # The task definitions themselves live under poe_tasks/, one file per
-# theme (ci.toml, dev.toml, tests.toml, coverage.toml, docs.toml, data.toml,
+# theme (pre_push.toml, dev.toml, tests.toml, coverage.toml, docs.toml, data.toml,
 # test_databases.toml, translations.toml, make_compat.toml), pulled in below
 # via `[tool.poe] include`. Anything with logic is Python in poe_tasks/cli.py,
 # run as `python -m poe_tasks <verb>` from a `cmd` task; the TOML holds names,
@@ -395,7 +395,7 @@ quote-style = "single"
 # ---------------------------------------------------------------------------
 [tool.poe]
 include = [
-    "poe_tasks/ci.toml",
+    "poe_tasks/pre_push.toml",
     "poe_tasks/dev.toml",
     "poe_tasks/tests.toml",
     "poe_tasks/coverage.toml",
