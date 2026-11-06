@@ -19,6 +19,17 @@ def pytest_addoption(parser):
             "Chromium or Firefox installed on the host. Skipped by default."
         ),
     )
+    parser.addoption(
+        '--shuffle',
+        action='store_true',
+        default=False,
+        help=(
+            "Run the tests in a random order, to find tests that depend on "
+            "each other. Off by default: the suite does not pass shuffled yet "
+            "(see .github/workflows/order-independence.yml). Add "
+            "--randomly-seed=N to repeat a particular order."
+        ),
+    )
 
 
 def pytest_configure(config):
@@ -36,6 +47,58 @@ def pytest_configure(config):
         )
 
     _warn_if_no_local_test_settings(config)
+    _apply_shuffle_choice(config)
+
+
+def _apply_shuffle_choice(config):
+    """Shuffle only when asked, and say so when asked.
+
+    pytest-randomly shuffles on *every* invocation from the moment it is
+    installed, with a fresh seed each time. It is here for the
+    order-independence job, which wants exactly that; it is not wanted on a
+    bare `pytest`, because the suite does not pass shuffled yet and an
+    arbitrary subset of failures per run is indistinguishable from a
+    regression. One session was spent reading five different shuffles of one
+    tree as five different trees.
+
+    This was previously done with `-p no:randomly` in `addopts`, which turned
+    the plugin off entirely. That made the default deterministic, but it also
+    made the opt-in a usage error: with the plugin unloaded, `pytest
+    --randomly-seed=1` exits 120 with `unrecognized arguments`, so the way to
+    shuffle was to know to write `-p randomly` first. Leaving the plugin loaded
+    and switching off only its reordering keeps `--randomly-seed` available,
+    and keeps the per-test reseeding of `random` that the plugin also does.
+
+    `randomly_reorganize` is pytest-randomly's own option, the one
+    `--randomly-dont-reorganize` sets. Touching it rather than shipping that
+    flag in `addopts` is what allows a positive `--shuffle` to turn it back on.
+    """
+    if not hasattr(config.option, 'randomly_reorganize'):
+        # pytest-randomly is a dev dependency; a --no-dev install has no plugin
+        # to configure and nothing to shuffle.
+        return
+    config.option.randomly_reorganize = bool(config.getoption('--shuffle'))
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Name the order a shuffled run used, where `-q` cannot swallow it.
+
+    pytest-randomly announces its seed in pytest's header, and `-q` - which
+    `addopts` carries - suppresses the header, and `pytest_report_header` with
+    it. So a shuffled run left no record of the order it used and a failure
+    could not be repeated. The terminal summary is printed either way, and it
+    is next to the failures, which is where somebody needs the seed.
+
+    Nothing is printed for an ordinary run: the default is the source order and
+    saying so every time would be noise.
+    """
+    if not getattr(config.option, 'randomly_reorganize', False):
+        return
+    terminalreporter.write_line(
+        'test order: SHUFFLED. Repeat it with: pytest --shuffle --randomly-seed=%s'
+        % config.option.randomly_seed,
+        bold=True,
+    )
 
 
 def _warn_if_no_local_test_settings(config):

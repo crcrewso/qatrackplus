@@ -164,7 +164,7 @@ python_files = ["test_*.py", "*_test.py", "tests.py"]
 # The shuffle is meant to be opt-in until the suite can pass it - the
 # order-independence workflow already asks for it explicitly with `-p randomly`,
 # which is the shape the plugin was added for. This restores that.
-addopts = "-ra -q -p no:randomly"
+addopts = "-ra -q"
 django_find_project = true
 DJANGO_SETTINGS_MODULE = "qatrack.settings"
 markers = [

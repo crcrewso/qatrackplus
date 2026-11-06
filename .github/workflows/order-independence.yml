@@ -194,7 +194,12 @@ jobs:
           # skipped rather than deselected, so they take part in the shuffled
           # order without running - which is what we want, since a module being
           # imported is itself a thing that can leave state behind.
-          uv run pytest -p django -p randomly \
+          # `--shuffle` is what turns the shuffle on; `-p django -p randomly`
+          # still has to be here, and in that order, because it fixes which
+          # plugin registers last and therefore which of the two sorts wins.
+          # conftest.py owns the on/off switch, not the plugin's presence, so a
+          # bare `pytest` is in source order and this line is the opt-in.
+          uv run pytest --shuffle -p django -p randomly \
             --randomly-seed="${{ steps.seed.outputs.seed }}" 2>&1 | tee run.log
 
       - name: Say how to reproduce it
@@ -220,7 +225,7 @@ jobs:
             echo "Reproduce locally:"
             echo
             echo '```bash'
-            echo "uv run pytest -p django -p randomly --randomly-seed=$USED_SEED"
+            echo "uv run pytest --shuffle -p django -p randomly --randomly-seed=$USED_SEED"
             echo '```'
             echo
             echo "A failure here is a test depending on another test, not a flaky"

@@ -128,20 +128,80 @@ class TestTheGuiTestsAreLeftOutTheCurrentWay:
 
 
 class TestAnOrdinaryRunIsStillDeterministic:
+    """pytest-randomly turns itself on as soon as it is installed.
 
-    def test_the_default_addopts_keep_the_shuffle_off(self):
-        """pytest-randomly turns itself on as soon as it is installed.
+    Adding it as a dev dependency silently turned a bare `pytest`, and all
+    eight CI test jobs, into a different order every time with a fresh seed and
+    no record of it - which is how CI came to fail once on a unique-constraint
+    collision that no local run reproduced, and how a later session came to
+    read five shuffles of one tree as five different trees.
 
-        Adding it as a dev dependency silently turned a bare `pytest`, and all
-        eight CI test jobs, into a different order every time with a fresh seed
-        and no record of it - which is how CI came to fail once on a
-        unique-constraint collision that no local run reproduced. The shuffle is
-        meant to be asked for, and this job is what asks.
-        """
+    This used to be held off with `-p no:randomly` in `addopts`, and these
+    tests asserted that string. That is no longer the mechanism: the pin turned
+    the plugin off outright, which also made the opt-in a usage error -
+    `pytest --randomly-seed=1` exited 120 with `unrecognized arguments`,
+    because the plugin that defines the option was not loaded. conftest.py now
+    leaves the plugin loaded and switches off only its reordering, so
+    `--shuffle` can switch it back on.
+
+    What is asserted here is the invariant, not the implementation: an ordinary
+    run is in source order, asking shuffles, and a shuffled run says which
+    order it used.
+    """
+
+    @staticmethod
+    def conftest():
+        return (REPO_ROOT / 'conftest.py').read_text(encoding='utf-8')
+
+    def test_addopts_no_longer_disables_the_plugin_outright(self):
+        """Because that is what made `--randomly-seed` an error."""
         pyproject = (REPO_ROOT / 'pyproject.toml').read_text()
         addopts = re.search(r'^addopts\s*=\s*"([^"]*)"', pyproject, re.MULTILINE)
         assert addopts, 'no addopts found in pyproject.toml'
-        assert '-p no:randomly' in addopts.group(1), (
-            'addopts is %r; without `-p no:randomly` every bare pytest run and '
-            'every CI job shuffles' % addopts.group(1)
+        assert '-p no:randomly' not in addopts.group(1), (
+            "addopts is %r. `-p no:randomly` unloads the plugin, which takes "
+            "`--randomly-seed` away with it - conftest.py switches the reordering "
+            "off instead, and leaves the option available." % addopts.group(1)
         )
+
+    def test_conftest_turns_the_reordering_off_unless_asked(self):
+        source = self.conftest()
+        assert "'--shuffle'" in source, (
+            'conftest.py no longer offers --shuffle, so there is no way to ask for a '
+            'shuffled run without knowing to write `-p randomly` first'
+        )
+        assert 'randomly_reorganize' in source, (
+            "conftest.py no longer touches pytest-randomly's `randomly_reorganize`, so "
+            'a bare `pytest` shuffles again'
+        )
+        assert re.search(
+            r"config\.option\.randomly_reorganize\s*=\s*bool\(\s*config\.getoption\('--shuffle'\)\s*\)",
+            source,
+        ), (
+            'the link between --shuffle and the reordering is not the single assignment '
+            'this test can check; if it has been rewritten, re-read it and update this'
+        )
+
+    def test_a_shuffled_run_says_which_order_it_used(self):
+        """`-q` eats the header pytest-randomly announces its seed in."""
+        source = self.conftest()
+        assert 'pytest_terminal_summary' in source, (
+            'conftest.py no longer reports the seed in the terminal summary, so a '
+            'shuffled failure cannot be repeated: `addopts` carries `-q`, which '
+            "suppresses both pytest's header and `pytest_report_header`"
+        )
+        assert '--randomly-seed=%s' in source, (
+            'the summary no longer prints the seed itself, which is the only part of it '
+            'that lets somebody repeat the order'
+        )
+
+    def test_the_job_asks_for_the_shuffle_the_way_a_person_would(self):
+        """The workflow is also the documentation for how to run this locally."""
+        shuffled = [line for line in pytest_invocations() if '-p randomly' in line]
+        assert shuffled, 'no invocation in the workflow enables pytest-randomly'
+        for line in shuffled:
+            assert '--shuffle' in line, (
+                'the workflow enables the plugin with `-p randomly` but never asks for '
+                'the shuffle with `--shuffle`, so conftest.py leaves the reordering off '
+                'and the job measures the ordinary order: %r' % line
+            )
