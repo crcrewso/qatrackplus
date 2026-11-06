@@ -109,6 +109,24 @@ class TestTheReproduceLineRunsWhatTheJobRan:
             )
 
 
+class TestTheGuiTestsAreLeftOutTheCurrentWay:
+
+    def test_no_invocation_uses_the_deprecated_marker_form(self):
+        """`-m "not selenium"` still works, and warns, and goes away in 4.2.
+
+        Plain pytest has skipped the GUI tests by default since #867, which is
+        the whole point of that change - the marker expression needed quoting on
+        every shell, and any *other* expression (`-m "not slow"`) used to start
+        a real browser nobody asked for. A workflow that keeps telling people to
+        write the deprecated form outlives the deprecation.
+        """
+        for line in pytest_invocations():
+            assert 'not selenium' not in line, (
+                '`-m "not selenium"` is deprecated for removal in 4.2; plain '
+                'pytest already skips the GUI tests: %s' % line
+            )
+
+
 class TestAnOrdinaryRunIsStillDeterministic:
 
     def test_the_default_addopts_keep_the_shuffle_off(self):

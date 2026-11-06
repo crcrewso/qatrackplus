@@ -172,7 +172,14 @@ jobs:
           # `-p django -p randomly` pins the registration order, and so pins
           # which independence this job tests. See the header. Dropping either
           # name makes the result depend on the runner's entry-point order.
-          uv run pytest -m "not selenium" -p django -p randomly \
+          #
+          # No `-m "not selenium"`: plain pytest has skipped the GUI tests by
+          # default since #867, and the marker form now raises a deprecation
+          # warning of its own (removal in 4.2). The tests are collected and
+          # skipped rather than deselected, so they take part in the shuffled
+          # order without running - which is what we want, since a module being
+          # imported is itself a thing that can leave state behind.
+          uv run pytest -p django -p randomly \
             --randomly-seed="${{ steps.seed.outputs.seed }}" 2>&1 | tee run.log
 
       - name: Say how to reproduce it
@@ -193,7 +200,7 @@ jobs:
             echo "Reproduce locally:"
             echo
             echo '```bash'
-            echo "uv run pytest -m \"not selenium\" -p django -p randomly --randomly-seed=$USED_SEED"
+            echo "uv run pytest -p django -p randomly --randomly-seed=$USED_SEED"
             echo '```'
             echo
             echo "A failure here is a test depending on another test, not a flaky"
