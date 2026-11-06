@@ -718,11 +718,16 @@ table ul.multiselect-container.dropdown-menu {
 
    A translucent black rather than a fixed grey, so the tint sits on whatever is
    behind it - the admin's white, the dashboard's grey panel, a modal - instead
-   of only on one of them. 2.5% is deliberately faint: it has to group rows
-   without competing with the colours that carry meaning elsewhere in QATrack+,
-   where a background says pass, tolerance or action. */
+   of only on one of them. 5% is faint on purpose: it has to group rows without
+   competing with the colours that carry meaning elsewhere in QATrack+, where a
+   background says pass, tolerance or action. It started at 2.5%, which was too
+   faint to read as rows at all on a bright screen; 7% lands on #ededed, which
+   is the shade the QC pages already use to say "you are here".
+
+   qa/css/qa.css reuses this value for the QC tables, and a test pins the two
+   to each other. */
 .form-group.form-row-even {
-    background-color: rgba(0, 0, 0, 0.025);
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* The one layout change: a row needs a little room inside the tint, or the
