@@ -25,18 +25,61 @@
 # It does NOT catch a test that depends on the order a *database* returns rows
 # in - that is a property of the query, not of the test order, and the fix is an
 # explicit `order_by` (see `unit_test_info_pairs` in qa/tests/test_models.py).
+#
+# WHICH INDEPENDENCE - Cody, 2026-11-06:
+#
+# Independence *within* Django's own ordering guarantee, not independence from
+# it. Django's test runner promises that every `TestCase` runs before every
+# `TransactionTestCase`, and pytest-django keeps that promise with a sort of its
+# own. This job shuffles inside that sort rather than over it.
+#
+# That is why the pytest line below names both plugins, in that order, instead
+# of letting the environment supply them. The order the two are *registered* in
+# decides whether the sort survives, and it is not the same on every machine:
+# between two `tryfirst` hooks pluggy calls the last-registered first, so
+# pytest-randomly registered last shuffles first and pytest-django sorts
+# afterwards (the sort survives), while pytest-randomly registered first lets
+# pytest-django sort and then undoes it. Entry-point discovery order differs
+# between hosts, so an unpinned run is a different test on different machines.
+#
+# Measured on one tree (`bc0fcbd0`), one seed, two platforms - Windows
+# 2026-11-05 (crane), Linux 2026-11-06 (jackdaw), identical counts both times:
+#
+#   -p django -p randomly  ->  0 failed
+#   -p randomly -p django  ->  2 failed
+#
+# The two are one defect seen twice:
+#
+#   accounts/tests/test_accounts.py::TestAdminFilter::test_queryset_no
+#   qatrack_core/tests/test_sample_data.py::TestSampleDataGenerator::test_partially_loaded_default_fixtures
+#
+# Both read a user row that a freshly migrated database carries, and a
+# `TransactionTestCase` truncates it without putting it back - which is the very
+# thing Django's ordering guarantee exists to prevent. Testing independence from
+# that guarantee as well is a deliberate future step rather than an oversight:
+# it means `-p randomly -p django` here and fixing those two to stop borrowing a
+# user they did not create, plus ten further tests that borrow one the same way.
 name: Order independence
 
-# The schedule is deliberately commented out. Measured on 2026-10-19, before
-# this file was written: the suite does NOT pass shuffled. Seeds 1 and 2 each
-# give 15 failures - 14 in notifications/service_log_review/test_ser.py and one
-# in qatrack_core/tests/test_sample_data.py - and they need the *whole* suite's
-# order to appear, since those files pass when shuffled on their own. So
-# something earlier in a full run leaves state behind.
+# The schedule is deliberately commented out, and what is left to do before it
+# can be turned on has changed twice.
 #
-# Turning the schedule on before those are fixed would mean a nightly red that
-# nobody can act on, which is the failure mode this file's header warns about.
-# Fix them, run this by hand until it is green twice, then uncomment.
+# Measured 2026-10-19, before this file was written: the suite did NOT pass
+# shuffled - 15 failures at each of seeds 1 and 2, 14 of them in
+# notifications/service_log_review/test_ser.py. Those needed the *whole* suite's
+# order to appear, so something earlier in a full run was leaving state behind;
+# `TestServiceEventReviewEmails.setUp` taking a user with `User.objects.latest`
+# that it never created was most of it, and fixing that took 15 to 2.
+#
+# Measured 2026-11-06, with the plugin order pinned as described above: 0
+# failed at seed 1. The remaining 2 were the sort being undone, not the suite
+# being order-dependent.
+#
+# So the failure count is no longer what is holding the schedule back. What is
+# left is this job's own precondition: run it by hand until it is green twice -
+# on the runner, not on a developer's machine - then uncomment. Turning it on
+# before that would risk a nightly red that nobody can act on, which is the
+# failure mode this file's header warns about.
 #
 #  schedule:
 #    - cron: "30 4 * * *"
@@ -126,7 +169,10 @@ jobs:
         id: shuffled
         run: |
           set -o pipefail
-          uv run pytest -m "not selenium" -p randomly \
+          # `-p django -p randomly` pins the registration order, and so pins
+          # which independence this job tests. See the header. Dropping either
+          # name makes the result depend on the runner's entry-point order.
+          uv run pytest -m "not selenium" -p django -p randomly \
             --randomly-seed="${{ steps.seed.outputs.seed }}" 2>&1 | tee run.log
 
       - name: Say how to reproduce it
@@ -147,7 +193,7 @@ jobs:
             echo "Reproduce locally:"
             echo
             echo '```bash'
-            echo "uv run pytest -m \"not selenium\" -p randomly --randomly-seed=$USED_SEED"
+            echo "uv run pytest -m \"not selenium\" -p django -p randomly --randomly-seed=$USED_SEED"
             echo '```'
             echo
             echo "A failure here is a test depending on another test, not a flaky"
