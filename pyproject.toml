@@ -186,7 +186,7 @@ dev = [
     # and that Windows has no Make. Measured 2026-11-03, and neither holds:
     # `docs/install/` contains **no** reference to poe, nor does `deploy/` or
     # the Docker entrypoint, so nothing tells a site to run a poe task; the four
-    # deployment tasks that were the reason are all marked `WIP-`, are Ubuntu
+    # deployment tasks that were the reason are all marked `WIP`, are Ubuntu
     # and sudo only, and have never been exercised; and `compile-messages` needs
     # msgfmt, which the Docker runtime image does not carry. The Windows
     # argument is about developers, who get the dev group by default.

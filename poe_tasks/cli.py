@@ -146,9 +146,18 @@ def cover(argv: list[str]) -> int:
     exits 4, which looks like a module with no tests.
     """
     own, extras = _split_extras(argv)
-    parser = argparse.ArgumentParser(prog='poe cover', add_help=False)
-    parser.add_argument('path', nargs='?', default=None)
-    parser.add_argument('--skip-covered', action='store_true')
+    parser = argparse.ArgumentParser(
+        prog='poe cover',
+        description='Run the suite with a coverage report (pytest --reuse-db --cov).',
+        epilog='Anything else is passed to pytest: poe cover qatrack/qa -k test_x -x',
+    )
+    parser.add_argument(
+        'path',
+        nargs='?',
+        default=None,
+        help='a path such as qatrack/units: run its tests and report its coverage (default: everything)',
+    )
+    parser.add_argument('--skip-covered', action='store_true', help='leave fully covered files out of the report')
     args, unknown = parser.parse_known_args(own)
     report = 'term-missing:skip-covered' if args.skip_covered or _flag('skip_covered') else 'term-missing'
     cmd = ['--reuse-db', '--cov-report', report, '--cov', args.path or './']

@@ -74,7 +74,7 @@
 # --------------------------------------------------------------------------
 
 [tasks.make-test]
-help = "The suite, as `make test` runs it (GUI/Selenium tests skipped)"
+help = "The suite, as `make test` runs it (GUI tests skipped)"
 ref = "test"
 
 
@@ -83,37 +83,37 @@ ref = "test"
 # Makefile for scripts and muscle memory, so the mirror is kept too, and both
 # point at the same place rather than at a copy.
 [tasks.make-test_simple]
-help = "The same thing as `make test` - kept because scripts still call it"
+help = "The same as `make test`; kept because scripts still call it"
 ref = "test"
 
 
 [tasks.make-test-sqlite]
-help = "The suite against qatrack/local_test_settings.sqlite.py, as `make test-sqlite` does it"
+help = "The suite on local_test_settings.sqlite.py, as `make test-sqlite` does"
 ref = "test-engine sqlite"
 
 
 [tasks.make-test-memory]
-help = "The suite against qatrack/local_test_settings.memory.py, as `make test-memory` does it"
+help = "The suite on local_test_settings.memory.py, as `make test-memory` does"
 ref = "test-engine memory"
 
 
 [tasks.make-test-postgres]
-help = "WIP- The suite against qatrack/local_test_settings.postgres.py (needs a postgres server; unverified here)"
+help = "WIP: the suite on local_test_settings.postgres.py; needs a postgres server"
 ref = "test-engine postgres"
 
 
 [tasks.make-test-mysql]
-help = "WIP- The suite against qatrack/local_test_settings.mysql.py (needs a mysql server; unverified here)"
+help = "WIP: the suite on local_test_settings.mysql.py; needs a mysql server"
 ref = "test-engine mysql"
 
 
 [tasks.make-test-mssql]
-help = "WIP- The suite against qatrack/local_test_settings.mssql.py (needs a SQL Server; unverified here)"
+help = "WIP: the suite on local_test_settings.mssql.py; needs a SQL Server"
 ref = "test-engine mssql"
 
 
 [tasks.make-test-integration]
-help = "Provision a fresh sqlite database and test against it, as `make test-integration` does"
+help = "Provision a fresh sqlite db and test on it, as `make test-integration` does"
 ref = "test-integration"
 
 
@@ -127,7 +127,7 @@ ref = "cover"
 
 
 [tasks.make-cover-qatrack]
-help = "Coverage for the qatrack package only, as `make cover-qatrack` runs it"
+help = "Coverage of the qatrack package only, as `make cover-qatrack` runs it"
 ref = "cover qatrack"
 
 
@@ -141,7 +141,7 @@ ref = "cover --skip-covered"
 # One difference from the Makefile, and for the better: the successor passes
 # --reuse-db like every other coverage run, which the Makefile's target forgot.
 [tasks.make-cover-module]
-help = "Coverage for one module, e.g. `poe make-cover-module qatrack/units`"
+help = "Coverage of one module: poe make-cover-module qatrack/units"
 ref = "cover"
 
 
@@ -154,7 +154,7 @@ ref = "cover"
 # which is the whole reason the `docs` task calls sphinx-build directly. Anyone
 # reaching for the Makefile way has Make, so the mirror can afford to need it.
 [tasks.make-docs]
-help = "Build the docs through docs/Makefile, as `make docs` does - needs make"
+help = "Build the docs through docs/Makefile, as `make docs` does; needs make"
 shell = '''
 cd docs && make html
 '''
@@ -166,7 +166,7 @@ cd docs && make html
 # documentation says 8008, so the successor is the one that is right. The
 # mirror keeps 8009 because that is what `make docs-autobuild` does today.
 [tasks.make-docs-autobuild]
-help = "Serve the docs with live-reload on port 8009, as `make docs-autobuild` does"
+help = "Serve the docs with live reload on port 8009, as `make docs-autobuild` does"
 cmd = "sphinx-autobuild docs docs/_build/html --port 8009"
 
 
@@ -178,7 +178,7 @@ cmd = "sphinx-autobuild docs docs/_build/html --port 8009"
 # builds the timestamp with `date`, and the `dump-data` task builds it in
 # Python so that it also works where `date` is not a command.
 [tasks.make-dumpdata]
-help = "Dump the database to a timestamped JSON fixture, as `make dumpdata` does - shell based"
+help = "Dump the database to a timestamped JSON fixture, as `make dumpdata` does"
 shell = '''
 python manage.py dumpdata -v1 --indent=2 --natural-foreign --natural-primary --output qatrack-dump-$(date '+%Y-%m-%d_%H-%M-%S').json
 '''
@@ -201,15 +201,15 @@ ref = "run"
 # is Python the linter sees rather than a body inside a TOML string.
 
 [tasks.make-nginx-conf]
-help = "RETIRED here: `make nginx.conf` installs a www-data-writable config and poe carries no replacement - see docs/install/linux.rst"
+help = "RETIRED: installs a www-data-writable config; see docs/install/linux.rst"
 cmd = "python -m poe_tasks retired make-nginx-conf"
 
 
 [tasks.make-supervisor-conf]
-help = "RETIRED here: `make supervisor.conf` leaves user-owned configs and poe carries no replacement - see docs/install/linux.rst"
+help = "RETIRED: leaves user-owned supervisor configs; see docs/install/linux.rst"
 cmd = "python -m poe_tasks retired make-supervisor-conf"
 
 
 [tasks.make-schema]
-help = "RETIRED: this name no longer regenerates the diagram - use `uv run poe schema`"
+help = "RETIRED: no longer regenerates the diagram; use `uv run poe schema`"
 cmd = "python -m poe_tasks retired make-schema"

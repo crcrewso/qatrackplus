@@ -27,7 +27,7 @@ cmd = "python -m poe_tasks dump-data"
 # platform. Behaviour differs slightly and for the better: flush also resets
 # sequences and re-runs post-migrate handlers.
 [tasks.delete-all-data]
-help = "DESTRUCTIVE: empty every table (manage.py flush) - schema and migrations stay"
+help = "DESTRUCTIVE: empty every table with manage.py flush; schema and migrations stay"
 cmd = "python manage.py flush --noinput"
 
 
@@ -41,16 +41,16 @@ cmd = "python manage.py flush --noinput"
 # `python manage.py generate_sample_data --clear --no-input` yourself if you
 # mean it, in a script where you have thought about it.
 [tasks.generate-sample-data]
-help = "Generate realistic sample data: poe generate-sample-data [--days N] [--clear]; --clear is DESTRUCTIVE"
+help = "Generate realistic sample data; --days N sets the span, --clear is DESTRUCTIVE"
 cmd = "python -m poe_tasks generate-sample-data"
 
 [[tasks.generate-sample-data.args]]
 name = "days"
 options = ["--days"]
-help = "Days of rolling QA and maintenance history to generate (the command's own default is 90)"
+help = "Days of QA and maintenance history to generate (the command defaults to 90)"
 
 [[tasks.generate-sample-data.args]]
 name = "clear"
 options = ["--clear"]
 type = "boolean"
-help = "DESTRUCTIVE: delete existing QA, unit, service log, fault, parts and report data first. You will be asked to confirm"
+help = "DESTRUCTIVE: first delete existing QA, service and report data (asks first)"

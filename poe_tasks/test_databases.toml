@@ -22,7 +22,7 @@
 # so they are three tasks and not one task with a mode argument.
 
 [tasks.test-databases-up]
-help = "Start throwaway database servers and wait until they answer: poe test-databases-up [postgres|mysql|mssql], all three if omitted"
+help = "Start throwaway database servers and wait until they answer"
 cmd = "python -m poe_tasks databases-up ${engine}"
 
 [[tasks.test-databases-up.args]]
@@ -32,14 +32,14 @@ choices = ["postgres", "mysql", "mssql"]
 help = "Which one to start; omit it for all three"
 
 [tasks.test-databases-down]
-help = "Stop throwaway database servers and remove their containers: poe test-databases-down [postgres|mysql|mssql], all three if omitted"
+help = "Stop throwaway database servers and remove their containers"
 cmd = "python -m poe_tasks databases-down ${engine}"
 
 [[tasks.test-databases-down.args]]
 name = "engine"
 positional = true
 choices = ["postgres", "mysql", "mssql"]
-help = "Which one to stop; omit it to take them all down"
+help = "Which one to stop; omit it for all three"
 
 [tasks.test-databases-status]
 help = "Show whether the throwaway database servers are up, and on which ports"

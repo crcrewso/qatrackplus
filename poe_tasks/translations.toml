@@ -56,5 +56,5 @@ sequence = ["_extract-messages", "compile-messages"]
 # coverage in Python from the .po files, so it needs no msgfmt and does not
 # depend on the locale.
 [tasks.check-messages]
-help = "Report stale .mo files and per-language coverage, and fail if anything is wrong"
+help = "Report stale .mo files and per-language coverage; fail if anything is wrong"
 cmd = "python manage.py check_translations"

@@ -25,7 +25,7 @@
 # poe task* in docs/developer/guide.rst for why.
 
 [tasks.ci]
-help = "Run the CI checks that work on a dev machine: lint, deps, docs, then the suite"
+help = "Run the CI checks a dev machine can: lint, deps, docs, then the suite"
 sequence = ["lint", "deps", "docs", "test", "_ci-reminder"]
 
 
@@ -34,14 +34,14 @@ sequence = ["lint", "deps", "docs", "test", "_ci-reminder"]
 # Declaring the flag means anything else for pre-commit goes after `--`:
 # `poe lint -- --files qatrack/qa/models.py`.
 [tasks.lint]
-help = "Run the pre-commit suite over every file (ruff, yaml/toml, django checks); --fix applies ruff's lint fixes instead"
+help = "Run pre-commit over every file; --fix runs ruff's automatic fixes instead"
 cmd = "python -m poe_tasks lint"
 
 [[tasks.lint.args]]
 name = "fix"
 options = ["--fix"]
 type = "boolean"
-help = "Apply ruff's automatic lint fixes across the repo instead of running pre-commit (lint only; formatting is format-changed)"
+help = "Run ruff check --fix instead of pre-commit (formatting is format-changed)"
 
 
 # `ruff format` is deliberately NOT repo-wide. Formatting has never been applied
@@ -52,14 +52,14 @@ help = "Apply ruff's automatic lint fixes across the repo instead of running pre
 # correctly: the 28 Python files q#868 changed came back 2804 insertions and
 # 2597 deletions, since none had been formatted before.
 [tasks.format-changed]
-help = "Format only the Python files this branch changed - never the whole repo (see AGENTS.md)"
+help = "Format only the Python files this branch changed, never the whole repo"
 cmd = "python -m poe_tasks format-changed"
 
 [[tasks.format-changed.args]]
 name = "check"
 options = ["--check"]
 type = "boolean"
-help = "Report which of them ruff would reformat, and change nothing"
+help = "List what ruff would reformat, and change nothing"
 
 
 # CI's Requirements Test does `uv sync --all-extras --locked` and then
@@ -87,7 +87,7 @@ cmd = "python -m poe_tasks ci-reminder"
 # named `check-<thing>` after `check-messages`, and both report rather than
 # merely exit.
 [tasks.check-deprecations]
-help = "Django's system checks with deprecation warnings visible (python -Wd)"
+help = "Django's system checks with deprecation warnings shown (python -Wd)"
 cmd = "python -Wd manage.py check"
 
 
@@ -96,5 +96,5 @@ cmd = "python -Wd manage.py check"
 # 0, so it cannot gate anything; `--check --dry-run` exits 1 when a migration is
 # missing and prints nothing, which reads exactly like "no migrations needed".
 [tasks.check-migrations]
-help = "Report any model change that still needs a migration, and fail if there is one"
+help = "List model changes that still need a migration, and fail if there are any"
 cmd = "python -m poe_tasks check-migrations"

@@ -12,7 +12,7 @@
 # so it alone also takes them without `--`.
 
 [tasks.test]
-help = "Run the suite (GUI/Selenium tests skipped by default - pass --run-selenium to include them)"
+help = "Run the suite; GUI tests are skipped unless you pass --run-selenium"
 cmd = "pytest"
 
 
@@ -31,14 +31,14 @@ cmd = "pytest"
 # 2 each give 15 failures. So expect red, and read the failures rather than the
 # count.
 [tasks.test-order]
-help = "Run the suite in a shuffled order, to catch tests that depend on each other: poe test-order [seed]"
+help = "Run the suite in a shuffled order, to catch tests that depend on each other"
 cmd = "python -m poe_tasks test-order ${seed}"
 
 [[tasks.test-order.args]]
 name = "seed"
 positional = true
 required = false
-help = "A seed printed by an earlier run, to replay that exact order"
+help = "A seed from an earlier run, to replay that exact order"
 
 
 # Swaps qatrack/local_test_settings.<engine>.py in for the run and restores
@@ -55,7 +55,7 @@ help = "A seed printed by an earlier run, to replay that exact order"
 # paying SQL Server's start-up twice is the thing you would notice;
 # `poe test-databases-down` stops them. sqlite and memory need no container.
 [tasks.test-engine]
-help = "Run the suite against one engine, restoring your settings afterwards: poe test-engine <sqlite|memory|postgres|mysql|mssql> [--docker]"
+help = "Run the suite against one database engine, then restore your settings"
 cmd = "python -m poe_tasks test-engine ${engine}"
 
 [[tasks.test-engine.args]]
@@ -63,13 +63,13 @@ name = "engine"
 positional = true
 required = true
 choices = ["sqlite", "memory", "postgres", "mysql", "mssql"]
-help = "sqlite, memory, postgres, mysql or mssql"
+help = "Engine; its qatrack/local_test_settings.<engine>.py must exist"
 
 [[tasks.test-engine.args]]
 name = "docker"
 options = ["--docker"]
 type = "boolean"
-help = "Start a throwaway database server in Docker first (postgres, mysql or mssql) and use the shipped settings template"
+help = "Start the engine's throwaway Docker server first (postgres, mysql, mssql)"
 
 
 # Provisions exactly the way a fresh deployment would (migrate, createcachetable,
@@ -78,7 +78,7 @@ help = "Start a throwaway database server in Docker first (postgres, mysql or ms
 # local_settings.py points anywhere but db/default.db, because the manage.py
 # steps read those settings and would provision your real database.
 [tasks.test-integration]
-help = "Provision a fresh sqlite db like a real deployment, then run the suite against it"
+help = "Provision a fresh sqlite db like a deployment, then run the suite on it"
 cmd = "python -m poe_tasks test-integration"
 
 
@@ -112,12 +112,12 @@ cmd = "python -m poe_tasks test-integration"
 # suite at all - the plain case is also what CI runs. The full decision is in
 # aviary, projects/qatrackplus/decisions/2026-11-05-poe-task-naming-and-test-gui.md.
 [tasks.test-gui]
-help = "Run ONLY the GUI/Selenium tests, using whatever your settings configure"
+help = "Run only the GUI/Selenium tests, with whatever your settings configure"
 cmd = "pytest -m selenium"
 
 
 [tasks.test-gui-headless]
-help = "Run ONLY the GUI/Selenium tests with no window: poe test-gui-headless [firefox|chromium|edge]"
+help = "Run only the GUI tests, with no window"
 cmd = "python -m poe_tasks test-gui ${browser}"
 env = { SELENIUM_HEADLESS = "True" }
 
@@ -125,11 +125,11 @@ env = { SELENIUM_HEADLESS = "True" }
 name = "browser"
 positional = true
 choices = ["firefox", "chromium", "edge"]
-help = "Which browser to drive; omit it to use the one your settings choose. chromium also drives Google Chrome"
+help = "Browser to drive; omit to use your settings' choice"
 
 
 [tasks.test-gui-visible]
-help = "Run ONLY the GUI/Selenium tests in a real window, needs a display: poe test-gui-visible [firefox|chromium|edge]"
+help = "Run only the GUI tests in a real window; needs a display"
 cmd = "python -m poe_tasks test-gui ${browser}"
 env = { SELENIUM_HEADLESS = "False" }
 
@@ -137,7 +137,7 @@ env = { SELENIUM_HEADLESS = "False" }
 name = "browser"
 positional = true
 choices = ["firefox", "chromium", "edge"]
-help = "Which browser to drive; omit it to use the one your settings choose. chromium also drives Google Chrome"
+help = "Browser to drive; omit to use your settings' choice"
 
 
 # The supported way to watch a GUI run, and the only advertised interface to
@@ -147,7 +147,7 @@ help = "Which browser to drive; omit it to use the one your settings choose. chr
 # measuring: pauses can let a race that fails at full speed pass here. The
 # harness prints that warning itself.
 [tasks.test-gui-watch]
-help = "Watch a GUI run, visible and paused between actions, not for measuring: poe test-gui-watch [firefox|chromium|edge]"
+help = "Watch a GUI run: visible and paused between actions; not for measuring"
 cmd = "python -m poe_tasks test-gui ${browser}"
 env = { SELENIUM_HEADLESS = "False", SELENIUM_SLOW_MO = "0.4" }
 
@@ -155,4 +155,4 @@ env = { SELENIUM_HEADLESS = "False", SELENIUM_SLOW_MO = "0.4" }
 name = "browser"
 positional = true
 choices = ["firefox", "chromium", "edge"]
-help = "Which browser to drive; omit it to use the one your settings choose. chromium also drives Google Chrome"
+help = "Browser to drive; omit to use your settings' choice"

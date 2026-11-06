@@ -30,5 +30,5 @@
 # their spellings through the make-* mirrors, each a `ref` to this task with
 # the matching arguments.
 [tasks.cover]
-help = "Run the suite with coverage (--reuse-db): poe cover [path] [--skip-covered] [pytest flags]; path scopes both the tests and the report"
+help = "Run the suite with coverage: poe cover [path] [--skip-covered] [pytest flags]"
 cmd = "python -m poe_tasks cover"

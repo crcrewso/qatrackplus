@@ -12,19 +12,19 @@
 # is not refused by the half-made environment. If you want the old one gone,
 # say so explicitly with dev-reset. The logic is `dev_init` in poe_tasks/cli.py.
 [tasks.dev-init]
-help = "Create a fresh sqlite dev environment - refuses if one already exists"
+help = "Create a fresh sqlite dev environment; refuses if one already exists"
 cmd = "python -m poe_tasks dev-init"
 
 
 # Private: nobody chooses "clean, then nothing". It is the first half of
 # dev-reset, which is the destructive job and is named as such.
 [tasks._dev-clean]
-help = "(internal) remove the dev settings files and sqlite database, leaving nothing behind"
+help = "(internal) remove the dev settings files and the sqlite database"
 cmd = "python -m poe_tasks dev-clean"
 
 
 [tasks.dev-reset]
-help = "DESTRUCTIVE: delete your dev settings and sqlite database, then set up a fresh one"
+help = "DESTRUCTIVE: delete dev settings and sqlite database, then set up fresh"
 sequence = ["_dev-clean", "dev-init"]
 
 
