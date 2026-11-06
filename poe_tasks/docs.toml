@@ -43,71 +43,18 @@ cmd = "sphinx-autobuild docs docs/_build/html --port ${port}"
 # output path is gitignored so that running this to *look* at the schema does
 # not quietly stage a 6000-line SVG into an unrelated branch; adding one for a
 # new minor line is a deliberate `git add -f`.
+#
+# Named for the MINOR line, read from the installed package metadata (it used
+# to live in three places that disagreed, so `poe schema` and `make schema`
+# wrote different files). Rendered to a staged file inside docs/developer/
+# images/ and moved into place only if the render worked: django-extensions
+# falls back to pydotplus when pygraphviz is missing, and pydotplus writes a
+# zero-byte file and exits 0, which is how the Makefile's target destroyed the
+# committed 838 KB diagram and reported success. The details are on `schema`
+# in poe_tasks/cli.py.
 [tasks.schema]
 help = "RELEASE: regenerate the distributed schema diagram (see docs/developer/schema.rst)"
-interpreter = "python"
-shell = '''
-import importlib.metadata, os, pathlib, subprocess, sys, tempfile
-
-# Named for the MINOR line, not the patch. The schema is identical across every
-# 4.0.z - a patch release that changed it would need a migration, which makes it
-# a minor release - so one diagram per x.y is what is actually being described,
-# and a per-patch name would add a near-identical 838 KB SVG to the repository
-# on every release.
-#
-# Read from the installed package metadata rather than written down here. It used
-# to come from $VERSION, which existed in three places: [tool.poe.env] said
-# 4.0.0, the Makefile said 3.1.0, and [project] said 4.0.0. So `poe schema` and
-# `make schema` wrote *different files*, and the Makefile's wrote over the
-# committed 3.1.0 diagram - the Makefile carried a WARNING about exactly that
-# rather than fixing it. There is now one source, and it is the one that is
-# already correct by construction because the package is built from it.
-MINOR_LINE = '.'.join(importlib.metadata.version('qatrackplus').split('.')[:2])
-OUT = pathlib.Path('docs/developer/images/qatrack_schema_%s.svg' % MINOR_LINE)
-
-# Render to a temporary file and only move it into place if it worked.
-#
-# This is not defensive padding - the previous form wrote straight to OUT and
-# could empty it. django-extensions falls back to pydotplus when pygraphviz is
-# not importable, and pydotplus fails by writing a zero-byte file and exiting
-# 0. Running `make schema` on a machine without pygraphviz therefore destroyed
-# the committed 838 KB diagram and reported success. RELEASE_CHECKLIST.md tells
-# the releaser to regenerate this, so that was a live trap.
-#
-# --pygraphviz is passed explicitly rather than letting django-extensions pick
-# whichever binding happens to be importable, so a missing dependency fails
-# loudly instead of silently selecting the broken path. pygraphviz wheels bundle
-# their own Graphviz (14.1.5 at the time of writing), which also sidesteps the
-# system Graphviz: Ubuntu 24.04 ships 2.42, and -g (--group-models, which draws
-# each Django app as a cluster) hits a "trouble in init_rank" bug there.
-#
-# The staged file is created *inside* OUT.parent rather than in the system
-# temp directory. Verified on Windows: tempfile.TemporaryDirectory() lands on
-# whatever drive holds %TEMP% (typically C:), and Path.replace() across
-# drives raises `OSError: [WinError 17] The system cannot move the file to a
-# different disk drive` when the repo checkout lives elsewhere (e.g. D:) -
-# staging next to OUT keeps the rename on one filesystem everywhere.
-OUT.parent.mkdir(parents=True, exist_ok=True)
-fd, tmp_name = tempfile.mkstemp(prefix='.qatrack_schema-', suffix='.svg', dir=OUT.parent)
-os.close(fd)
-staged = pathlib.Path(tmp_name)
-try:
-    code = subprocess.call([
-        sys.executable, './manage.py', 'graph_models', '-a', '-g', '--pygraphviz',
-        '-X', 'Issue,IssueStatus,IssueType,IssuePriority,IssueTag',
-        '-o', str(staged),
-    ])
-    if code != 0:
-        sys.exit('error: graph_models failed (exit %d); %s left untouched' % (code, OUT))
-    if not staged.exists() or staged.stat().st_size == 0:
-        print('error: graph_models produced an empty diagram; %s left untouched.' % OUT, file=sys.stderr)
-        sys.exit('Is pygraphviz installed? `uv sync --dev` should provide it.')
-    staged.replace(OUT)
-finally:
-    staged.unlink(missing_ok=True)
-
-print('wrote %s (%d bytes)' % (OUT, OUT.stat().st_size))
-'''
+cmd = "python -m poe_tasks schema"
 
 
 # `check-messages` in poe_tasks/translations.toml was once a Python body here

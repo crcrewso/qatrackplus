@@ -38,6 +38,7 @@ from django.conf import settings
 REPO_ROOT = os.path.dirname(settings.PROJECT_ROOT)
 MAKEFILE = os.path.join(REPO_ROOT, "Makefile")
 POE_DOCS = os.path.join(REPO_ROOT, "poe_tasks", "docs.toml")
+POE_CLI = os.path.join(REPO_ROOT, "poe_tasks", "cli.py")
 PYPROJECT = os.path.join(REPO_ROOT, "pyproject.toml")
 
 
@@ -98,14 +99,19 @@ class TestTheSchemaNameHasOneSource:
         )
 
     def test_the_poe_task_reads_the_installed_package_and_truncates(self):
-        """The one implementation, so this is where the name is decided."""
+        """The one implementation, so this is where the name is decided.
 
-        task = read(POE_DOCS)
-        assert "importlib.metadata" in task
-        assert "qatrackplus" in task
+        The logic moved from a Python body in docs.toml to `schema` in
+        poe_tasks/cli.py on 2026-11-06; the task is now a `cmd` that runs it.
+        """
+
+        task = read(POE_DOCS).split("[tasks.schema]", 1)[1].split("\n[tasks.", 1)[0]
+        assert 'cmd = "python -m poe_tasks schema"' in task, task
+        implementation = read(POE_CLI)
+        assert "importlib.metadata.version('qatrackplus')" in implementation
         # The truncation is the part that makes it the minor line.
-        assert "split('.')[:2]" in task, "the poe task does not truncate"
-        assert "docs/developer/images/qatrack_schema_" in task
+        assert "split('.')[:2]" in implementation, "the schema verb does not truncate"
+        assert "docs/developer/images/qatrack_schema_" in implementation
 
     def make_schema_block(self):
         compat = read(os.path.join(REPO_ROOT, "poe_tasks", "make_compat.toml"))
@@ -124,17 +130,26 @@ class TestTheSchemaNameHasOneSource:
             "poe make-schema still delegates to the schema task, so the retired "
             "name keeps working: %r" % block
         )
-        assert re.search(r'sys\.exit\(', block), (
-            "poe make-schema does not fail, so a caller cannot tell it refused: %r" % block
+        assert 'cmd = "python -m poe_tasks retired make-schema"' in block, (
+            "poe make-schema no longer runs the retirement notice: %r" % block
         )
+        # And the notice really does fail: a caller can tell it refused.
+        from poe_tasks import cli
+
+        assert cli.retired(["make-schema"]) == 1
 
     def test_the_make_schema_mirror_names_its_replacement(self):
         """Refusing without saying what to run instead is the failure this is
         meant to prevent, not a smaller version of it."""
 
+        from poe_tasks import cli
+
         block = self.make_schema_block()
         assert "uv run poe schema" in block, (
             "poe make-schema refuses without naming `uv run poe schema`: %r" % block
+        )
+        assert "uv run poe schema" in cli.RETIRED["make-schema"], (
+            "the notice the mirror prints does not name `uv run poe schema`"
         )
 
     def test_the_make_schema_mirror_has_no_version_handling(self):

@@ -18,12 +18,16 @@
 # normal Linux or Windows dev machine; it is *not* in the Docker runtime
 # image, which is why the committed .mo has to stay correct.
 
+# Public on its own: a translator who has edited a .po compiles it and stops.
 [tasks.compile-messages]
 help = "Compile every locale's .po into the .mo Django reads"
 cmd = "python manage.py compilemessages --ignore=.venv --ignore=node_modules"
 
-[tasks.extract-messages]
-help = "Re-scan the source for translatable strings and update every .po"
+# Private: nobody finishes on an extraction. It is the first half of
+# update-messages, which is the job a developer actually runs after adding or
+# changing a translatable string.
+[tasks._extract-messages]
+help = "(internal) re-scan the source for translatable strings and update every .po"
 cmd = """
 python manage.py makemessages
   --all
@@ -33,29 +37,24 @@ python manage.py makemessages
 """
 
 # The .po is the source of truth and the .mo is derived from it, so extract
-# then compile. Run this after adding or changing a translatable string.
-# `update-messages`, not `messages`: every other composite says what it does
-# (`ci`, `dev-reset`, `test-order`), and a bare noun reads like a thing rather
+# then compile. `update-messages`, not `messages`: every other composite says
+# what it does (`ci`, `dev-reset`), and a bare noun reads like a thing rather
 # than an action.
 [tasks.update-messages]
 help = "Re-extract translatable strings, then recompile the catalogues"
-sequence = ["extract-messages", "compile-messages"]
+sequence = ["_extract-messages", "compile-messages"]
 
 # Answers "are the committed .mo files the ones these .po files produce, and
 # how much of each language actually reaches users?" - without writing
 # anything.
 #
 # `python manage.py check` was wrong for this, and wrong in the way that
-# matters: qatrack.W010 is a *Warning*, and `check` exits 0 for warnings. So
-# the task printed the problem and reported success, which is worse than not
-# having it - a green `poe ci` meant nothing about the catalogues. @nsmela
-# reproduced it on #868 by making fr/django.po stale.
-#
-# `check_translations` is the right command. It exits 1 when a .mo is out of
-# date or a configured language has no catalogue at all, and it computes
+# matters: qatrack.W010 is a *Warning*, and `check` exits 0 for warnings, so
+# the task printed the problem and reported success. @nsmela reproduced it on
+# #868 by making fr/django.po stale. `check_translations` exits 1 when a .mo is
+# out of date or a configured language has no catalogue at all, and computes
 # coverage in Python from the .po files, so it needs no msgfmt and does not
-# depend on the locale. W010 stays a system check for staleness - silent when
-# healthy - and this is the task that can fail.
+# depend on the locale.
 [tasks.check-messages]
 help = "Report stale .mo files and per-language coverage, and fail if anything is wrong"
 cmd = "python manage.py check_translations"

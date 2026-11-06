@@ -4,39 +4,31 @@
 # ==========================================================================
 # Coverage
 # ==========================================================================
-
-
-[tasks.cover]
-help = "Run the full suite with coverage (--reuse-db)"
-cmd = "pytest --reuse-db --cov-report term-missing --cov ./"
-
-
-[tasks.cover-qatrack]
-help = "Like cover, but scoped to the qatrack package only"
-cmd = "pytest --reuse-db --cov-report term-missing --cov qatrack"
-
-
-[[tasks.cover-module.args]]
-name = "module"
-positional = true
-required = true
-# A path, not a dotted module. The command interpolates it into both
-# `--cov ./${module}` and pytest's target, and pytest takes paths - given
-# qatrack.qa it collects nothing, reports no coverage and exits 4, which
+#
+# One task where there were four. `cover`, `cover-qatrack`, `cover-module <m>`
+# and `cover-mo` were one job with a scope and a report option, and the four
+# copies had drifted (`cover-module` alone lacked --reuse-db). Scope and report
+# detail are parameters, so they are arguments now:
+#
+#     poe cover                          # the suite, coverage of everything
+#     poe cover qatrack                  # coverage of the qatrack package
+#     poe cover qatrack/units            # one module: its tests, its coverage
+#     poe cover --skip-covered           # leave fully-covered files out
+#     poe cover qatrack/qa -k test_x     # anything else goes to pytest
+#
+# The task declares NO poe arguments, on purpose: a task that declares one
+# refuses undeclared ones unless they follow `--`, and this is the task people
+# filter most. poe_tasks/cli.py parses path and --skip-covered itself and hands
+# everything else to pytest. The cost is that `poe cover --help` cannot
+# describe the two arguments; this help line does.
+#
+# The path is a filesystem path, not a dotted module: it goes to both --cov and
+# pytest, and pytest given `qatrack.qa` collects nothing and exits 4, which
 # looks far too much like a module with no tests.
-help = "qatrack/qa, qatrack/units, or any path under qatrack/"
-
-
-[tasks.cover-module]
-help = "Run coverage for a single module, e.g. `poe cover-module qatrack/qa`"
-cmd = "pytest --cov-report term-missing --cov ./${module} ${module}"
-
-
-# `cover` with fully-covered files left out of the report. The Makefile has
-# carried this as `cover-mo` since before poe existed, and poe had no
-# equivalent until this task - so the two runners were not comparable, which
-# is the gap it was written to close. The name is kept rather than improved:
-# it is what is already in people's shell history.
-[tasks.cover-mo]
-help = "Like cover, but omits files that are already fully covered"
-cmd = "pytest --reuse-db --cov-report term-missing:skip-covered --cov ./"
+#
+# The Makefile's `cover`, `cover-qatrack`, `cover-module` and `cover-mo` keep
+# their spellings through the make-* mirrors, each a `ref` to this task with
+# the matching arguments.
+[tasks.cover]
+help = "Run the suite with coverage (--reuse-db): poe cover [path] [--skip-covered] [pytest flags]; path scopes both the tests and the report"
+cmd = "python -m poe_tasks cover"

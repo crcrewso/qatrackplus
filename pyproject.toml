@@ -201,13 +201,14 @@ dev = [
     # STILL AN OPEN QUESTION, and this placement is a deferral. Cody,
     # 2026-11-04: *"leave poe in dev until those four are verified ... this will
     # need to be validated and fixed in a later pr as 4.1 approaches release."*
-    # The four are nginx-conf, supervisor-conf and their -remove counterparts in
-    # poe_tasks/deploy.toml - the only tasks written for a site rather than a
-    # developer, and all four unverified. If they are made to work, poe belongs
-    # in the base dependencies and they belong in the install guide; if they are
-    # dropped, poe stays here for good. The full decision, and what has to be
-    # run first, is in the block above those tasks. Do not resolve it from this
-    # file alone.
+    # The four were nginx-conf, supervisor-conf and their -remove counterparts -
+    # the only tasks written for a site rather than a developer, all four
+    # unverified. On 2026-11-06 they left this branch for that later pull
+    # request (their file, poe_tasks/deploy.toml, is in this branch's history
+    # with the required next steps written above the tasks). If they are made
+    # to work there, poe belongs in the base dependencies and they belong in
+    # the install guide; if they are dropped, poe stays here for good. Do not
+    # resolve it from this file alone.
     "poethepoet>=0.49,<1.0",
 
     # Testing framework and utilities
@@ -302,8 +303,11 @@ quote-style = "single"
 # `pytest`/`python` directly rather than re-prefixing with `uv run`.
 #
 # The task definitions themselves live under poe_tasks/, one file per
-# theme (dev.toml, tests.toml, coverage.toml, docs.toml, data.toml,
-# deploy.toml, make_compat.toml), pulled in below via `[tool.poe] include`.
+# theme (ci.toml, dev.toml, tests.toml, coverage.toml, docs.toml, data.toml,
+# test_databases.toml, translations.toml, make_compat.toml), pulled in below
+# via `[tool.poe] include`. Anything with logic is Python in poe_tasks/cli.py,
+# run as `python -m poe_tasks <verb>` from a `cmd` task; the TOML holds names,
+# help lines, declared arguments and sequences.
 # This file used to hold every task directly under `[tool.poe.tasks.*]`;
 # splitting it up was purely to keep pyproject.toml itself from growing
 # without bound as tasks were added - it changes nothing about how tasks
@@ -324,15 +328,13 @@ quote-style = "single"
 # and poe only mirrors it.
 #
 # 1. Windows. This is the sharp one, because Windows support is the main
-#    argument for replacing Make - and some of these tasks do not yet deliver
-#    it. Six do not: make-dumpdata and make-docs in
-#    poe_tasks/make_compat.toml, and nginx-conf, supervisor-conf and their
-#    two -remove counterparts in poe_tasks/deploy.toml. They use POSIX-only
-#    shell: `mkdir -p`,
-#    `[ -f ... ]`, `rm -f`, `$(date ...)`, `cd &&`, `sudo`. The tasks a
-#    developer actually reaches for - test-engine, test-integration, dev-init,
-#    schema, the i18n tasks - are Python bodies, and the make-* analogs of the
-#    first two are now `ref`s to them rather than shell copies.
+#    argument for replacing Make - and two tasks do not deliver it:
+#    make-dumpdata and make-docs in poe_tasks/make_compat.toml, which use
+#    POSIX-only shell (`$(date ...)`, `cd &&`) because they mirror what the
+#    Makefile does. Every successor task is either a plain `cmd` or Python in
+#    poe_tasks/cli.py (stdlib only), and the make-* analogs are `ref`s to
+#    them rather than shell copies. The Ubuntu/sudo deployment helpers that
+#    were the other four left the runner on 2026-11-06.
 #    poe defaults `shell` tasks to bash/posix and, on Windows with no
 #    other interpreter configured, fails with "Installing Git Bash or using
 #    WSL should fix this" - which is the same "no native Windows story" the
@@ -340,17 +342,17 @@ quote-style = "single"
 #    `interpreter = "python"` on those tasks and port the logic to stdlib
 #    (shutil.copy/os.makedirs/pathlib), which is genuinely cross-platform;
 #    `interpreter = ["pwsh", "bash"]` is also supported if a PowerShell
-#    rewrite is preferred. nginx-conf/supervisor-conf are Ubuntu-and-sudo
-#    only by nature and should just be marked as such rather than ported.
+#    rewrite is preferred.
 #
-# 2. Extra pytest args, for the tasks with a `shell` body. `poe test -- -k foo`
-#    works, because `test` is a `cmd` and poe appends to its command line. A
-#    `shell` body builds its own argv, so the extras are discarded - which is
-#    why `make test-<engine> args="-k foo"` has no equivalent. Not about
-#    declaring arguments; measured either way, with the figures in the note
-#    above `test-engine` in poe_tasks/tests.toml. Retiring Make would make it
-#    a real regression rather than a documented gap. The way out is a declared
-#    argument on those tasks that the body splits into flags itself.
+# 2. DONE 2026-11-06. Extra pytest args used to be discarded by every task
+#    with a `shell` body, because a body builds its own argv and poe has
+#    nowhere to put them - so `make test-<engine> args="-k foo"` had no
+#    equivalent. The bodies are now Python in poe_tasks/cli.py behind `cmd`
+#    tasks, and a `cmd` forwards what follows `--`: `poe test-engine sqlite
+#    -- -k foo` reaches pytest. The one rule that remains: a task that
+#    declares an argument needs the `--`; one that declares none (`test`,
+#    `cover`) takes flags directly. Measured on poe 0.49.0; the rules are in
+#    the module docstring and in *Adding a new poe task*.
 #
 # 3. DONE, and it turned out to be a live bug rather than a tidiness item.
 #    VERSION was written in three places - `VERSION` in the Makefile (3.1.0),
@@ -371,9 +373,9 @@ quote-style = "single"
 #    site to a poe task, which sidesteps the question of whether any task was
 #    *written* for one. Four were - nginx-conf, supervisor-conf and their
 #    -remove counterparts - and all four are unverified. So this is settled
-#    only until somebody runs them. The required next step is written above
-#    those tasks in poe_tasks/deploy.toml, and belongs in its own pull request
-#    as 4.1 approaches release.
+#    only until somebody runs them. On 2026-11-06 those four left this branch
+#    for the pull request where that happens; poe_tasks/deploy.toml, with the
+#    required next steps written above the tasks, is in this branch's history.
 #
 # 5. Consider `[tool.poe.executor] locked = true`. poe runs tasks through
 #    `uv run` already, and its uv executor accepts locked/frozen/no-sync/
@@ -384,6 +386,12 @@ quote-style = "single"
 #
 # 6. `test_simple` exists only for Make muscle memory and is identical to
 #    `test`. Drop it.
+#
+# 7. The public task surface is capped by a test
+#    (test_public_task_count_is_a_decision in test_poe_tasks.py), excluding
+#    the make-* mirrors and `_` helpers. Raising the cap is a review decision,
+#    not a side effect of adding a task; the admission test for a new public
+#    task is in *Adding a new poe task*.
 # ---------------------------------------------------------------------------
 [tool.poe]
 include = [
@@ -393,7 +401,6 @@ include = [
     "poe_tasks/coverage.toml",
     "poe_tasks/docs.toml",
     "poe_tasks/data.toml",
-    "poe_tasks/deploy.toml",
     "poe_tasks/test_databases.toml",
     "poe_tasks/translations.toml",
     "poe_tasks/make_compat.toml",
@@ -453,26 +460,25 @@ include = [
 #
 # Current shell situation, so it stays honest as tasks are added:
 #
-#   * `cmd` tasks (no shell at all), which is most of them: test, the
-#     test-gui* family, cover*, lint, docs, docs-serve, run, the
-#     message tasks, the test-databases-* tasks.
-#   * `interpreter = "python"`: dev-init, dev-clean, dump-data,
-#     schema, test-engine, test-integration, test-order. Note schema is one
-#     of these - a Python body, not a `cmd`.
-#   * `ref` only, so they inherit whatever they point at: every make-test-*
-#     analog in poe_tasks/make_compat.toml.
+#   * `cmd` tasks running a plain command: test, test-gui, lint's siblings,
+#     docs, docs-serve, run, delete-all-data, the message tasks,
+#     test-databases-status, and `deps`'s two steps.
+#   * `cmd` tasks running `python -m poe_tasks <verb>`, so the logic is Python
+#     in poe_tasks/cli.py and nothing but the standard library: cover,
+#     test-engine, test-integration, test-order, the three test-gui-<mode>
+#     tasks, lint, format-changed, check-migrations, dev-init, schema,
+#     dump-data, generate-sample-data, the two test-databases tasks, and the
+#     three retired mirrors.
+#   * `ref` only, so they inherit whatever they point at: every other
+#     make-* mirror in poe_tasks/make_compat.toml.
 #   * POSIX-shell-only, with a cross-platform successor: make-dumpdata and
-#     make-docs (poe_tasks/make_compat.toml).
-#   * POSIX-shell-only and deliberately so: nginx-conf, supervisor-conf and
-#     their -remove counterparts (poe_tasks/deploy.toml). They shell out to
-#     sudo to install nginx/supervisor configs, so there is no meaningful
-#     Windows equivalent to write.
+#     make-docs (poe_tasks/make_compat.toml). They mirror what the Makefile
+#     does, which is the point of them.
 #
-# In other words, every task that cannot run on Windows today either has a
-# cross-platform successor or is Ubuntu-only by nature. If you add a task
-# that needs a shell, give it an explicit interpreter or a cross-platform
-# counterpart. See the "Adding a new poe task" section of
-# docs/developer/guide.rst for the full checklist.
+# In other words, every task that cannot run on Windows today has a
+# cross-platform successor. If you add a task that needs logic, put the logic
+# in poe_tasks/cli.py and run it from a `cmd`. See the "Adding a new poe task"
+# section of docs/developer/guide.rst for the full checklist.
 #
 # Exercised on Windows (pwsh, PowerShell 5.1) and on Linux. What was actually
 # run, because an earlier version of this comment claimed more than had been
@@ -511,7 +517,8 @@ include = [
 #     itself must still be installed separately - e.g. via MSYS2 - on
 #     Windows).
 #
-# nginx-conf/supervisor-conf (and their -remove counterparts, all in
-# poe_tasks/deploy.toml) are Ubuntu-only by design and were not exercised
-# here; the make-* mirrors (poe_tasks/make_compat.toml) are POSIX-shell-only
-# by design and likewise were not exercised here.
+# The make-* mirrors (poe_tasks/make_compat.toml) that carry a shell body are
+# POSIX-shell-only by design and were not exercised here. The move of the
+# Python bodies into poe_tasks/cli.py (2026-11-06) was exercised on Linux only;
+# the module uses the standard library alone, and the Windows-specific lesson
+# above (stage the schema render beside its target) is kept in it.

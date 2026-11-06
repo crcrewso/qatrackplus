@@ -29,7 +29,8 @@
 # **Nothing new belongs here.** A new task goes in one of the theme files, and
 # gets a mirror only if the Makefile grows a target - which it will not,
 # because it is on its way out. When it goes, this whole file goes with it in
-# the same change.
+# the same change. The mirrors do not count toward the task surface the
+# ratchet in test_poe_tasks.py polices.
 #
 # **Most mirrors are a `ref`, and that is deliberate.** `make-test-integration`
 # used to carry its own shell copy of the provisioning sequence and the five
@@ -37,27 +38,28 @@
 # tasks they mirrored, and neither refused to overwrite a backup left by a
 # killed run, so running one after an interruption destroyed the developer's
 # database or settings. @nsmela reproduced both end to end on #868. A `ref`
-# cannot drift. A `ref` also receives the caller's arguments - measured with
-# poe 0.49.0: `ref = "cover-module"` with `qatrack/units` runs
-# `pytest --cov-report term-missing --cov ./qatrack/units qatrack/units` - so a
-# mirror of a task that takes an argument does not need a copy of the command.
+# cannot drift. A `ref` also carries arguments to the task it names - measured
+# with poe 0.49.0 - which is how four coverage mirrors share one `cover` task
+# and how `poe make-cover-module qatrack/units` still works.
 #
-# **Two mirrors do not reproduce what the Makefile does, and say so in
-# place:** `make-nginx-conf` and `make-supervisor-conf`. The Makefile's
-# versions of those two are known traps, and the Makefile's own header says
-# nothing in it should be a shorter way to do something irreversible than doing
-# it by hand. Copying a trap into a second runner so that the mirror is literal
-# would be the wrong reading of "both ways work".
+# **Extra pytest flags on a mirror go without `--`.** A caller's `--` is
+# passed on literally through a `ref`, and pytest then reads what follows it as
+# file arguments. So `poe make-test -k foo`, not `poe make-test -- -k foo`
+# (the module behind the successor tasks strips one stray `--`, so either
+# spelling works where the target is a `python -m poe_tasks` task).
 #
-# **`make schema` is retired in the Makefile itself**, by Cody's decision of
-# 2026-11-05: since make support is going away, a target that was broken prints
-# that it is retired and names the poe task instead of running. `make-schema`
-# is retired with it, and prints the same thing: a mirror that kept the
-# withdrawn name working would leave the retirement half done, with every
-# checklist and habit that says `make-schema` carrying on unwarned. That is the
-# shape every remaining broken target should take if one is found before the
-# file is deleted - both runners refuse, and both name the task that replaces
-# them.
+# **Three mirrors refuse instead of running, and say why:** `make-schema`,
+# because the target is retired in the Makefile itself (Cody, 2026-11-05: it
+# wrote the diagram under a hardcoded version and exited 0 when the render
+# failed); and `make-nginx-conf` and `make-supervisor-conf`, because the
+# Makefile's versions install configs that `www-data` can write (crane,
+# Ubuntu 24.04, 2026-11-04) and poe no longer carries the deployment helpers
+# that used to stand in for them - those four tasks left the runner on
+# 2026-11-06 for the pull request their own header promised, where they will
+# be validated on a real host or dropped. A mirror that kept a withdrawn name
+# working would leave the retirement half done. That is the shape every
+# remaining broken target should take if one is found before the file is
+# deleted: both runners refuse, and both name what to do instead.
 #
 # **A dot cannot survive the move.** poe validates task names against
 # `^[^\W\d][\w:+-]*$` (`poethepoet/task/base.py`), which has no `.` in it;
@@ -116,7 +118,7 @@ ref = "test-integration"
 
 
 # --------------------------------------------------------------------------
-# Coverage
+# Coverage: four spellings of one task
 # --------------------------------------------------------------------------
 
 [tasks.make-cover]
@@ -126,20 +128,21 @@ ref = "cover"
 
 [tasks.make-cover-qatrack]
 help = "Coverage for the qatrack package only, as `make cover-qatrack` runs it"
-ref = "cover-qatrack"
+ref = "cover qatrack"
 
 
 [tasks.make-cover-mo]
 help = "Coverage with fully-covered files left out, as `make cover-mo` runs it"
-ref = "cover-mo"
+ref = "cover --skip-covered"
 
 
 # `make cover-module module=qatrack/units` passes the module as a make
-# variable; here it is poe's positional argument, so
-# `poe make-cover-module qatrack/units`. The ref carries it through.
+# variable; here it is the positional, so `poe make-cover-module qatrack/units`.
+# One difference from the Makefile, and for the better: the successor passes
+# --reuse-db like every other coverage run, which the Makefile's target forgot.
 [tasks.make-cover-module]
 help = "Coverage for one module, e.g. `poe make-cover-module qatrack/units`"
-ref = "cover-module"
+ref = "cover"
 
 
 # --------------------------------------------------------------------------
@@ -191,58 +194,22 @@ ref = "run"
 
 
 # --------------------------------------------------------------------------
-# Release and deployment - the three that deliberately do not mirror
+# Release and deployment - the three that refuse, and say what to do instead
 # --------------------------------------------------------------------------
+#
+# The notices themselves are in poe_tasks/cli.py (RETIRED), so that the text
+# is Python the linter sees rather than a body inside a TOML string.
 
-# `make nginx.conf` writes the config as the invoking user and `sudo mv`s it
-# into place, which keeps the user's ownership: the installed file is then
-# writable by `www-data`, a process that reads it as root. crane measured that
-# on Ubuntu 24.04 on 2026-11-04, in shipped 4.0.x as well as here, and there
-# is a 4.0.3 candidate patch for the Makefile's own copy. Reproducing it here
-# would add a second way to install a world-editable root-read config, so this
-# mirror delegates to the task that writes a root-owned 644 file instead. The
-# name loses the dot because poe refuses one - see the header.
 [tasks.make-nginx-conf]
-help = "WIP- Install the nginx site config (runs sudo) - what `make nginx.conf` does, without the ownership bug; unverified here"
-ref = "nginx-conf"
+help = "RETIRED here: `make nginx.conf` installs a www-data-writable config and poe carries no replacement - see docs/install/linux.rst"
+cmd = "python -m poe_tasks retired make-nginx-conf"
 
 
-# Same as make-nginx-conf: the Makefile's version leaves the two supervisor
-# configs user-owned, and this delegates rather than copying that.
 [tasks.make-supervisor-conf]
-help = "WIP- Install the supervisor configs (runs sudo) - what `make supervisor.conf` does, without the ownership bug; unverified here"
-ref = "supervisor-conf"
+help = "RETIRED here: `make supervisor.conf` leaves user-owned configs and poe carries no replacement - see docs/install/linux.rst"
+cmd = "python -m poe_tasks retired make-supervisor-conf"
 
 
-# `make schema` is retired, so this mirror is retired with it.
-#
-# It used to be `ref = "schema"`, which kept the old name working through poe
-# while the Makefile target refused. That made the retirement half a
-# retirement: a release checklist, a script or a habit that said `make-schema`
-# carried on working, and nothing told anyone the name had been withdrawn. A
-# mirror's job in this file is to reproduce its target, and the target now
-# refuses and explains itself - so this one does too, and names the task that
-# replaces it.
-#
-# Why the target was retired, kept here because the Makefile goes away first:
-# it wrote graph_models' output straight over the committed diagram.
-# django-extensions falls back to pydotplus when pygraphviz is not importable,
-# and pydotplus fails by writing a zero-byte file and exiting 0 - so on a
-# machine without pygraphviz it destroyed the committed 838 KB SVG and reported
-# success. RELEASE_CHECKLIST.md sent the releaser there, which is what made it
-# a live trap. `poe schema` renders to a staged file and only moves it into
-# place if the render worked.
 [tasks.make-schema]
 help = "RETIRED: this name no longer regenerates the diagram - use `uv run poe schema`"
-interpreter = "python"
-shell = '''
-import sys
-
-# sys.exit(str) writes to stderr and exits 1. Kept to four lines because poe
-# echoes a task's source before running it, so every line here is printed twice.
-sys.exit(
-    "`make schema` is RETIRED, and so is this mirror of it: it wrote the diagram "
-    "under a version hardcoded in the Makefile, and exited 0 even when the render "
-    "failed.\n\nUse instead:   uv run poe schema"
-)
-'''
+cmd = "python -m poe_tasks retired make-schema"
