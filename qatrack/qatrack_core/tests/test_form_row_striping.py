@@ -38,9 +38,18 @@ class FourFieldForm(forms.Form):
     four = forms.CharField()
 
 
-def rendered_row_classes(partial, form):
-    html = render_to_string(partial, {'form': form})
+def rendered_row_classes_from(html):
     return re.findall(r'form-row-(odd|even)', html)
+
+
+def rendered_row_classes(partial, form):
+    return rendered_row_classes_from(render_to_string(partial, {'form': form}))
+
+
+def read_template_source(name):
+    from django.template.loader import get_template
+    with open(get_template(name).origin.name, encoding='utf8') as f:
+        return f.read()
 
 
 class TestFormRowStriping(SimpleTestCase):
@@ -68,6 +77,48 @@ class TestFormRowStriping(SimpleTestCase):
             html = render_to_string(partial, {'form': form})
             assert 'has-error' in html, partial
             assert re.findall(r'form-row-(odd|even)', html) == ['odd', 'even', 'odd', 'even'], partial
+
+
+class TestAFormCanOptOut(SimpleTestCase):
+    """Striping is there to group a long form into rows. A form of two or three
+    fields in a box of its own has nothing to group, and the tint just looks
+    like one field is selected - so a template can turn it off."""
+
+    def test_no_stripe_suppresses_the_classes_but_nothing_else(self):
+        form = FourFieldForm()
+        for partial in PARTIALS:
+            html = render_to_string(partial, {'form': form, 'no_stripe': True})
+            assert rendered_row_classes_from(html) == [], partial
+            assert html.count('class="form-group') == 4, partial
+
+    def test_the_default_is_still_striped(self):
+        """Nothing that does not ask to opt out may lose its stripe."""
+        for partial in PARTIALS:
+            assert rendered_row_classes(partial, FourFieldForm()) == [
+                'odd', 'even', 'odd', 'even'
+            ], partial
+
+    def test_an_opted_out_row_keeps_its_error_class(self):
+        form = FourFieldForm(data={'one': '', 'two': 'x', 'three': 'y', 'four': 'z'})
+        assert not form.is_valid()
+        for partial in PARTIALS:
+            html = render_to_string(partial, {'form': form, 'no_stripe': True})
+            assert 'has-error' in html, partial
+            assert rendered_row_classes_from(html) == [], partial
+
+
+class TestTheLoginPageOptsOut(SimpleTestCase):
+    """Two fields in a box of their own: the stripe groups nothing there, and
+    reads as a selected field instead."""
+
+    def test_the_login_template_passes_no_stripe(self):
+        source = read_template_source('registration/login.html')
+        include = re.search(r'\{%\s*include\s+"_form(?:_horizontal)?\.html"[^%]*%\}', source)
+        assert include, 'login.html no longer includes a form partial'
+        assert 'no_stripe=True' in include.group(0), (
+            'login.html includes the form partial without opting out of striping: %r'
+            % include.group(0)
+        )
 
 
 class TestTheStripeIsActuallyStyled(SimpleTestCase):
