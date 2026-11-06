@@ -14,6 +14,8 @@ Release notes are located at http://docs.qatrackplus.com/en/latest/release_notes
 
   **Restart QATrack+ after any of this.** Python caches time zone data for the life of a process, so a web server or Django Q cluster that started before the update keeps the rules it loaded. On Windows restart the `QATrack+ Web Service` and the `QATrack+ Django Q Cluster` task; on Linux restart the supervisor programs; on Docker, `docker compose up -d` after the build recreates both services. Leaving the Django Q cluster running is the easiest one to miss, and it is the process that sends scheduled notices and reports.
 
+* **Appearance**: Long forms and the QC tables are easier to read a single row across: their rows now alternate between the page background and a faint grey. This is a style change only: form rows gain a few pixels of padding so their text sits inside the tint rather than on its edge, and nothing else moves. No colour that carries meaning changes - the pass, tolerance and action backgrounds are untouched, a calculated value keeps the grey box that marks it as calculated, and the row you are entering is still highlighted more strongly than the shading. Short forms that have nothing to group, such as the sign-in page, are not shaded ([#818](https://github.com/qatrackplus/qatrackplus/issues/818)).
+
 ## v4.0.2
 
 * **QA**: The Test List admin shows each member test's name again, and the view and change icons beside it work ([#897](https://github.com/qatrackplus/qatrackplus/issues/897)).
