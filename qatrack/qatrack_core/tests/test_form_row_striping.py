@@ -121,6 +121,36 @@ class TestTheLoginPageOptsOut(SimpleTestCase):
         )
 
 
+class TestTheHorizontalRowEnclosesItsColumns(SimpleTestCase):
+    """The horizontal partial's row holds floated `col-sm-*` children, and
+    Bootstrap clears them only for `.form-horizontal .form-group`. Two of this
+    partial's callers do not provide that context, so without an explicit
+    clearfix the row collapses to its padding height and the stripe does not
+    cover the field it is meant to be behind."""
+
+    def test_the_horizontal_row_is_clearfixed(self):
+        html = render_to_string('_form_horizontal.html', {'form': FourFieldForm()})
+        rows = re.findall(r'<div class="(form-group[^"]*)"', html)
+        assert rows, 'the horizontal partial no longer renders form-group rows'
+        for row in rows:
+            assert 'clearfix' in row.split(), (
+                'a horizontal row does not clear its floated columns: %r' % row
+            )
+
+    def test_bootstrap_does_not_clear_a_bare_form_group(self):
+        """If this ever stops being true the clearfix above is redundant, and
+        this test says so rather than leaving it unexplained."""
+        bootstrap = os.path.join(
+            settings.PROJECT_ROOT, 'qatrack_core', 'static', 'bootstrap', 'css', 'bootstrap.css'
+        )
+        with open(bootstrap, encoding='utf8') as f:
+            css = f.read()
+        assert '.form-horizontal .form-group:after' in css
+        assert not re.search(r'^\.form-group:after,?\s*$', css, re.M), (
+            'bootstrap now clears a bare .form-group; the explicit clearfix can go'
+        )
+
+
 class TestTheStripeIsActuallyStyled(SimpleTestCase):
 
     def test_base_css_gives_one_parity_a_background(self):
