@@ -30,9 +30,20 @@ define(['jquery'], function ($) {
     var STRIPE_CLASS = 'qa-row-even';
 
     /* A row that starts something new, so the preceding test's block ends
-     * here. The sublist delimiter rows on the review page belong to no test and
-     * keep the table's own background. */
-    var BLOCK_BREAK = 'tr.qa-valuerow, tr.sublist';
+     * here.
+     *
+     * `tr.qa-error` is in the list even though an error row belongs to a test:
+     * it sits *before* that test's value row, so without it the walk from test
+     * N runs straight through N+1's error rows and stops only at N+1's value
+     * row. N+1's red error bar would then carry N's shade while N+1's own rows
+     * did not - the row grouped with the wrong test, which is the one thing
+     * this module exists to prevent. Nothing is lost by breaking here, because
+     * a test's own error rows carry its form prefix and arrive through the
+     * branch below.
+     *
+     * The sublist delimiters - `tr.sublist` opening one and `tr.end-sublist`
+     * closing it - belong to no test and keep the table's own background. */
+    var BLOCK_BREAK = 'tr.qa-valuerow, tr.sublist, tr.qa-error, tr.end-sublist';
 
     function rows_for_test($value_row) {
         /* The companion rows that follow it, plus any row carrying this test's

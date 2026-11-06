@@ -91,6 +91,31 @@ def grey_level(colour):
     return None
 
 
+def paints_the_element_itself(selector, class_name):
+    """True when the rule's subject is the striped element, not a descendant.
+
+    `.form-row-even .form-control[disabled]` mentions the stripe class but
+    paints a control inside the row, so it is not a second stripe colour. Only
+    the last compound selector is the rule's subject.
+    """
+    subject = selector.split(',')[0].strip().split()[-1]
+    return class_name in subject
+
+
+def highlight_rules():
+    return [
+        (selector, body) for selector, body in rules_matching(QA_CSS, 'tr.hover')
+        if background_colour(body)
+    ]
+
+
+def neutral_greys(rules):
+    return [
+        grey_level(background_colour(body)) for _selector, body in rules
+        if grey_level(background_colour(body)) is not None
+    ]
+
+
 def background_colour(body):
     m = re.search(r'background(?:-color)?\s*:\s*([^;}]+)', body)
     return m and ' '.join(m.group(1).split())
@@ -116,8 +141,15 @@ class TestTheStripeIsStyled(SimpleTestCase):
     def test_the_qc_stripe_is_the_same_shade_as_the_form_stripe(self):
         """The two halves of #818 are one visual decision, so they must not be
         tuned apart by accident."""
-        qc = [background_colour(body) for _, body in rules_matching(QA_CSS, STRIPE_CLASS)]
-        form = [background_colour(body) for _, body in rules_matching(BASE_CSS, 'form-row-even')]
+        qc = [
+            background_colour(body) for selector, body in rules_matching(QA_CSS, STRIPE_CLASS)
+            if paints_the_element_itself(selector, STRIPE_CLASS)
+        ]
+        form = [
+            background_colour(body)
+            for selector, body in rules_matching(BASE_CSS, 'form-row-even')
+            if paints_the_element_itself(selector, 'form-row-even')
+        ]
         qc = [c for c in qc if c]
         form = [c for c in form if c]
         assert qc and form, (qc, form)
@@ -131,14 +163,8 @@ class TestTheStripeLosesToTheFocusHighlight(SimpleTestCase):
     win: a stripe that outranks it defeats the point of saying "you are here".
     """
 
-    def highlight_rules(self):
-        return [
-            (selector, body) for selector, body in rules_matching(QA_CSS, 'tr.hover')
-            if background_colour(body)
-        ]
-
     def test_the_focus_highlight_still_sets_a_background(self):
-        assert self.highlight_rules(), 'no rule in qa.css gives tr.hover a background'
+        assert highlight_rules(), 'no rule in qa.css gives tr.hover a background'
 
     def test_the_highlight_is_still_visibly_darker_than_the_stripe(self):
         """Specificity only settles which rule wins. If the two greys are close
@@ -147,7 +173,7 @@ class TestTheStripeLosesToTheFocusHighlight(SimpleTestCase):
         left four levels of grey between a shaded row and a focused one."""
         stripe = [background_colour(body) for _, body in rules_matching(QA_CSS, STRIPE_CLASS)]
         stripe = [grey_level(c) for c in stripe if c]
-        focus = [grey_level(background_colour(body)) for _, body in self.highlight_rules()]
+        focus = [grey_level(background_colour(body)) for _, body in highlight_rules()]
         assert stripe and focus, (stripe, focus)
         assert None not in stripe and None not in focus, (
             'the stripe or the highlight is no longer a plain grey, so this '
@@ -162,12 +188,17 @@ class TestTheStripeLosesToTheFocusHighlight(SimpleTestCase):
     def test_the_highlight_outranks_the_stripe_on_specificity_alone(self):
         """Not on source order, which a later edit could reverse without
         anyone noticing."""
-        for selector, _body in rules_matching(QA_CSS, STRIPE_CLASS):
+        stripe_rules = rules_matching(QA_CSS, STRIPE_CLASS)
+        assert stripe_rules, (
+            'no rule in qa.css selects on %r, so every assertion in this loop '
+            'passes by matching nothing' % STRIPE_CLASS
+        )
+        for selector, _body in stripe_rules:
             assert '#' not in selector, (
                 'the stripe selector %r uses an id, so it can out-specify the focus '
                 'highlight' % selector
             )
-        for selector, _body in self.highlight_rules():
+        for selector, _body in highlight_rules():
             assert '#' in selector, (
                 'the focus highlight %r no longer uses an id, so it no longer outranks '
                 'the stripe on specificity' % selector
@@ -179,22 +210,57 @@ class TestCalculatedValuesKeepTheirOwnCue(SimpleTestCase):
     background - not the row's - is what tells a calculated value apart. The
     row striping is a second, independent axis and must not displace it."""
 
+    def readonly_greys(self):
+        return neutral_greys(rules_matching(QA_CSS, 'readonly'))
+
     def test_a_readonly_qa_input_still_has_its_own_background(self):
-        matched = [
-            (selector, body) for selector, body in rules_matching(QA_CSS, 'readonly')
-            if background_colour(body)
-        ]
-        assert matched, (
-            'no rule in qa.css gives input[readonly].qa-input a background, so a '
-            'calculated value no longer looks different from an entered one'
+        assert self.readonly_greys(), (
+            'no rule in qa.css gives input[readonly].qa-input a neutral background, '
+            'so a calculated value no longer looks different from an entered one'
         )
 
+    def test_the_cue_stays_clear_of_the_focus_highlight(self):
+        """The gap this change closed and had to reopen.
+
+        The stripe going 2.5% -> 5% pushed the focused row from 238 to 227 to
+        stay clear of the shading - and that put it six levels from the readonly
+        box at 221, so a calculated value stopped reading as calculated on any
+        row the pointer was over. An existence check could not see it. This can.
+
+        It matters on hover and not only on focus: qa/js/qa.js puts `.hover` on
+        a test's whole block on mouseover.
+        """
+        focus = neutral_greys(highlight_rules())
+        assert focus, 'no neutral background on the focus highlight to compare'
+        for readonly in self.readonly_greys():
+            for highlight in focus:
+                assert highlight - readonly >= MIN_GREY_STEP, (
+                    'the focused row is %d and the readonly input box is %d, %d '
+                    'apart - under %d, the calculated-value cue disappears on '
+                    'the row being worked on'
+                    % (highlight, readonly, highlight - readonly, MIN_GREY_STEP)
+                )
+
     def test_the_cue_is_on_the_input_not_the_row(self):
-        for selector, _body in rules_matching(QA_CSS, STRIPE_CLASS):
+        stripe_rules = rules_matching(QA_CSS, STRIPE_CLASS)
+        assert stripe_rules, 'no stripe rule to check, so this proves nothing'
+        for selector, _body in stripe_rules:
             assert 'readonly' not in selector, selector
 
 
 class TestBothPagesAreWiredUp(SimpleTestCase):
+
+    def test_neither_call_is_commented_out(self):
+        """`'stripe_qa_rows(' in source` would be satisfied by a commented call."""
+        for path in (QA_JS, QAREVIEW_JS):
+            for line in read(path).splitlines():
+                if 'stripe_qa_rows(' not in line:
+                    continue
+                stripped = line.strip()
+                assert not stripped.startswith(('//', '/*', '*')), (
+                    '%s calls the striper only from a comment: %s'
+                    % (os.path.basename(path), stripped)
+                )
 
     def test_the_module_is_registered_with_requirejs(self):
         assert "qastripe: siteConfig.STATIC_URL + 'qa/js/qastripe'" in read(REQUIREJS_CONFIG)

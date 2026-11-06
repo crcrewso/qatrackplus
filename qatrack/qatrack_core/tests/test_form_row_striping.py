@@ -171,3 +171,108 @@ class TestTheStripeIsActuallyStyled(SimpleTestCase):
         assert any('background' in body for _, body in matched), (
             'a rule matches .form-row-even but none of them sets a background: %r' % matched
         )
+
+
+BOOTSTRAP_CSS = os.path.join(
+    settings.PROJECT_ROOT, 'qatrack_core', 'static', 'bootstrap', 'css', 'bootstrap.css'
+)
+
+# How far apart two greys have to be before the difference is one anybody sees
+# on a clinical screen. The same figure qa/tests/test_qa_row_striping.py uses.
+MIN_GREY_STEP = 10
+
+
+def grey_level(colour):
+    """The 0-255 level a neutral background renders at over white.
+
+    Handles `#rgb`, `#rrggbb` and `rgba(0, 0, 0, a)`; None for anything that is
+    not a neutral, since a comparison against a hue would not mean anything.
+    """
+    if not colour:
+        return None
+    colour = ' '.join(colour.split())
+    m = re.match(r'rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*([0-9.]+)\s*\)$', colour)
+    if m:
+        return round(255 * (1 - float(m.group(1))))
+    m = re.match(r'#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$', colour)
+    if m:
+        digits = m.group(1)
+        if len(digits) == 3:
+            digits = ''.join(d * 2 for d in digits)
+        r, g, b = (int(digits[i:i + 2], 16) for i in (0, 2, 4))
+        return r if r == g == b else None
+    return None
+
+
+def background_greys(path, needle, subject_only=True):
+    """Grey levels of the backgrounds set by rules whose selector mentions `needle`.
+
+    `subject_only` keeps rules whose *last* compound selector carries it, so a
+    rule painting a descendant of a striped row is not counted as the row's own
+    colour.
+    """
+    with open(path, encoding='utf8') as f:
+        sheet = tinycss2.parse_stylesheet(f.read(), skip_whitespace=True, skip_comments=True)
+
+    greys = []
+    for rule in sheet:
+        if rule.type != 'qualified-rule':
+            continue
+        selector = tinycss2.serialize(rule.prelude).strip()
+        if needle not in selector:
+            continue
+        if subject_only and not any(
+            needle in part.strip().split()[-1]
+            for part in selector.split(',') if part.strip()
+        ):
+            continue
+        body = tinycss2.serialize(rule.content)
+        m = re.search(r'background(?:-color)?\s*:\s*([^;}]+)', body)
+        level = grey_level(m.group(1) if m else None)
+        if level is not None:
+            greys.append(level)
+    return greys
+
+
+class TestADisabledControlStillLooksDisabledOnAShadedRow(SimpleTestCase):
+    """Bootstrap's own disabled grey sits four levels from the 5% stripe.
+
+    `.form-control[disabled], .form-control[readonly]` is `#eee` (238) and a
+    shaded row is 242, so on those rows a disabled control stopped reading as
+    disabled. It is not a corner case anyone has to go looking for: `FaultForm`
+    lists `related_service_events` sixth, so `forloop.counter` always puts it on
+    an even row, and the create form renders that field disabled until a unit is
+    chosen - which is the first thing a user sees on the fault page and in the
+    fault modal on the perform page.
+
+    Pinned numerically rather than by the existence of a rule, because the
+    failure is a gap closing, not a rule disappearing. That is the mistake this
+    change already made once on the QC side.
+    """
+
+    def test_bootstrap_still_paints_a_disabled_control(self):
+        """If this stops being true, the override below has nothing to beat."""
+        assert background_greys(BOOTSTRAP_CSS, '.form-control[disabled]'), (
+            'bootstrap.css no longer gives a disabled .form-control a neutral '
+            'background, so the override in base.css may be unnecessary'
+        )
+
+    def test_the_shaded_row_has_a_grey_to_compare(self):
+        assert background_greys(BASE_CSS, 'form-row-even'), (
+            'no neutral background on .form-row-even, so this proves nothing'
+        )
+
+    def test_a_disabled_control_on_a_shaded_row_keeps_its_cue(self):
+        stripe = background_greys(BASE_CSS, 'form-row-even')
+        override = background_greys(BASE_CSS, '.form-control[disabled]', subject_only=False)
+        assert override, (
+            'nothing in base.css darkens a disabled control on a shaded row; '
+            "bootstrap's #eee (238) is only four levels from the stripe at 242"
+        )
+        for row in stripe:
+            for control in override:
+                assert abs(row - control) >= MIN_GREY_STEP, (
+                    'a shaded row is %d and a disabled control on it is %d, %d '
+                    'apart - under %d the control stops looking disabled'
+                    % (row, control, abs(row - control), MIN_GREY_STEP)
+                )
