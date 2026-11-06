@@ -9,3 +9,19 @@
 deploy/docker/** text eol=lf
 Dockerfile text eol=lf
 *.envsh text eol=lf
+
+# Every pull request adds a bullet to release_notes.md at the same place - just
+# under the heading for the release being prepared - so any two of them conflict
+# there, whichever order they land in. Measured: two branches each adding one
+# bullet give `CONFLICT (content): Merge conflict in release_notes.md`.
+#
+# `union` keeps both sides instead of conflicting, and it applies to rebases as
+# well as merges. The cost is that it never conflicts, which is also its danger:
+# if one branch CORRECTS an existing bullet while another adds one, both the
+# correction and the stale original survive, silently. So the convention this
+# relies on is that a pull request only ever APPENDS a bullet; correcting or
+# removing one is a commit of its own, on the release branch, where nothing is
+# racing it. test_release_notes_merge.py checks the attribute is still set and
+# that no version has ended up with two headings, which is what a union merge
+# produces when two branches each open the same section.
+release_notes.md merge=union

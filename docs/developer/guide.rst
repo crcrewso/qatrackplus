@@ -385,6 +385,31 @@ The following lists some guidelines to keep in mind when developing for
 QATrack+.
 
 
+Release notes: append, never edit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add your entry to ``release_notes.md`` as a **new bullet** under the heading for
+the release being prepared, and leave the bullets already there alone.
+
+Every pull request edits that file in the same spot, so without help any two of
+them conflict there - and the conflict says nothing useful, because both
+bullets are wanted. ``.gitattributes`` marks the file ``merge=union``, which
+keeps both sides instead of stopping to ask.
+
+That only works for additions. Union **never** reports a conflict, so if your
+branch rewrites a bullet that another branch also touched, both versions
+survive and nothing points it out. If an entry needs correcting or removing, do
+it in a commit of its own against the release branch, where no other work is
+racing it.
+
+One structural case to know: if two branches each *open* the same version's
+section, union keeps both headings and splits the bullets between them. Keep
+the first heading and move the bullets under it.
+``qatrack/qatrack_core/tests/test_release_notes_merge.py`` fails if that
+reaches a commit, and if the ``merge=union`` attribute ever stops being in
+effect.
+
+
 Internationalization & Translation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
