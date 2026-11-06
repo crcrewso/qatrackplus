@@ -656,6 +656,10 @@ class TestUnitTestInfo(TestCase):
 
         utis = models.UnitTestInfo.objects.all()
         self.assertEqual(len(utis), 3)
+        # Not the count alone: three of anything satisfies that, including the
+        # case where t3's pair is missing and some other one was created twice.
+        # Raised by CodeRabbit on c#27.
+        self.assertIn((self.utc.unit, t3), [(uti.unit, uti.test) for uti in utis])
 
     def test_read_test(self):
         utis = models.UnitTestInfo.objects.all()

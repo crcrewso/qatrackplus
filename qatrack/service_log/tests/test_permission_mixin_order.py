@@ -223,10 +223,27 @@ class TestDeleteServiceEventRefusesTheWrongUser(TestCase):
         self.client.force_login(self.plain)
         assert self.client.get(url).status_code == 403
 
-    def test_a_user_with_the_permission_is_not_refused(self):
-        """Without this the test above would pass if the view were simply broken."""
+    def test_a_user_with_the_permission_reaches_the_page(self):
+        """Without this the test above would pass if the view were simply broken.
+
+        Not `!= 403`: a 404 from a renamed URL, or a 500 from a broken view,
+        would satisfy that and still leave the permitted user unable to delete
+        anything - which is the failure this test exists to rule out. Raised by
+        CodeRabbit on c#27; the same line is on c#35, where it matters most.
+
+        Measured on this branch rather than assumed: the permitted user gets
+        200, rendered from `service_event_delete.html`, with the confirmation
+        form in the context.
+        """
         url = self.resolve()
         if url is None:
             self.skipTest("could not resolve the delete URL by name")
         self.client.force_login(self.allowed)
-        assert self.client.get(url).status_code != 403
+        response = self.client.get(url)
+        assert response.status_code == 200, (
+            "a permitted user got %s, not the delete page" % response.status_code
+        )
+        assert "form" in response.context, "the delete page rendered without its form"
+        assert any(
+            t.name == "service_log/service_event_delete.html" for t in response.templates
+        ), "a permitted user reached %s" % [t.name for t in response.templates][:3]
