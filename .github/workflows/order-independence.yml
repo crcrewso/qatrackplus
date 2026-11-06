@@ -17,14 +17,16 @@
 # nothing to do with the pull request in front of it, and a check that does that
 # teaches everybody to ignore it - the same way a `makemigrations` that always
 # reported 195 pending operations taught everybody to ignore `makemigrations`.
-# So it runs on a schedule and on demand, where a failure is its own signal and
-# somebody has to look at it.
+# So it runs on demand - and, once the precondition below is met, on a schedule -
+# where a failure is its own signal and somebody has to look at it.
 #
 # What it catches is tests that depend on each other: state left in a module, a
 # class attribute mutated, an id that happens to be 1 because nothing ran first.
 # It does NOT catch a test that depends on the order a *database* returns rows
-# in - that is a property of the query, not of the test order, and the fix is an
-# explicit `order_by` (see `unit_test_info_pairs` in qa/tests/test_models.py).
+# in - that is a property of the query, not of the test order. The fix there is an
+# explicit `order_by`, or an assertion that does not depend on order at all (see
+# `unit_test_info_pairs` in qa/tests/test_models.py, which takes the second
+# route).
 #
 # WHICH INDEPENDENCE - Cody, 2026-11-06:
 #
@@ -81,14 +83,27 @@ name: Order independence
 # before that would risk a nightly red that nobody can act on, which is the
 # failure mode this file's header warns about.
 #
+# The second trigger is the mechanical half of the policy above - a pull request
+# that adds an app, changes the schema, or moves a driver or maths library. Same
+# precondition: enabling it before the suite can pass shuffled would put a red
+# check on every migration PR for a reason that has nothing to do with it.
+#
+# Both commented blocks live INSIDE `on:` below, indented to sit under it, so
+# that uncommenting them is all there is to do. They used to sit here, above
+# `on:` - where uncommenting the schedule gave
+# `ParserError: while parsing a block mapping` and the whole workflow stopped
+# loading, not just the trigger. A documented remedy has to work.
+on:
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Seed to reproduce a previous failure (blank for a new one)"
+        required: false
+        type: string
+
 #  schedule:
 #    - cron: "30 4 * * *"
-#
-# And the mechanical half of the policy above - a pull request that adds an app,
-# changes the schema, or moves a driver or maths library. Same precondition:
-# enabling this before the suite can pass shuffled would put a red check on
-# every migration PR for a reason that has nothing to do with it.
-#
+
 #  pull_request:
 #    paths:
 #      - "qatrack/*/migrations/**"        # a schema change
@@ -97,13 +112,6 @@ name: Order independence
 #      - "qatrack/settings.py"            # INSTALLED_APPS, DATABASES, CACHES
 #      - "pyproject.toml"                 # a driver or maths library pin
 #      - "uv.lock"
-on:
-  workflow_dispatch:
-    inputs:
-      seed:
-        description: "Seed to reproduce a previous failure (blank for a new one)"
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -114,13 +122,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # As ci.yml does on every one of its checkouts: this job never pushes,
+          # so leaving a credential in .git/config buys nothing.
+          persist-credentials: false
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - name: Setup Database configuration
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
       - name: Install
-        run: uv sync
+        # `--locked`, as everywhere in ci.yml: a shuffled run that resolved its
+        # own versions could fail or pass for a reason that is not in uv.lock,
+        # and this job exists to attribute failures precisely.
+        run: uv sync --locked
       # The seed is decided here, before pytest runs, and passed in explicitly.
       #
       # It used to be left to pytest when no seed was given, and read back out

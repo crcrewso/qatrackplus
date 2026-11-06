@@ -164,7 +164,7 @@ class TestHistoryLabelContrast:
 
         `.text-black` is AdminLTE's, declared `color:#111 !important`. It worked,
         but only where somebody remembered to type it - which was one of the
-        four label sites in history.html. A stylesheet rule covers all of them,
+        three label sites in history.html. A stylesheet rule covers all of them,
         and does not need `!important` because two classes already beat
         Bootstrap's one.
         """

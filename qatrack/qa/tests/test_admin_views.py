@@ -376,4 +376,3 @@ class TestPackLinksFollowTheirViewsPermission(TestCase):
         for url in (self.export, self.import_):
             with self.subTest(url=url):
                 assert self.client.get(url).status_code == 200
-

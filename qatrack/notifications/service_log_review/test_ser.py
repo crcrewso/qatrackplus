@@ -74,11 +74,11 @@ class TestServiceEventReviewModel(TestCase):
         # in this class dies in setUp. Measured 2026-11-02 at seed 1: seven of the
         # suite's nine order-dependent failures were these two lines. Even when it
         # found a user, which one it found was arbitrary.
+        # `create_user` already sets the email and `is_active` already defaults
+        # True, so setting either here, and the save() that existed only for
+        # them, did nothing.
         user = models.User.objects.create_user('notified', 'example@example.com', 'password')
-        user.is_active = True
         user.groups.add(self.group)
-        user.email = "example@example.com"
-        user.save()
 
         self.recipients = RecipientGroup.objects.create(name="test group")
         self.recipients.groups.add(self.group)
@@ -163,11 +163,11 @@ class TestServiceEventReviewEmails(TestCase):
         # in this class dies in setUp. Measured 2026-11-02 at seed 1: seven of the
         # suite's nine order-dependent failures were these two lines. Even when it
         # found a user, which one it found was arbitrary.
+        # `create_user` already sets the email and `is_active` already defaults
+        # True, so setting either here, and the save() that existed only for
+        # them, did nothing.
         user = models.User.objects.create_user('notified', 'example@example.com', 'password')
         user.groups.add(self.group)
-        user.is_active = True
-        user.email = "example@example.com"
-        user.save()
 
         self.recipients = RecipientGroup.objects.create(name="test group")
         self.recipients.groups.add(self.group)

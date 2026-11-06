@@ -687,7 +687,14 @@ require(['jquery', 'lodash', 'moment', 'datatables.net-bs'], function ($, _, mom
         $(window).resize(function(e){
 
             if (_.isUndefined($previewContainer.position())) {
-                // the container is not laid out yet - upstream issue #607
+                /* The container is not on this page at all - upstream issue
+                 * #607. jQuery returns undefined from .position() only for an
+                 * empty set; an element that is present but hidden returns
+                 * {top: 0, left: 0}, so this is not a "not laid out yet" guard.
+                 * The three .position() calls below are unguarded, which is
+                 * safe only because all three ids live in the one template
+                 * (reports/reports.html) - none of them can go missing on its
+                 * own. */
                 return;
             }
 

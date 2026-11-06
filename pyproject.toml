@@ -181,8 +181,11 @@ dev = [
     "pytest-django>=4.5.0,<5.0",
     "pytest-cov>=4.0,<5.0",
     "pytest-sugar>=0.9.6,<1.0",
-    # Shuffles test order, for the nightly order-independence run. Prints the
-    # seed it used, so a failure is reproducible with --randomly-seed=<n>.
+    # Shuffles test order, for the order-independence run. Pass
+    # --randomly-seed=<n> to reproduce one; the seed it picks for itself is NOT
+    # printed, because `addopts` carries `-q` and that suppresses the report
+    # header it announces in. order-independence.yml chooses the seed before
+    # pytest runs for exactly that reason.
     "pytest-randomly>=3.12,<4.0",
     "coverage>=6.0,<8.0",
     "django-coverage>=1.2.4,<2.0",

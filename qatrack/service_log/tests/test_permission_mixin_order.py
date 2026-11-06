@@ -115,7 +115,16 @@ class TestPermissionMixinsActuallyRun(TestCase):
     def test_there_are_views_to_check(self):
         """Guards the sweep itself: an empty sweep would pass everything below."""
         found = view_classes_declaring_a_permission()
-        assert len(found) > 20, "only found %d views declaring permission_required" % len(found)
+        # The floor is close to the real count on purpose. It was `> 20` against
+        # an actual 41, so a views module that stopped importing - which the
+        # sweep swallows deliberately, a broken import being another test's
+        # business - could take half the project out of the sweep while this
+        # still passed. Raised on the pre-submission review.
+        assert len(found) >= 38, (
+            "only found %d views declaring permission_required; the sweep found 41 "
+            "when this floor was set, so a drop of more than three means a views "
+            "module stopped importing rather than that views were removed" % len(found)
+        )
 
     def test_every_declared_permission_is_reachable_by_dispatch(self):
         offenders = []
@@ -192,11 +201,20 @@ class TestDeleteServiceEventRefusesTheWrongUser(TestCase):
 
     def setUp(self):
         from django.contrib.auth.models import Permission, User
+        from django.urls import reverse
 
         from qatrack.service_log.tests import utils as sl_utils
 
         self.service_event = sl_utils.create_service_event()
-        self.url = '/service-log/delete/%d/' % self.service_event.pk
+        # By name, and NOT guarded: if `se_delete` is ever renamed, this raises
+        # NoReverseMatch and the run goes red. It used to resolve in a helper
+        # that returned None and let both tests `skipTest`, so a rename would
+        # have removed the only behavioural coverage in this file without a
+        # signal - in a file whose other test exists to prevent exactly that.
+        # There was a hand-built path here as well, never read and pointing at
+        # /service-log/delete/<pk>/, which is not the route (urls.py has
+        # event/delete/). Raised on the pre-submission review.
+        self.url = reverse('se_delete', kwargs={'pk': self.service_event.pk})
 
         self.plain = User.objects.create_user('plain-sl', 'p@e.com', 'pw')
         self.allowed = User.objects.create_user('allowed-sl', 'a@e.com', 'pw')
@@ -205,23 +223,9 @@ class TestDeleteServiceEventRefusesTheWrongUser(TestCase):
                                    codename='delete_serviceevent'))
         self.allowed = User.objects.get(pk=self.allowed.pk)
 
-    def resolve(self):
-        """The URL name, rather than a hand-built path that may not match the conf."""
-        from django.urls import NoReverseMatch, reverse
-
-        for name in ('se_delete',):
-            try:
-                return reverse(name, kwargs={'pk': self.service_event.pk})
-            except NoReverseMatch:
-                continue
-        return None
-
     def test_a_user_without_the_permission_is_refused(self):
-        url = self.resolve()
-        if url is None:
-            self.skipTest("could not resolve the delete URL by name")
         self.client.force_login(self.plain)
-        assert self.client.get(url).status_code == 403
+        assert self.client.get(self.url).status_code == 403
 
     def test_a_user_with_the_permission_reaches_the_page(self):
         """Without this the test above would pass if the view were simply broken.
@@ -235,11 +239,8 @@ class TestDeleteServiceEventRefusesTheWrongUser(TestCase):
         200, rendered from `service_event_delete.html`, with the confirmation
         form in the context.
         """
-        url = self.resolve()
-        if url is None:
-            self.skipTest("could not resolve the delete URL by name")
         self.client.force_login(self.allowed)
-        response = self.client.get(url)
+        response = self.client.get(self.url)
         assert response.status_code == 200, (
             "a permitted user got %s, not the delete page" % response.status_code
         )
