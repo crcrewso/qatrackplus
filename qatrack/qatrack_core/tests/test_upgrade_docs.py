@@ -109,3 +109,31 @@ class TestLinuxUpgradePagesStopTheWebServer(unittest.TestCase):
                         page.name, ", ".join(sorted(started - stopped)),
                     )
                 )
+
+
+class TestInstallDocsDoNotTeachTheDeprecatedSeleniumForm(unittest.TestCase):
+    """`-m "not selenium"` works today, warns, and goes away in 4.2.
+
+    Since #867 plain `pytest` skips the GUI tests, and the conftest raises a
+    `PytestDeprecationWarning` for the marker expression. An install page that
+    still tells a site administrator to type it hands them a command that will
+    stop working, and - worse here - the paragraph that carried it also told
+    them the GUI tests *error at setup*, which is the behaviour from before that
+    change. A reader following an upgrade page has no way to know which of the
+    two they are on.
+
+    `docs/developer/` is deliberately excluded: those pages document the
+    deprecation itself and have to name the form to deprecate it.
+    """
+
+    def test_there_are_pages_to_check(self):
+        assert sorted(DOCS.glob("*.rst")), "no install pages found under %s" % DOCS
+
+    def test_no_install_page_asks_for_the_marker_expression(self):
+        for page in sorted(DOCS.glob("*.rst")):
+            with self.subTest(page=page.name):
+                assert "not selenium" not in page.read_text(encoding="utf-8"), (
+                    '%s tells the reader to pass `-m "not selenium"`, which is '
+                    "deprecated for removal in 4.2 - plain `pytest` already "
+                    "skips the GUI tests" % page.name
+                )

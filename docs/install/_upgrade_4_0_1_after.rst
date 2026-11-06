@@ -46,8 +46,8 @@ Running the test suite against an installed server
 
 You do not need to, and most sites never will. It is worth knowing how, because
 "the suite passes on my server" is the most direct answer to *did this upgrade
-land cleanly*, and two things stop it working on a deployment that was set up by
-following this guide.
+land cleanly*. One thing stops it working on a deployment that was set up by
+following this guide, and one more looks like a problem and is not.
 
 **The database user cannot create the test database.** ``pytest`` reads your
 ``local_settings.py``, so it talks to your real database server, and then asks it
@@ -78,18 +78,22 @@ place:
     -- ... run the suite ...
     ALTER SERVER ROLE [dbcreator] DROP MEMBER [qatrack];
 
-**The GUI tests need a browser.** Around 35 of them drive a real one, and on a
-server with none installed they error at setup rather than being skipped. That is
-not a failure of your installation. Deselect them by marker - ignoring the file
-they mostly live in is not enough, because other test modules import its base
-class and define browser-driven tests of their own:
+**The GUI tests are skipped for you, and the summary will say so.** Around forty
+of them drive a real browser, which a server has no reason to have installed, so
+plain ``pytest`` skips them and reports them as skips. That is not a gap in the
+run and not a failure of your installation - it is the only thing that can be
+done without a browser. Nothing needs passing on the command line:
 
 .. code-block:: bash
 
-    .venv/bin/python -m pytest -m "not selenium"
+    .venv/bin/python -m pytest
 
-On Windows that is ``.venv\Scripts\python.exe -m pytest -m "not selenium"``, and the
-grant above is the SQL Server one.
+On Windows that is ``.venv\Scripts\python.exe -m pytest``, and the grant above is
+the SQL Server one.
+
+If you do want them, install Chrome or Firefox on the server and add
+``--run-selenium``. They drive a real browser against a real server, so the run
+takes considerably longer, and they are not what tells you an upgrade landed.
 
 .. warning::
 
