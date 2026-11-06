@@ -222,7 +222,16 @@ exclude = [
     "node_modules",
     "media",
     "static",
-    "*tmp*"
+    # `tmp`, not `*tmp*`. A single-path pattern with wildcards is matched
+    # against every component of the *absolute* path, so `*tmp*` matched the
+    # `/tmp` in a checkout living under it and excluded the entire tree. With
+    # `--force-exclude`, which ruff-pre-commit passes, the Lint hook then
+    # reported "No Python files found under the given path(s)" and exited 0 -
+    # a green hook that had inspected nothing. Measured on both ruff 0.4.5
+    # (the pinned hook) and 0.15.20 (the dev dependency): `tmp` still excludes
+    # a `tmp/` directory inside the project and no longer swallows the
+    # checkout. test_lint_gate.py fails if this regresses.
+    "tmp"
 ]
 
 [tool.ruff.lint]
