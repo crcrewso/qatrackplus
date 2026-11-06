@@ -875,7 +875,12 @@ class DeleteServiceEvent(PermissionRequiredMixin, DeleteView, FormView):
         messages.add_message(
             self.request, messages.WARNING, f'Could not delete service event {form.instance.id}'
         )
-        return reverse('sl_dash')
+        # A redirect, not the URL on its own: a view has to return a response,
+        # and this returned the string - so a permitted user who submitted an
+        # invalid delete form got an exception rather than being sent back to
+        # the dashboard. Predates this branch; raised by CodeRabbit against it,
+        # and it is the one class this branch touches.
+        return HttpResponseRedirect(reverse('sl_dash'))
 
     def get_success_url(self):
         return reverse('sl_dash')

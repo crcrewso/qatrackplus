@@ -332,13 +332,26 @@ class TestRealFilesystemPermissions(SimpleTestCase):
                 with override_settings(MEDIA_ROOT=str(media_path)):
                     after = check_media_folder_permissions(None)
             finally:
+                # Each restore on its own, and none of them allowed to raise.
+                # A chmod that failed used to abandon the loop and replace
+                # whatever the test was actually failing on, so a real failure
+                # in the check or the assertions above was reported as a
+                # permission error in the cleanup - and the remaining
+                # directories were left broken. There is nothing to fall back
+                # on here either: 3.12's TemporaryDirectory already retries
+                # permission failures during its own cleanup. Raised by
+                # CodeRabbit.
                 for directory in (media_path, media_path / 'uploads', media_path / 'uploads' / 'tmp'):
-                    directory.chmod(0o755)
+                    try:
+                        directory.chmod(0o755)
+                    except OSError:
+                        pass
 
         assert after == [], (
             'the check still reports a problem after its own advice was followed: %r'
             % [(e.id, e.msg) for e in after]
         )
+
 
 class TestRunningUserName(SimpleTestCase):
     """The ownership hint must never be able to stop a deployment.

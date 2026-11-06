@@ -198,7 +198,12 @@ jobs:
             --randomly-seed="${{ steps.seed.outputs.seed }}" 2>&1 | tee run.log
 
       - name: Say how to reproduce it
-        if: failure()
+        # Not a bare `failure()`: that is true when the install step or the seed
+        # validation failed, with the shuffled run never started - and this
+        # summary would then report an order-dependent test failure, and hand
+        # over a reproduce command with an empty seed. A setup error has to keep
+        # its own diagnosis. Raised by Copilot.
+        if: failure() && steps.shuffled.outcome == 'failure'
         env:
           USED_SEED: ${{ steps.seed.outputs.seed }}
         run: |
