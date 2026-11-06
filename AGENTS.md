@@ -324,6 +324,21 @@ If you script it, mind the shell too: in `makemigrations --check | tail`, `$?`
 belongs to `tail`, not to Django, and the pipeline reports success no matter
 what Django decided.
 
+### A migration is not Breaking because it is a migration
+
+Whether a migration can ride a patch release depends on what it does, not on
+the version number: metadata, additive or a repair of what the models already
+declare; nothing removed, renamed or retyped; no code that writes user data;
+reversible without loss; rendered on every supported engine. The five clauses
+and their reasons are in the developer guide under *Migrations in a patch
+release*. `uv run python manage.py check_migrations_safe --format markdown`
+produces the evidence for them as a table for the pull request body, from the
+migrations the branch adds and from any unwritten model change, on every
+configured database. **It is evidence, not a verdict**: the developer produces
+it, the maintainers judge it, and a green table is not an approval. An agent
+drafting a pull request with a migration pastes the table and says which engines
+it was run on; it does not tick a box that says the migration is safe.
+
 ---
 
 ## Coding conventions

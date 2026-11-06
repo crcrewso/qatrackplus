@@ -1030,6 +1030,89 @@ When adding a task:
    add a row to the table in :ref:`the task runner <task-runner-poe>`; if it
    is unverified, start the help text with ``WIP``.
 
+.. _migrations-in-a-patch-release:
+
+Migrations in a patch release
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+QATrack+ used to say that migrations belong only in minor releases. That rule was
+a proxy for the thing worth protecting - that a patch can be taken without
+ceremony - and it held data-correctness fixes back for a year at a time to keep a
+convention. It is replaced by a policy keyed on what a migration **does**. The
+cost of migrating is per release, not per migration: once a release runs
+``migrate`` at all, the site has taken its backup and accepted the downtime, and
+the second migration in that release costs nothing more.
+
+**A patch release may carry a migration if all five hold:**
+
+1. Every operation is **metadata** (it renders as no SQL on every engine), or
+   **additive** (``AddField`` that is nullable or defaulted, ``AddIndex``,
+   ``CreateModel``), or **restores something the models already declare** - the
+   4.0.2 unique-constraint repair is the case in hand.
+2. No operation **removes, renames or retypes** a field or a model.
+   ``RemoveField``, ``DeleteModel``, ``RenameField``, ``RenameModel``, an
+   ``AlterField`` that narrows a type or sets ``null=False`` without a default,
+   all disqualify it.
+3. No ``RunPython`` or ``RunSQL`` **writes to or deletes user data**. Creating an
+   index is not writing data; backfilling a column is.
+4. Every operation is **reversible**, and reversing it loses nothing.
+   ``RunPython`` with ``reverse_code=RunPython.noop`` is acceptable for a repair;
+   a forward-only data rewrite is not.
+5. It has been checked on **every supported engine**, not the developer's. SQL
+   Server is the one that behaves differently.
+
+A separate clause, which is not about migrations at all: a patch may not change a
+default that users *see* - a display format, a permission, what a page shows -
+unless a setting restores the previous behaviour. That is what earns a minor
+bump, whether or not anything migrates.
+
+**The evidence is the developer's to produce; the judgement is the maintainers'
+to make.** Running the checks below does not declare a migration safe. It
+supplies what a maintainer needs in order to decide, in the pull request where
+they can read and re-run it. "I checked" is not evidence; the output is.
+
+How to produce it
+^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    uv run python manage.py check_migrations_safe --format markdown
+
+For the migrations your branch adds since ``upstream/develop`` (``--base`` to
+change that), and for any model change ``makemigrations`` would still write, the
+command classifies every operation against clauses 1 to 4 from its type and the
+model state before it, renders each one with the same schema-editor collection
+``sqlmigrate`` uses on **every configured database alias** (``--database`` to
+narrow), and reverses and re-applies each migration on a copy of a file-backed
+SQLite database. ``--migration qa.0061`` examines one named migration instead.
+The result is a table to paste into the pull request, one row per migration and
+clause, with a detail block per operation.
+
+An ``AlterField`` cannot be classified from its type alone: one that changes
+``verbose_name`` is metadata and one that changes ``max_length`` is a column
+change, and the operation object looks the same. The command decides those by
+what the engines render, which is why clause 5 is not a formality. A row that
+renders as no-op on SQLite and as DDL on SQL Server is exactly the finding the
+policy exists to catch.
+
+Reading the result
+^^^^^^^^^^^^^^^^^^
+
+- **OK** means the evidence supports a patch release. It is not an approval.
+- **REVIEW** means something is still owed: a ``RunPython`` or ``RunSQL`` the
+  tool cannot read (it names the function and whether it has a reverse), or an
+  engine it could not reach. The exit code is 2.
+- **FAIL** names the clause and the operation. The exit code is 1.
+
+Run it on every engine you have; the pull request should show each. Where you
+have none of the servers, say so in the pull request and the row for that engine
+comes from whoever has them. ``--reverse-on ALIAS`` runs the reverse-and-re-apply
+step on a server database; it is destructive for that database if a reverse
+fails, so point it at a disposable one and never at a clinical copy.
+
+``uv run poe check-migrations`` remains the quick gate for *is a migration
+missing*; this command is what you run once one exists.
+
 Setting Up Selenium Browser Testing
 -----------------------------------
 

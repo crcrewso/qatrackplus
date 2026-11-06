@@ -56,10 +56,17 @@ _Confirm which branch this targets (e.g. master)._
   test_name` — since the tasks take no pytest flags. These are
   `continue-on-error` in CI, so a red GUI run does not block the build; check
   it here rather than trusting the tick.
-- [ ] `uv run poe check-migrations` passes. If it reports migrations, they
-  belong in this PR and the change should be marked Breaking. (It runs
+- [ ] `uv run poe check-migrations` passes, so no migration is missing. (It runs
   `makemigrations --dry-run` for the listing and `--check --dry-run` for the
   exit code, because neither form gives both.)
+- [ ] If this PR adds a migration: `uv run python manage.py check_migrations_safe
+  --format markdown` run on every database engine you have, and its table pasted
+  into the Summary above. It is **evidence, not a verdict**: the maintainers decide
+  from it whether the migration can ride a patch release (metadata, additive or a
+  repair; nothing removed, renamed or retyped; no code that writes user data;
+  reversible without loss; checked on every supported engine) or needs a minor
+  one. A migration is not Breaking because it is a migration. See *Migrations in a
+  patch release* in the developer guide.
 - [ ] Docker builds succeed if touched.
 - [ ] Docs updated under `docs/` if behaviour, settings, or APIs changed.
 - [ ] `release_notes.md` updated if user-facing.
@@ -72,7 +79,8 @@ _Confirm which branch this targets (e.g. master)._
 - [ ] CI is green; test suite and `pre-commit` pass.
 - [ ] Reads through all changed files for anything weird or unintended.
 - [ ] Logic is correct; edge cases and error handling considered.
-- [ ] Migrations are sane and reversible where possible.
+- [ ] Migrations: the `check_migrations_safe` table is in the Summary, and the reviewer
+  has judged from it (and read any `RunPython`) which release line this can ride.
 - [ ] Changes are consistent with the modernization direction (no reintroduction
       of patterns being migrated away from, e.g. flake8/yapf-era conventions).
 - [ ] No security concerns (input validation, permissions, injection, XSS).
