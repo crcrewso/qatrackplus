@@ -4,7 +4,7 @@
 
 /* globals jQuery, window, QAUtils, require, document */
 
-require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'inputmask', 'jquery-ui', 'comments', 'flatpickr'], function ($, _, moment, Dropzone, autosize) {
+require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'qahidden', 'cheekycheck', 'inputmask', 'jquery-ui', 'comments', 'flatpickr'], function ($, _, moment, Dropzone, autosize, show_hidden_tests) {
 
     function getParameterByName(name, url) {
         if (!url) url = window.location.href;
@@ -1313,6 +1313,19 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
         tli.initialize();
 
         context = $("#perform-qa-table")[0];
+
+        /* "Show hidden tests". The dependency is inserted at index 5 so that the
+         * callback's existing argument names stay lined up with their modules;
+         * the ones after it are loaded for their side effects and are not named.
+         *
+         * The module returns a function that re-applies the checkbox's state,
+         * for anything that re-renders rows later; nothing here needs it yet, so
+         * it is not kept. The category filter does not need it: it
+         * calls show()/hide() per test, and Bootstrap's `.hidden` is
+         * `display: none !important`, so a filtered-in hidden test stays hidden
+         * unless this toggle is on - which is the behaviour we want and is
+         * asserted in the tests. */
+        show_hidden_tests(context, '#show-hidden-tests');
 
         pass_fail_only = $("#pass-fail-only").val() === "yes" ? true : false;
         comment_on_skip = $("#require-comment-on-skip").val() === "yes" ? true : false;

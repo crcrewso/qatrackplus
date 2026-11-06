@@ -1413,6 +1413,9 @@ class PerformQA(PermissionRequiredMixin, CreateView):
         context["formset"] = formset
         context["history_dates"] = self.history_dates
         context['categories'] = sorted(set([x.test.category for x in self.unit_test_infos]), key=lambda c: c.name)
+        # Whether this list has anything to reveal, so the toggle is not offered
+        # on the many lists that have no hidden tests at all.
+        context['has_hidden_tests'] = any(x.test.hidden for x in self.unit_test_infos)
         context['current_day'] = self.actual_day + 1
         context["last_instance"] = self.unit_test_col.last_instance
         context['last_day'] = self.last_day
