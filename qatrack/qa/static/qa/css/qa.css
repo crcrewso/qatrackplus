@@ -383,6 +383,40 @@ div.sublist-description {
     border-bottom: 1px solid #eeeeee !important;
 }
 
+/* #818-adjacent, but its own feature: "Show hidden tests" reveals the rows a
+   test list marks hidden - intermediate values a composite depends on. They are
+   rendered in full and only CSS-hidden, so one class on the table is the whole
+   mechanism.
+
+   Bootstrap's `.hidden` is `display: none !important`, so an override has to be
+   !important too and win on specificity. These are (1,2,2) against (0,1,0). A
+   test asserts that rather than leaving it to be rediscovered.
+
+   The revealed row is tinted so it is obvious it is not part of the normal list,
+   and its inputs are made readonly by qa/js/qahidden.js. */
+#perform-qa-table.show-hidden-tests > tbody > tr.hidden {
+    display: table-row !important;
+}
+
+#perform-qa-table.show-hidden-tests > tbody > tr.hidden > td,
+#perform-qa-table.show-hidden-tests > tbody > tr.hidden > th {
+    background-color: #fcf8e3;
+}
+
+/* The Skip checkbox is the one control on a revealed row that JavaScript cannot
+   make read-only: `readonly` has no effect on a checkbox, and `disabled` would
+   leave it out of the POST, which changes what is submitted. So it is taken out
+   of reach here instead. The control stays in the DOM and still submits the
+   value it had, which is the whole point - `display: none` does not affect form
+   submission, only `disabled` does.
+
+   The child selector covers both shapes: iCheck replaces the checkbox with a
+   wrapping div and an `ins` helper, and an un-wrapped checkbox is a child of the
+   cell directly. */
+#perform-qa-table.show-hidden-tests > tbody > tr.hidden > td.qa-skip > * {
+    display: none;
+}
+
 #perform-qa-table > tbody > tr.qa-procedure.hidden-procedure {
     /*display: none;*/
     border-bottom: 0px !important;
