@@ -164,9 +164,9 @@
 </script>
 {% endblock footer %}
 
-{#
+{% comment %}
 Override userlinks to remove logout but keep Django 4.2's theme toggle
-#}
+{% endcomment %}
 {% block userlinks %}
     {% load admin_urls static admin_list %}
     {% if site_url %}
