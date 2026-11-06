@@ -403,6 +403,20 @@ div.sublist-description {
     background-color: #fcf8e3;
 }
 
+/* The Skip checkbox is the one control on a revealed row that JavaScript cannot
+   make read-only: `readonly` has no effect on a checkbox, and `disabled` would
+   leave it out of the POST, which changes what is submitted. So it is taken out
+   of reach here instead. The control stays in the DOM and still submits the
+   value it had, which is the whole point - `display: none` does not affect form
+   submission, only `disabled` does.
+
+   The child selector covers both shapes: iCheck replaces the checkbox with a
+   wrapping div and an `ins` helper, and an un-wrapped checkbox is a child of the
+   cell directly. */
+#perform-qa-table.show-hidden-tests > tbody > tr.hidden > td.qa-skip > * {
+    display: none;
+}
+
 #perform-qa-table > tbody > tr.qa-procedure.hidden-procedure {
     /*display: none;*/
     border-bottom: 0px !important;
