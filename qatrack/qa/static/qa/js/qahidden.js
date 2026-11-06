@@ -22,6 +22,15 @@
  *    this marks what it reveals readonly and puts that back on hiding again.
  *    Only inputs it made readonly itself are restored, never one that was
  *    readonly to begin with.
+ *
+ * A test's row is not the only thing that decides what it submits. Its comment
+ * lives in a sibling row (`#<slug>-comment-row`, which carries no `hidden`
+ * class of its own), and a simple test also has a Skip checkbox in its own row.
+ * Both were unreachable while the row was hidden, so both are covered here:
+ * the comment box the same way as the value, and the Skip checkbox by CSS,
+ * because `readonly` has no effect on a checkbox and `disabled` would drop it
+ * from the POST - changing what is submitted, which is the one thing this is
+ * not allowed to do.
  */
 define(['jquery'], function ($) {
 
@@ -34,19 +43,37 @@ define(['jquery'], function ($) {
         return $table.children('tbody').children('tr.hidden');
     }
 
+    /* Every control a revealed test can submit: its own inputs, and the comment
+     * box in the sibling row that `tr.hidden` does not include. The two rows are
+     * tied together by the form prefix class both carry, `row-<prefix>`, which
+     * is also how the rest of the page finds one from the other. */
+    function controls($table) {
+        var $rows = hidden_rows($table);
+        var $comments = $();
+        $rows.each(function () {
+            var prefix = $(this).data('prefix');
+            if (prefix !== undefined && prefix !== null && prefix !== '') {
+                $comments = $comments.add(
+                    $table.children('tbody').children('tr.qa-comment.row-' + prefix)
+                );
+            }
+        });
+        return $rows.add($comments)
+            .find('input.qa-input, textarea.qa-input, select.qa-input, textarea[name$="-comment"]');
+    }
+
     function lock($table) {
-        hidden_rows($table).find('input.qa-input, textarea.qa-input, select.qa-input')
-            .each(function () {
-                var $input = $(this);
-                if ($input.prop('readonly') || $input.prop('disabled')) {
-                    return;
-                }
-                $input.prop('readonly', true).data(MARKER, true);
-            });
+        controls($table).each(function () {
+            var $input = $(this);
+            if ($input.prop('readonly') || $input.prop('disabled')) {
+                return;
+            }
+            $input.prop('readonly', true).data(MARKER, true);
+        });
     }
 
     function unlock($table) {
-        hidden_rows($table).find('[readonly]').each(function () {
+        controls($table).each(function () {
             var $input = $(this);
             if ($input.data(MARKER)) {
                 $input.prop('readonly', false).removeData(MARKER);
@@ -77,7 +104,10 @@ define(['jquery'], function ($) {
             return showing;
         }
 
-        $toggle.on('change', apply);
+        // The page's checkbox is wrapped by iCheck (sidebar.js), and iCheck 1.0.2
+        // reports a click as 'ifChanged' and never fires 'change', so listen for
+        // both: 'change' for a plain checkbox, 'ifChanged' for the real page.
+        $toggle.on('change ifChanged', apply);
         apply();
         return apply;
     };

@@ -15,8 +15,17 @@ Three things have to hold, and each fails independently:
   failure nobody notices, because the markup looks right;
 - revealing cannot change what is submitted. A composite or constant is readonly
   already; a hidden *simple* test is not, and is unreachable only because nobody
-  can see it, so the module marks what it reveals readonly. That half is
-  exercised in a browser, in qahidden-harness.html.
+  can see it, so the module marks what it reveals readonly.
+
+**Everything here reads the CSS, the template and the JavaScript as text, and
+that is not enough on its own.** Every test in this file passed while a click on
+the toggle did nothing whatsoever: the checkbox is wrapped by iCheck, which
+reports a click as `ifChanged` and never fires `change`, and `change` was all
+the module listened for. crane found that by driving a real browser on
+2026-11-06. `TestShowHiddenTests` in `qatrack/qa/tests/test_selenium.py` is the
+test that would have caught it, and it is the one to extend when this feature
+changes; what is here guards the pieces it cannot see, such as the specificity
+of the CSS override.
 """
 
 import os
@@ -37,6 +46,9 @@ MODULE = os.path.join(settings.PROJECT_ROOT, 'qa', 'static', 'qa', 'js', 'qahidd
 QA_JS = os.path.join(settings.PROJECT_ROOT, 'qa', 'static', 'qa', 'js', 'qa.js')
 REQUIREJS_CONFIG = os.path.join(
     settings.PROJECT_ROOT, 'qatrack_core', 'static', 'requirejs', 'js', 'requirejs-config.js'
+)
+ICHECK_JS = os.path.join(
+    settings.PROJECT_ROOT, 'qatrack_core', 'static', 'icheck', 'js', 'icheck.js'
 )
 
 SHOW_CLASS = 'show-hidden-tests'
@@ -93,6 +105,18 @@ class TestTheRevealBeatsBootstrap:
     def reveal_rules(self):
         return rules_matching(QA_CSS, SHOW_CLASS)
 
+    @staticmethod
+    def controls_the_row_itself(selector):
+        """The rule that decides whether the row displays, not one aimed inside it.
+
+        Other rules under the same class legitimately select descendants of the
+        revealed row - its cells, and the Skip control that is taken out of
+        reach there - and one of those sets `display: none` on purpose. Matching
+        on `tr.hidden` appearing anywhere in the selector caught those too, and
+        read them as the reveal hiding the row.
+        """
+        return any(part.strip().endswith('tr.hidden') for part in selector.split(','))
+
     def test_there_is_a_reveal_rule(self):
         assert self.reveal_rules(), (
             'no rule in qa.css selects on .%s, so the toggle adds a class that '
@@ -102,7 +126,7 @@ class TestTheRevealBeatsBootstrap:
     def test_the_reveal_shows_the_row(self):
         displays = [
             body for selector, body in self.reveal_rules()
-            if 'tr.hidden' in selector and 'display' in body
+            if self.controls_the_row_itself(selector) and 'display' in body
         ]
         assert displays, 'no reveal rule sets a display on tr.hidden'
         for body in displays:
@@ -127,7 +151,7 @@ class TestTheRevealBeatsBootstrap:
     def test_the_reveal_out_specifies_the_rule_it_has_to_beat(self):
         bootstrap = specificity('.hidden')
         for selector, body in self.reveal_rules():
-            if 'tr.hidden' not in selector or 'display' not in body:
+            if not self.controls_the_row_itself(selector) or 'display' not in body:
                 continue
             assert specificity(selector) > bootstrap, (
                 '%r is %s against bootstrap\'s %s, so with both !important the '
@@ -163,3 +187,104 @@ class TestTheModuleIsWiredUp:
                 'qahidden.js uses %s; revealing a test must not touch its '
                 'visible state' % forbidden
             )
+
+
+class TestTheToggleIsWiredToTheEventTheRealPageSends:
+    """The failure that every other test in this file missed.
+
+    `sidebar.js` calls `$('.iCheck').iCheck(...)` over the whole page, and the
+    menu entry passes a click to iCheck's helper. iCheck 1.0.2 reports the
+    change as `ifChanged`/`ifToggled`/`ifChecked`/`ifUnchecked` and never fires
+    `change`, so a module that listens for `change` alone is never called. The
+    category checkboxes on the same page already listened for `ifChanged`; this
+    one did not.
+    """
+
+    def test_the_module_listens_for_icheck_s_event(self):
+        source = read(MODULE)
+        handlers = re.findall(r"""\$toggle\.on\(\s*['"]([^'"]+)['"]""", source)
+        assert handlers, "qahidden.js no longer binds a handler to the toggle at all"
+        events = ' '.join(handlers).split()
+        assert 'ifChanged' in events, (
+            "qahidden.js listens for %r. The page's checkbox is wrapped by iCheck, which never "
+            "fires 'change', so the toggle will do nothing when a user clicks it." % events
+        )
+        assert 'change' in events, (
+            "qahidden.js listens for %r. Keep 'change' as well: it is what a plain checkbox "
+            "sends, and what a test that drives the input directly will fire." % events
+        )
+
+    def test_the_toggle_is_the_kind_of_checkbox_icheck_wraps(self):
+        """If it ever stops being one, the `ifChanged` above becomes dead weight."""
+        template = read(PERFORM_TEMPLATE)
+        block = template[template.index('id="menu-show-hidden"'):]
+        block = block[:block.index('</li>')]
+        assert 'class="iCheck"' in block, (
+            "the show-hidden checkbox is no longer marked iCheck, so qahidden.js's 'ifChanged' "
+            "binding may no longer be the one that matters - check which event the page sends"
+        )
+
+    def test_icheck_still_does_not_fire_change(self):
+        """The premise, read from the vendored library rather than assumed."""
+        icheck = read(ICHECK_JS)
+        assert 'ifChanged' in icheck, "the vendored iCheck no longer mentions ifChanged"
+        assert not re.search(r"""callback\(\s*['"]change['"]""", icheck), (
+            "the vendored iCheck now appears to fire a 'change' callback; if it does, the "
+            "comment in qahidden.js explaining why 'ifChanged' is needed is out of date"
+        )
+
+
+class TestARevealedTestHasMoreThanOneWayToChangeWhatIsSubmitted:
+    """A test's row is not all of a test.
+
+    The value box is in `tr.hidden`; the comment box is in a sibling row that
+    carries no `hidden` class, and a simple test also has a Skip checkbox. All
+    three were unreachable while the row was hidden, and all three have to stay
+    that way once it is shown, or the release note's promise is not true.
+    """
+
+    def test_the_comment_box_is_locked_too(self):
+        source = read(MODULE)
+        assert 'tr.qa-comment' in source, (
+            "qahidden.js does not reach the comment row, so a comment can be typed on a "
+            "revealed hidden test and submitted with it"
+        )
+        assert 'comment' in source.split('function controls')[1].split('function lock')[0], (
+            "the comment row is mentioned but not from the function that collects what to lock"
+        )
+
+    def test_the_skip_checkbox_is_put_out_of_reach_by_css(self):
+        """Not by `readonly`, which browsers ignore on a checkbox."""
+        rules = rules_matching(QA_CSS, 'qa-skip')
+        assert rules, (
+            "no rule takes the Skip checkbox out of reach on a revealed hidden test, so it can "
+            "be clicked and the test submitted as skipped"
+        )
+
+    def test_the_skip_checkbox_is_not_disabled_anywhere(self):
+        """`disabled` would drop it from the POST, which changes what is submitted."""
+        source = read(MODULE)
+        assert ".prop('disabled', true)" not in source, (
+            "qahidden.js disables a control. A disabled input is not submitted, so the value "
+            "the form posts changes - which is the one thing this feature must not do."
+        )
+
+
+class TestTheTemplateDoesNotPrintItsOwnComments:
+    """Django's `{# #}` is single-line only; a multi-line one renders as text.
+
+    This happened once on #818's branch and again here, in the same sitting, so
+    it is worth a test next to the feature rather than only the repository-wide
+    scan on the other branch.
+    """
+
+    def test_no_multi_line_hash_comment_in_the_perform_template(self):
+        offenders = []
+        for number, line in enumerate(read(PERFORM_TEMPLATE).splitlines(), start=1):
+            opened = line.count('{#')
+            if opened and line.count('#}') < opened:
+                offenders.append('%d: %s' % (number, line.strip()))
+        assert not offenders, (
+            "a `{# ... #}` comment is not closed on its own line, so Django renders it as "
+            "visible text on the page:\n  %s" % '\n  '.join(offenders)
+        )
