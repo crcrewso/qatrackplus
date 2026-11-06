@@ -2,6 +2,10 @@
 
 Release notes are located at http://docs.qatrackplus.com/en/latest/release_notes.html
 
+## v4.1.0
+
+* **QA**: A test list with hidden tests now offers **Show hidden tests** in the left-hand menu while performing QC. A hidden test is usually an intermediate value that a composite depends on, and until now there was no way to see what it had computed without changing the test list. Revealing them is display only: a revealed value is shown read-only, so looking at it cannot change what is submitted, and the menu entry appears only on lists that actually have hidden tests.
+
 ## v4.0.2
 
 * **QA**: The Test List admin shows each member test's name again, and the view and change icons beside it work ([#897](https://github.com/qatrackplus/qatrackplus/issues/897)).

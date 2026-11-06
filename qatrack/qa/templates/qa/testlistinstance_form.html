@@ -809,6 +809,21 @@
                 </a></li>
 
                 {# Category selection #}
+                {% if has_hidden_tests %}
+                    {# A hidden test is computed but not shown - usually an
+                       intermediate value a composite depends on. Its row is
+                       rendered in full and only CSS-hidden, so revealing it is a
+                       class on the table; see qa/js/qahidden.js. Revealed inputs
+                       are made readonly, so that seeing a value can never change
+                       what is submitted. #}
+                    <li>
+                        <a class="has-icheck row" id="menu-show-hidden" href="#!">
+                            <input id="show-hidden-tests" class="iCheck" type="checkbox">
+                            <label for="show-hidden-tests">{% trans "Show hidden tests" %}</label>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {% if perms.qa.can_perform_subset and categories|length > 1 %}
                     <li class="treeview">
                         <a id="menu-categories" href="#!">
