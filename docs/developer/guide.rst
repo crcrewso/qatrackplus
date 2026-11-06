@@ -142,8 +142,8 @@ profile:
     ``poe``'s completion, in contrast, reads the task definitions each time it
     runs, so ``poe <TAB>`` lists this project's actual task names. It also
     completes a task argument's allowed values, for arguments that declare a
-    ``choices`` list - so ``poe test-engine-docker <TAB>`` offers ``postgres``,
-    ``mysql`` and ``mssql``, and the GUI tasks complete their browser argument
+    ``choices`` list - so ``poe test-engine <TAB>`` offers the five engines,
+    and the GUI tasks complete their browser argument
     the same way. An argument without ``choices`` completes nothing, which is
     the main reason to add one (see :ref:`adding-a-poe-task`).
 
@@ -254,36 +254,55 @@ generated from those same help lines at every docs build:
    * - ``poe test``
      - The suite, with the GUI tests skipped (``poe test --run-selenium`` to
        include them).
-   * - ``poe test-engine <engine>``
+   * - ``poe test-engine <engine> [--docker]``
      - The suite against one database engine (``sqlite``, ``memory``,
        ``postgres``, ``mysql``, ``mssql``). Create
        ``qatrack/local_test_settings.<engine>.py`` first from the matching
        ``deploy/dev/`` template; the task swaps it in for the run and restores
-       your usual settings afterwards, however the run ends.
+       your usual settings afterwards, however the run ends. ``--docker``
+       starts a throwaway server for the engine first and uses the shipped
+       template if you have no copy.
    * - ``poe test-gui-<mode> [browser]``
      - Only the GUI tests, for ``firefox`` or ``chromium``, ``headless``,
        ``visible`` or ``watch`` - see *Setting Up Selenium Browser Testing*.
    * - ``poe dev-init`` / ``dev-reset`` / ``run``
      - Create a fresh sqlite development environment (``dev-reset`` deletes
        the existing one first), and run the development server.
-   * - ``poe lint-fix`` / ``poe format-changed``
+   * - ``poe lint --fix`` / ``poe format-changed``
      - Apply ruff's automatic lint fixes across the repo; or format only the
        files this branch changed, which it works out from git and prints.
        Never format repo-wide - see the note in ``AGENTS.md``.
+   * - ``poe cover [path] [--skip-covered]``
+     - The suite with a coverage report; a path scopes both the tests and the
+       report (``poe cover qatrack/units``), and anything else goes to pytest.
    * - ``poe check-deprecations`` / ``poe check-migrations``
      - Django's system checks with deprecation warnings visible; and whether
        any model change still needs a migration. The second prints what is
        pending *and* fails, which neither form of ``makemigrations`` does on
        its own.
 
-Tasks whose help text begins **WIP** (the Ubuntu deployment helpers in
-``poe_tasks/deploy.toml``, which run ``sudo``, and three ``make-*`` shims) are
-unverified and not part of the ordinary workflow.
+A help line's first word is its tier: **WIP** marks a task that is unverified
+and not part of the ordinary workflow (three ``make-*`` shims today),
+**RELEASE** one that belongs to a release check, **DESTRUCTIVE** one that
+deletes something, and **RETIRED** a ``make-*`` name that refuses and says
+what to use instead. Everything else is ordinary.
 
 This guide writes them as ``uv run poe <task>``, like every other command here.
 In an activated virtual environment the ``uv run`` prefix is optional - the one
 place it is left off below is the shell-completion snippets above, which the
-shell evaluates itself. To add a task of your own, see :ref:`adding-a-poe-task`.
+shell evaluates itself. Whichever way poe is started, it runs each task through
+the project environment, following ``uv.lock`` (or ``.venv`` when there is no
+lockfile), so ``python``, ``pytest`` and ``ruff`` inside a task are the
+project's; measured for a global poe, ``uv run poe`` and an activated
+environment alike. To add a task of your own, see :ref:`adding-a-poe-task`.
+
+**Passing flags on.** Every task that runs a command forwards whatever follows
+``--`` to it: ``uv run poe test-engine sqlite -- -k test_x``. A task that
+declares no argument of its own (``test``, ``cover``) also takes them without
+the ``--``: ``uv run poe cover qatrack/qa -k test_x``. A ``make-*`` mirror of a
+plain task is called without ``--`` (``poe make-test -k test_x``), because a
+``ref`` passes the marker on literally and pytest would read what follows it
+as file names.
 
 .. note::
 
@@ -428,6 +447,15 @@ Then install the driver for the engine you want and run it::
     uv sync --dev --extra postgres
     cp deploy/dev/local_test_settings.postgres.py qatrack/local_test_settings.postgres.py
     uv run poe test-engine postgres
+
+Or let one command do the ``up``, the template and the run::
+
+    uv run poe test-engine postgres --docker
+
+``--docker`` starts that engine's server and waits for it, copies the shipped
+template into place only if you have no ``qatrack/local_test_settings.postgres.py``
+of your own, and checks the driver is installed before anything starts. The
+container is left running for the next run; ``poe test-databases-down`` stops it.
 
 The templates read their connection details from the same variables the
 compose file publishes, so the two cannot disagree - a hardcoded port in one
@@ -923,19 +951,39 @@ Make habit keeps working on a host with no Make at all.
 Adding a new poe task
 ~~~~~~~~~~~~~~~~~~~~~
 
+**First, does it need to be a task at all?** A public task earns its name when
+it composes more than one command, hides a trap, or encodes something a
+newcomer could not guess - an environment variable, an ``--ignore``, an order
+of steps. A one-line alias of a ``manage.py`` command does not; ``uv run python
+manage.py <command>`` is already one line. A step that only a composite runs is
+a private ``_`` helper, which ``poe`` neither lists nor runs directly. The count
+of public tasks is capped by ``test_public_task_count_is_a_decision`` in
+``qatrack/qatrack_core/tests/test_poe_tasks.py``; raising the cap is part of the
+change that needs it, so growth is a decision rather than a side effect.
+
 Task definitions live under ``poe_tasks/``, one file per theme, rather than
 directly in ``pyproject.toml``: ``dev.toml`` (dev environment setup),
 ``tests.toml`` (running the suite, GUI/Selenium variants), ``coverage.toml``,
-``docs.toml`` (Sphinx, schema diagram, translation status), ``data.toml``
-(fixtures and destructive data commands), ``deploy.toml`` (Ubuntu/sudo
-deployment helpers), ``ci.toml`` (the ``poe ci`` pre-push check and its
+``docs.toml`` (Sphinx and the schema diagram), ``data.toml`` (fixtures and
+destructive data commands), ``ci.toml`` (the ``poe ci`` pre-push check and its
 parts), ``test_databases.toml`` (throwaway database servers for
 ``test-engine``) and ``translations.toml`` (the gettext catalogues).
-``pyproject.toml`` itself only lists them, via
-``[tool.poe] include``; it never grew a ``[tool.poe.tasks.*]`` table of its
-own. This split exists purely to stop ``pyproject.toml`` growing without
-bound as tasks are added - it changes nothing about how a task runs, or how
-``poe <task>``/``poe --help`` behave.
+``pyproject.toml`` itself only lists them, via ``[tool.poe] include``; it
+never grew a ``[tool.poe.tasks.*]`` table of its own. This split exists purely
+to stop ``pyproject.toml`` growing without bound as tasks are added - it
+changes nothing about how a task runs, or how ``poe <task>``/``poe --help``
+behave.
+
+**The logic lives in Python, not in the TOML.** ``poe_tasks/cli.py`` is a
+small module run as ``python -m poe_tasks <verb>`` from a ``cmd`` task; the
+TOML holds the name, the help line, the declared arguments and any
+``sequence``. Python bodies inside TOML strings were tried first and cost more
+than they looked: the TOML parser unescaped a ``\n`` before Python saw it, a
+triple-quoted docstring closed the string, nothing linted them, and - the one
+that mattered to users - poe discards ``-- extras`` for a task with a body, so
+``poe test-engine sqlite -- -k foo`` ran the whole suite. A ``cmd`` is the one
+task type that both forwards extras and exposes declared arguments, which is
+why every task with logic is one.
 
 ``poe_tasks/make_compat.toml`` is different in kind, not just location: it
 holds the ``make-*`` tasks that mirror a ``Makefile`` target one-for-one, and
@@ -945,18 +993,19 @@ if a target has no mirror, so the set stays complete without anyone
 remembering to check.
 
 Most mirrors are a ``ref`` to the successor task and carry no logic of their
-own, because a ``ref`` cannot drift - and it still receives the caller's
-arguments, so ``poe make-cover-module qatrack/units`` works. Three carry a
-body instead, where the ``Makefile``'s behaviour is the thing being mirrored:
-``make-docs`` goes through ``docs/Makefile`` and so needs Make,
+own, because a ``ref`` cannot drift - and it carries arguments to the task it
+names, so the ``Makefile``'s four coverage targets are four refs to one
+``cover`` task, and ``poe make-cover-module qatrack/units`` works. Three carry
+a body or command instead, where the ``Makefile``'s behaviour is the thing
+being mirrored: ``make-docs`` goes through ``docs/Makefile`` and so needs Make,
 ``make-dumpdata`` builds its timestamp with ``date``, and
 ``make-docs-autobuild`` serves on the ``Makefile``'s port rather than the
-documented one. Three others deliberately do *not* reproduce what the
-``Makefile`` does, and say why in place: ``make-nginx-conf``,
-``make-supervisor-conf`` and ``make-schema`` delegate, because the
-``Makefile``'s own versions install configs that ``www-data`` can write, or
-can overwrite a committed diagram with a zero-byte file while reporting
-success.
+documented one. Three others refuse to run and say what to do instead:
+``make-schema``, because the target is retired in the ``Makefile`` itself, and
+``make-nginx-conf`` and ``make-supervisor-conf``, because the ``Makefile``'s
+versions install configs that ``www-data`` can write and poe no longer carries
+the deployment helpers that stood in for them (they left for their own pull
+request on 2026-11-06, to be validated on a real host or dropped).
 
 Two names lose a character on the way across: poe validates task names
 against ``^[^\W\d][\w:+-]*$``, which has no ``.`` in it, so ``nginx.conf``
@@ -981,10 +1030,19 @@ helper: ``django-postgres-extra`` has public ``lint``, ``lint_fix`` and
 ``tianshou`` has public ``lint``, ``format`` and ``type-check`` over private
 ``_mypy``, ``_ruff_fix`` and ``_ruff_format``. So:
 
-- **public task, purpose name:** ``lint``, ``lint-fix``, ``format-changed``,
-  ``test``, ``docs``, ``deps``;
-- **private helper, tool name if it helps:** ``_ci-reminder``, and anything
-  else a composite task calls but nobody runs directly.
+- **public task, purpose name:** ``lint``, ``format-changed``, ``test``,
+  ``docs``, ``deps``;
+- **private helper, tool name if it helps:** ``_ci-reminder``, ``_dev-clean``,
+  ``_extract-messages``, and anything else a composite task calls but nobody
+  runs directly.
+
+**A parameter is an argument; a job is a task name.** The browser is a
+parameter of the GUI run and the window mode is what you are choosing to do,
+so ``test-gui-headless [browser]`` has the mode in the name and the browser as
+an argument. The same rule made ``cover [path] [--skip-covered]`` one task
+where there were four, folded ``test-engine-docker`` into
+``test-engine <engine> --docker``, and made ``lint-fix`` into ``lint --fix``.
+Before adding ``<task>-<variant>``, ask whether the variant is a parameter.
 
 Two established exceptions, both because the name *is* the purpose: the
 ``make-*`` mirrors, which exist to be spelled like the ``Makefile`` target they
@@ -998,29 +1056,38 @@ When adding a task:
    ``[tool.poe.tasks.<name>]`` - poe treats a non-``pyproject.toml`` file
    with no ``tool.poe`` table of its own as if its entire contents sat under
    ``tool.poe``. Copy the header style already used in that file.
-3. Make it work on Windows: prefer a plain ``cmd`` task, or
-   ``interpreter = "python"`` with stdlib (``pathlib``/``shutil``/
-   ``subprocess``) if it needs any logic at all. Avoid a bare ``shell``
-   task (defaults to bash/POSIX, which fails outright on a Windows host
-   with no Git Bash or WSL) unless the task is genuinely Ubuntu/sudo-only
-   by nature (see ``deploy.toml``) - in that case, say so in the task's
-   ``help`` text the way ``nginx-conf`` and ``supervisor-conf`` do. Inside an
-   ``interpreter = "python"`` body poe does **not** substitute ``${arg}``;
-   a declared argument arrives as an environment variable, so read
-   ``os.environ['arg']`` (see ``test-engine`` in ``tests.toml``).
-4. A ``cmd`` task forwards extra arguments; a ``shell`` body discards them.
-   ``poe test -- -k foo`` reaches pytest, because poe appends the extras to a
-   ``cmd``'s command line. A ``shell`` body assembles its own argument list,
-   so poe has nowhere to put them and they are silently gone - which is why
-   ``poe test-engine sqlite -- -k foo`` runs the whole suite. This has nothing
-   to do with declaring arguments, named or positional; see the note above
-   ``test-engine`` in ``poe_tasks/tests.toml`` for the measurements. If a task
-   with a body needs to pass flags onward, declare an argument for them and
-   split it in the body.
+3. Make it work on Windows: a plain ``cmd`` task if it is one command, or a
+   verb in ``poe_tasks/cli.py`` (standard library only: ``pathlib``,
+   ``shutil``, ``subprocess``) run as ``cmd = "python -m poe_tasks <verb>"``
+   if it needs any logic. Do not write a ``shell`` body (it defaults to
+   bash/POSIX, which fails outright on a Windows host with no Git Bash or
+   WSL) and do not put Python inside the TOML; ``test_no_task_carries_a_python_body``
+   enforces both. The two ``make-*`` mirrors that keep a shell body do so
+   because they reproduce the ``Makefile``.
+4. How arguments reach the verb, measured on poe 0.49.0, the version
+   ``uv.lock`` pins:
+
+   - a declared argument arrives **as an environment variable** named after
+     it, for a ``cmd`` exactly as it did for a body - a string under its
+     name, a boolean as ``True`` when given and absent when not. A string
+     may also be templated into the command as ``${name}`` (an omitted
+     optional positional vanishes cleanly); a boolean must **not** be, because
+     it templates as the word ``True``. Read booleans from the environment;
+   - whatever the caller puts after ``--`` is appended to the command, so it
+     arrives in ``sys.argv`` after what the ``cmd`` line put there;
+   - a task that declares **any** argument refuses undeclared ones unless they
+     follow ``--``. So a task people filter or pass flags through should
+     declare **nothing** and parse its own (``cover`` does this with
+     ``argparse.parse_known_args``); a task whose first argument benefits from
+     ``choices`` declares that and takes the rest after ``--``;
+   - a caller's ``--`` leaks literally through a ``ref``; the module strips
+     one, and mirrors of plain tasks are documented without it.
 5. A task's argument can declare ``choices = [...]`` to get real tab
    completion of its allowed values (see `Shell Autocomplete for uv and poe`_
-   above) - worth adding for anything with a small, fixed set of valid
-   values (an engine name, a browser name, and so on).
+   above) and a clear refusal of anything else - worth adding for anything
+   with a small, fixed set of valid values (an engine name, a browser name,
+   and so on), and the reason ``test-engine`` and the ``test-gui-<mode>``
+   tasks keep a declared argument despite the ``--`` it costs.
 6. Run ``poe <task>`` for real, not just ``poe -d <task>`` (dry-run only
    prints the resolved command/script - it does not catch a task that
    parses fine but fails or misbehaves once actually invoked).
@@ -1238,21 +1305,25 @@ For more on pytest itself, see the `pytest documentation
 Running one GUI test
 ~~~~~~~~~~~~~~~~~~~~
 
-The ``poe test-gui-*`` tasks take **no pytest flags**. They set environment
-variables and then run the whole GUI suite, and poe discards extra arguments
-for a task with a body - ``poe test-gui-watch -- -k test_x`` filters nothing,
-and ``poe test-gui-watch chromium -k test_x`` is refused outright. So to run
-one test, go through pytest and set the same variables yourself. They are the
-only thing the tasks were doing:
+The ``poe test-gui-*`` tasks forward anything after ``--`` to pytest, so one
+test is the task plus a filter:
+
+.. code-block:: shell
+
+    uv run poe test-gui-headless -- -k test_schedule_report
+    uv run poe test-gui-watch chromium -- -k test_schedule_report
+
+The ``--`` is needed because these tasks declare the browser argument, and poe
+refuses an undeclared flag before it; ``poe test-gui -- -k test_x`` works too,
+and ``poe test-gui -k test_x`` as well, since ``test-gui`` declares nothing.
+
+The tasks only set environment variables and run pytest, so the same thing
+without poe is:
 
 .. code-block:: shell
 
     # one test, headless firefox - the defaults, so nothing to set
     uv run pytest -m selenium -k test_schedule_report
-
-    # one test, chromium, in a real window
-    SELENIUM_BROWSER=chromium SELENIUM_HEADLESS=False \
-        uv run pytest -m selenium -k test_schedule_report
 
     # one test, chromium, visible and paused between actions
     SELENIUM_BROWSER=chromium SELENIUM_HEADLESS=False SELENIUM_SLOW_MO=0.4 \

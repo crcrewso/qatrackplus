@@ -38,7 +38,7 @@ _Confirm which branch this targets (e.g. master)._
   file), `poe deps` (the lockfile and installed packages), `poe docs` (the
   documentation build, failing on any warning) and `poe test` (the suite).
 - [ ] Lint and formatting fixes, if `poe ci` reported any:
-  - `uv run poe lint-fix` applies ruff's automatic lint fixes.
+  - `uv run poe lint --fix` applies ruff's automatic lint fixes.
   - `uv run poe format-changed` formats only what this branch changed. It works
     the file list out from git — this branch's commits plus anything
     uncommitted — and prints it before formatting, because formatting has never

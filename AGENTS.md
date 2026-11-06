@@ -205,12 +205,21 @@ lists those files under `[tool.poe] include`. The ones an agent needs:
   the documentation build that fails on any warning.
 - `uv run poe test-engine <engine>` and the `uv run poe test-gui-*` tasks need a database
   server or a real browser, which most agent sandboxes do not have; CI runs
-  them. `uv run poe test-databases-up` starts throwaway servers where Docker
-  is available.
+  them. Where Docker is available, `uv run poe test-engine postgres --docker`
+  starts a throwaway server and runs against it in one go, and
+  `uv run poe test-databases-up` starts the servers on their own.
+- Every task that runs a command forwards what follows `--` to it
+  (`uv run poe test-engine sqlite -- -k test_x`); `test` and `cover` declare
+  no arguments and take flags directly. The logic behind the tasks is Python
+  in `poe_tasks/cli.py`, run as `python -m poe_tasks <verb>`; the TOML holds
+  names, help lines and declared arguments only.
 
-Tasks whose help begins `WIP` are unverified; do not rely on them. To add a
-task, follow *Adding a new poe task* in `docs/developer/guide.rst`, and keep
-the task table there and this file in step (see the impact table below).
+Tasks whose help begins `WIP` are unverified; do not rely on them. The number
+of public tasks is capped by a test; a new one earns its name when it composes
+commands, hides a trap or encodes something a newcomer could not guess, and
+a one-line alias of a `manage.py` command does not. To add a task, follow
+*Adding a new poe task* in `docs/developer/guide.rst`, and keep the task table
+there and this file in step (see the impact table below).
 
 ---
 

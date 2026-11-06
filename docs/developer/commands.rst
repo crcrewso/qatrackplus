@@ -13,11 +13,13 @@ poe tasks
 ---------
 
 Read from the ``help`` line of each task in ``poe_tasks/*.toml``; ``poe`` with
-no arguments prints the same list. The tasks you need day to day are the six in
-:ref:`the task runner <task-runner-poe>`. A help line that begins **WIP** marks
-a task that is unverified and not part of the ordinary workflow. Internal
-helpers (names beginning with ``_``) are omitted, and a task without a help
-line fails the documentation build.
+no arguments prints the same list. The tasks you need day to day are the ones
+in :ref:`the task runner <task-runner-poe>`. A help line's first word is its
+tier: **WIP** marks a task that is unverified and not part of the ordinary
+workflow, **RELEASE** one that belongs to a release check, **DESTRUCTIVE** one
+that deletes something, and **RETIRED** a ``make-*`` name that refuses and says
+what to use instead. Internal helpers (names beginning with ``_``) are omitted,
+and a task without a help line fails the documentation build.
 
 .. include:: _poe_tasks.rst
 
