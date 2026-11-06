@@ -17,6 +17,7 @@ way `reports/tests/test_schedule_dialog_css.py` does it.
 """
 
 import os
+import pathlib
 import re
 
 import tinycss2
@@ -260,6 +261,40 @@ class TestADisabledControlStillLooksDisabledOnAShadedRow(SimpleTestCase):
     def test_the_shaded_row_has_a_grey_to_compare(self):
         assert background_greys(BASE_CSS, 'form-row-even'), (
             'no neutral background on .form-row-even, so this proves nothing'
+        )
+
+    def test_the_select2_widget_is_covered_too(self):
+        """The field this override exists for is a Select2.
+
+        `related_service_events` is rendered by Select2, which hides the native
+        select and draws its own widget - so recolouring `.form-control[disabled]`
+        alone changed an element nobody can see, while the visible one kept
+        select2-bootstrap's own disabled grey. Raised by Copilot on c#31 after
+        the first version of this override shipped.
+        """
+        base = pathlib.Path(BASE_CSS).read_text(encoding='utf8')
+        assert '.select2-container--disabled' in base, (
+            'nothing in base.css darkens a disabled Select2 widget on a shaded '
+            'row, so the fault form still shows one four grey levels from the stripe'
+        )
+        greys = background_greys(BASE_CSS, '.select2-container--disabled', subject_only=False)
+        stripe = background_greys(BASE_CSS, 'form-row-even')
+        assert greys, 'the Select2 override sets no neutral background'
+        for row in stripe:
+            for widget in greys:
+                assert abs(row - widget) >= MIN_GREY_STEP, (
+                    'a shaded row is %d and a disabled Select2 widget on it is '
+                    '%d, %d apart' % (row, widget, abs(row - widget))
+                )
+
+    def test_select2_is_what_paints_that_field(self):
+        """If Select2 stops being used there, the rule above is dead weight."""
+        faults_js = pathlib.Path(
+            settings.PROJECT_ROOT, 'faults', 'static', 'faults', 'js', 'faults.js'
+        ).read_text(encoding='utf8')
+        assert 'related_service_events' in faults_js and 'select2' in faults_js, (
+            'faults.js no longer brings Select2 to the related service events '
+            'field; the Select2 half of the override can go'
         )
 
     def test_a_disabled_control_on_a_shaded_row_keeps_its_cue(self):

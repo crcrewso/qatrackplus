@@ -41,9 +41,19 @@ define(['jquery'], function ($) {
      * a test's own error rows carry its form prefix and arrive through the
      * branch below.
      *
-     * The sublist delimiters - `tr.sublist` opening one and `tr.end-sublist`
-     * closing it - belong to no test and keep the table's own background. */
-    var BLOCK_BREAK = 'tr.qa-valuerow, tr.sublist, tr.qa-error, tr.end-sublist';
+     * The rule the rest of this list follows: anything that is not part of a
+     * test has to break the walk, or the test above it reaches past its own
+     * rows and shades it. That covers the sublist delimiters - `tr.sublist`
+     * opening one and `tr.end-sublist` closing it - and the list-level
+     * attachments row on the review page, which sits after the final test and
+     * belongs to the instance rather than to any test in it. Each was found
+     * separately, which is why the rule is written down here.
+     *
+     * `tr.qa-attach` is safe to break on because it is only ever that
+     * list-level row: a test's own attachments are rendered inside its value
+     * row, and this class appears once in the whole template tree, with no
+     * `row-<prefix>` beside it. */
+    var BLOCK_BREAK = 'tr.qa-valuerow, tr.sublist, tr.qa-error, tr.end-sublist, tr.qa-attach';
 
     function rows_for_test($value_row) {
         /* The companion rows that follow it, plus any row carrying this test's
