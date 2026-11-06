@@ -25,9 +25,9 @@ rather than in whichever CI job notices first.
 import pathlib
 import subprocess
 import sys
+import tomllib
 
 import pytest
-import tomllib
 from django.conf import settings
 
 REPO_ROOT = pathlib.Path(settings.PROJECT_ROOT).parent
