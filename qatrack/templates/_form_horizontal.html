@@ -18,7 +18,12 @@
 
 {% for field in form.visible_fields %}
 
-  <div class="form-group {% if not no_stripe %}{% if forloop.counter|divisibleby:2 %}form-row-even{% else %}form-row-odd{% endif %}{% endif %} {% if field.errors %}has-error{% endif %}">
+  {# clearfix: this row's col-sm-* children float at >=768px, and Bootstrap only
+     clears them for `.form-horizontal .form-group`. backup_form.html includes this
+     partial inside `<form class="form">`, where that does not apply - the row then
+     has only its padding height and the tint does not cover the field. Harmless
+     where .form-horizontal already clears it. #}
+  <div class="form-group clearfix {% if not no_stripe %}{% if forloop.counter|divisibleby:2 %}form-row-even{% else %}form-row-odd{% endif %}{% endif %} {% if field.errors %}has-error{% endif %}">
 
     {% if field|field_type == "booleanfield" %}
       <div class="col-sm-offset-4 col-sm-8">
