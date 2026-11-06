@@ -394,13 +394,22 @@ div.sublist-description {
 }
 
 /* The row being entered says "you are here", so it has to stay clearly ahead
-   of the stripe above. #eeeeee left only four levels of grey between a shaded
-   row and a focused one once the stripe went from 2.5% to 5%, which is not a
-   difference anyone sees on a clinical screen. #e3e3e3 keeps the three apart:
-   a plain row is 255, a shaded row 242, a focused row 227. A test pins the
-   gap, since the next tweak to either number could close it again. */
+   of the stripe above - and behind the calculated-value box, which is a third
+   grey this rule has to miss in the other direction.
+
+   #eeeeee (238) left only four levels between a shaded row and a focused one
+   once the stripe went from 2.5% to 5%. #e3e3e3 (227) fixed that and broke the
+   other end: `input[readonly].qa-input` is #ddd (221), six levels away, so a
+   calculated value stopped reading as calculated. That is not a focus-only
+   problem - qa/js/qa.js puts `.hover` on the whole test block on mouseover, so
+   it is what you see every time the pointer crosses a composite or skipped
+   test.
+
+   #e8e8e8 (232) clears both: ten below the stripe, eleven above the readonly
+   box. Plain 255, shaded 242, focused 232, calculated box 221. Tests pin both
+   gaps, since the next tweak to any one of the four could close either. */
 #perform-qa-table > tbody > tr.hover {
-    background-color: #e3e3e3;
+    background-color: #e8e8e8;
 }
 #perform-qa-table > tbody > tr.qa-procedure {
     /*display: none;*/

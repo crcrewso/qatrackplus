@@ -40,10 +40,14 @@ OPEN = re.compile(r"\{#")
 
 def template_files():
     """Every template in the project, excluding anything vendored or built."""
-    skip = (".venv", "node_modules", "_build", "site-packages", "static/vendor")
+    # Matched against the path's PARTS, not against str(path): a separator
+    # inside one of these - "static/vendor" as it was written - can never match
+    # on Windows, where paths use backslashes, and Windows is one of the two
+    # platforms this suite runs on.
+    skip = {".venv", "node_modules", "_build", "site-packages", "vendor"}
     return sorted(
         p for p in REPO_ROOT.rglob("*.html")
-        if not any(part in str(p) for part in skip)
+        if not skip.intersection(p.parts)
     )
 
 

@@ -713,21 +713,41 @@ table ul.multiselect-container.dropdown-menu {
 }
 
 /* #818: alternating backgrounds on form rows, so a long form reads as rows
-   rather than a wall of fields. Applied by qatrack/templates/_form.html and
-   _form_horizontal.html, which every form that uses them inherits.
+   rather than a wall of fields. Emitted by qatrack/templates/_form.html and
+   _form_horizontal.html, which every form that uses them inherits. In practice
+   that means the horizontal one: `_form.html` has a single caller today, the
+   sign-in page, and that page opts out - so the markup is there for symmetry
+   between the two partials and is covered by tests rather than by a page.
 
    A translucent black rather than a fixed grey, so the tint sits on whatever is
    behind it - the admin's white, the dashboard's grey panel, a modal - instead
    of only on one of them. 5% is faint on purpose: it has to group rows without
    competing with the colours that carry meaning elsewhere in QATrack+, where a
    background says pass, tolerance or action. It started at 2.5%, which was too
-   faint to read as rows at all on a bright screen; 7% lands on #ededed, which
-   is the shade the QC pages already use to say "you are here".
+   faint to read as rows at all on a bright screen; 7% would land on #ededed
+   (237), close enough to the QC pages' "you are here" highlight to blur the
+   two.
 
    qa/css/qa.css reuses this value for the QC tables, and a test pins the two
-   to each other. */
+   to each other. Three other greys have to stay clear of it, and all three are
+   pinned by tests: the QC focus highlight above, the calculated-value box, and
+   Bootstrap's own disabled-control grey - see below. */
 .form-group.form-row-even {
     background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* A disabled or readonly control is Bootstrap's #eee (238), and the shaded row
+   behind it is 242 - four levels, so on those rows the control stopped looking
+   disabled. It is not a corner case: FaultForm lists `related_service_events`
+   sixth, so it is always on an even row, and the create form renders it
+   disabled until a unit is chosen. Darkening the control rather than lightening
+   the row keeps the stripe doing its job: 224 against 242 is eighteen, and on
+   an unshaded row Bootstrap's own 238 against white is seventeen, so the cue
+   reads about the same either way. */
+.form-group.form-row-even .form-control[disabled],
+.form-group.form-row-even .form-control[readonly],
+.form-group.form-row-even fieldset[disabled] .form-control {
+    background-color: #e0e0e0;
 }
 
 /* The one layout change: a row needs a little room inside the tint, or the
