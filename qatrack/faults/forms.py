@@ -143,8 +143,15 @@ class FaultForm(BetterModelForm):
             self.fields['comment'].widget.attrs['rows'] = 3
 
         if 'occurred' in self.fields:
+            # #810 added this block to stop Django localizing the field, which
+            # it has to for flatpickr to get a format it was given rather than
+            # the locale's. It also hardcoded ISO here, which defeats line 82:
+            # this block runs second, so on a site configured for any other
+            # order the server writes ISO into a field whose picker is reading
+            # d/m/Y, and flatpickr silently substitutes a different date.
+            # Take the format from the same setting line 82 does.
             self.fields['occurred'].localize = False
-            self.fields['occurred'].widget.format = '%Y-%m-%d %H:%M'
+            self.fields['occurred'].widget.format = get_format('DATETIME_INPUT_FORMATS')[0]
 
     # Whether new fault type codes may be created through this form. Views that
     # know the user set this from their permissions; see the fault details page.
