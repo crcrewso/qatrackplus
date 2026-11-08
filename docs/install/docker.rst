@@ -1293,6 +1293,29 @@ Then read the end of one from that list, for example ``debug.log``:
 
     docker compose exec django tail -n 50 logs/debug.log
 
+.. _docker_3x_not_supported:
+
+Coming from QATrack+ 3.x
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Upgrading a 3.x Docker installation is not supported, and there is no page
+for it.** QATrack+ 3.1 did ship a Docker setup, but almost nothing it used is
+still here: the compose file has a different name and different contents, nginx
+is configured another way, and the ``.env`` file that now holds your settings
+did not exist at all. Writing an upgrade we could not test would be worse than
+telling you plainly that there isn't one.
+
+What works instead is a fresh 4.0 installation on this page, with your database
+restored into it - your data comes across, the containers around it do not.
+
+**If you built or adapted a Docker deployment of your own, please get in touch
+before you start.** Every one of those is a little different, and that is
+exactly the case where a short conversation saves a long afternoon. The
+:mailinglist:`QATrack+ Google Group <>` and the :supportemail:`support email
+<>` are both open to all users, and the maintainers would be glad to help work
+out how to move what you have onto 4.0. Knowing what people have built is
+useful to us as well.
+
 .. _docker_updating:
 
 Update server

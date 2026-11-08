@@ -43,6 +43,10 @@ Docker Engine 23.0 or newer and Docker Compose 2.17 or newer; running it on
 Windows, including with Docker Desktop, isn't supported. To get started, see
 :doc:`docker`.
 
+There are upgrade pages from 4.0.0 and 4.0.1 below. **Upgrading a 3.x Docker
+installation is not supported** - see :ref:`docker_3x_not_supported`, which also
+says who to talk to if you built a Docker deployment of your own.
+
 .. toctree::
    :maxdepth: 2
    :caption: Docker (Linux)
