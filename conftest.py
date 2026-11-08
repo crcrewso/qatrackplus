@@ -91,11 +91,16 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
     Nothing is printed for an ordinary run: the default is the source order and
     saying so every time would be noise.
+
+    The line carries the order-independence job's `-p django -p randomly` as
+    well as the seed: without them the registration order is left to
+    entry-point discovery, which differs between hosts, and one seed on one
+    tree failed 11 tests that way on Linux while the job's line passed.
     """
     if not getattr(config.option, 'randomly_reorganize', False):
         return
     terminalreporter.write_line(
-        'test order: SHUFFLED. Repeat it with: pytest --shuffle --randomly-seed=%s'
+        'test order: SHUFFLED. Repeat it with: pytest --shuffle -p django -p randomly --randomly-seed=%s'
         % config.option.randomly_seed,
         bold=True,
     )

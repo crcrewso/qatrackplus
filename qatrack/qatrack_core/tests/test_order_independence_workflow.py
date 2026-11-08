@@ -195,6 +195,17 @@ class TestAnOrdinaryRunIsStillDeterministic:
             'that lets somebody repeat the order'
         )
 
+    def test_the_summary_line_pins_the_plugins_the_job_pins(self):
+        """A seed alone is not an order: the registration order decides it too."""
+        printed = re.search(r'Repeat it with: ([^\'"]*)', self.conftest())
+        assert printed, 'conftest.py no longer prints a "Repeat it with:" line'
+        job = {tuple(PLUGIN_FLAG.findall(line)) for line in pytest_invocations()}
+        assert job == {tuple(PLUGIN_FLAG.findall(printed.group(1)))}, (
+            'the summary tells a person to run %r, but the job runs pytest with %s, so '
+            'on a host whose entry-point order differs the person gets a different '
+            'order from the one that failed' % (printed.group(1), sorted(job))
+        )
+
     def test_the_job_asks_for_the_shuffle_the_way_a_person_would(self):
         """The workflow is also the documentation for how to run this locally."""
         shuffled = [line for line in pytest_invocations() if '-p randomly' in line]
