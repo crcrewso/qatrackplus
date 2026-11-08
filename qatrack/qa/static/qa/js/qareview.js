@@ -1,5 +1,10 @@
-require(['jquery', 'sl_utils', 'comments'], function ($) {
+require(['jquery', 'qastripe', 'sl_utils', 'comments'], function ($, stripe_qa_rows) {
     $(document).ready(function () {
+
+        // #818: shade alternate tests. Nothing on this page shows or hides a
+        // whole test, so once is enough - revealing a comment or a text value
+        // toggles a row that already carries its test's shade.
+        stripe_qa_rows('#review-table');
 
         //(de)select checkboxes for child tests when user clicks on header checkbox
         $("input.test-selected-toggle").on("change", function (e) {

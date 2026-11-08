@@ -14,7 +14,7 @@
 
 {% for field in form.visible_fields %}
 
-  <div class="form-group {% if field.errors %}has-error{% endif %}">
+  <div class="form-group {% if not no_stripe %}{% if forloop.counter|divisibleby:2 %}form-row-even{% else %}form-row-odd{% endif %}{% endif %} {% if field.errors %}has-error{% endif %}">
 
     {% if field|field_type == "booleanfield" %}
 
