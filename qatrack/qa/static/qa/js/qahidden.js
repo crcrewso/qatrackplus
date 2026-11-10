@@ -49,7 +49,7 @@ define(['jquery'], function ($) {
     "use strict";
 
     var SHOW_CLASS = 'show-hidden-tests';
-    var REVEALED_CLASS = 'qahidden-revealed';
+    var REVEALED_CLASS = 'qa-hidden-revealed';
     var MARKER = 'qahiddenReadonly';
     var ROW_MARKER = 'qahiddenRevealed';
 
@@ -82,7 +82,7 @@ define(['jquery'], function ($) {
      * names the test. Both are the thing `hidden` exists to suppress, so they
      * are revealed and re-hidden with the rows rather than separately. */
     function image_boxes() {
-        return $('#qa-images').children('.qahidden-image, .' + REVEALED_CLASS);
+        return $('#qa-images').children('.qa-hidden-image, .' + REVEALED_CLASS);
     }
 
     function managed($table) {

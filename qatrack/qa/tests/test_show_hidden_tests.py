@@ -133,7 +133,7 @@ class TestTheRevealDoesNotFightBootstrap:
         )
 
     def test_the_reveal_adds_no_important_at_all(self):
-        for selector, body in rules_matching(QA_CSS, 'qahidden-revealed'):
+        for selector, body in rules_matching(QA_CSS, 'qa-hidden-revealed'):
             assert '!important' not in body, (
                 '%r uses !important. Nothing in the reveal needs it now that the '
                 'class is removed rather than overridden: %r' % (selector, body)
@@ -141,7 +141,7 @@ class TestTheRevealDoesNotFightBootstrap:
 
     def test_the_revealed_row_is_still_tinted(self):
         tinted = [
-            body for selector, body in rules_matching(QA_CSS, 'qahidden-revealed')
+            body for selector, body in rules_matching(QA_CSS, 'qa-hidden-revealed')
             if 'background' in body
         ]
         assert tinted, (
@@ -388,7 +388,7 @@ class TestTheToggleReachesEveryPageThatRendersTheForm(TestCase):
         assert 'id="%s"' % self.hidden.slug in html, "the hidden test has no image box at all"
         assert 'id="%s"' % self.visible.slug in html, "the visible test has no image box at all"
 
-        for cls in ("hidden", "qahidden-image"):
+        for cls in ("hidden", "qa-hidden-image"):
             self.assertContains(
                 response, 'class="row %s' % cls if cls == "hidden" else cls,
                 msg_prefix=(
@@ -400,7 +400,7 @@ class TestTheToggleReachesEveryPageThatRendersTheForm(TestCase):
         # The visible test's box must NOT be marked, or revealing would move it.
         before, _, after = html.partition('id="%s"' % self.visible.slug)
         box_open = before.rfind("<div class=")
-        assert "qahidden-image" not in before[box_open:], (
+        assert "qa-hidden-image" not in before[box_open:], (
             "the visible test's image box is marked as hidden-test furniture"
         )
 
