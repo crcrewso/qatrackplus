@@ -26,6 +26,7 @@ be expensive!).
    linux_upgrade_from_3
    linux_upgrade_from_4_0
    linux_upgrade_from_4_0_1
+   linux_upgrade_from_4_0_2
 
 
 .. toctree::
@@ -36,6 +37,7 @@ be expensive!).
    win_upgrade_from_3
    win_upgrade_from_4_0
    win_upgrade_from_4_0_1
+   win_upgrade_from_4_0_2
 
 
 Docker runs QATrack+ and its database in containers on a Linux server. It needs
@@ -50,6 +52,7 @@ Windows, including with Docker Desktop, isn't supported. To get started, see
    docker
    docker_upgrade_from_4_0
    docker_upgrade_from_4_0_1
+   docker_upgrade_from_4_0_2
 
 
 Configuring your QATrack+ Instance
