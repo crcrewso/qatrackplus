@@ -140,14 +140,25 @@ class TestInstallDocsDoNotTeachTheDeprecatedSeleniumForm(unittest.TestCase):
     """
 
     #: Pages whose reader finishes on a release older than the conftest change.
-    PRE_CONFTEST_PAGES = ("_upgrade_4_0", "upgrade_from_4_0", "upgrade_from_3")
+    #: Matched on the whole filename, not as a substring, because
+    #: `linux_upgrade_from_4_0_2.rst` upgrades *to* 4.1 and must stay checked
+    #: while `linux_upgrade_from_4_0_1.rst` upgrades to 4.0.2 and must not.
+    #: A loose `"upgrade_from_4_0" in name` test cannot tell those apart.
+    PRE_CONFTEST_SUFFIXES = ("_upgrade_from_3.rst", "_upgrade_from_4_0.rst",
+                             "_upgrade_from_4_0_1.rst")
+    PRE_CONFTEST_FRAGMENTS = ("_upgrade_4_0_before.rst", "_upgrade_4_0_after.rst",
+                              "_upgrade_4_0_1_before.rst", "_upgrade_4_0_1_after.rst")
+
+    @classmethod
+    def delivers_a_pre_conftest_release(cls, name):
+        return name.endswith(cls.PRE_CONFTEST_SUFFIXES) or name in cls.PRE_CONFTEST_FRAGMENTS
 
     def test_there_are_pages_to_check(self):
         assert sorted(DOCS.glob("*.rst")), "no install pages found under %s" % DOCS
 
     def test_no_install_page_asks_for_the_marker_expression(self):
         for page in sorted(DOCS.glob("*.rst")):
-            if any(token in page.name for token in self.PRE_CONFTEST_PAGES):
+            if self.delivers_a_pre_conftest_release(page.name):
                 continue
             with self.subTest(page=page.name):
                 assert "not selenium" not in page.read_text(encoding="utf-8"), (
