@@ -388,18 +388,23 @@ div.sublist-description {
    rendered in full and only CSS-hidden, so one class on the table is the whole
    mechanism.
 
-   Bootstrap's `.hidden` is `display: none !important`, so an override has to be
-   !important too and win on specificity. These are (1,2,2) against (0,1,0). A
-   test asserts that rather than leaving it to be rediscovered.
+   There is deliberately no rule here that makes the row display. qa/js/qahidden.js
+   takes Bootstrap's `hidden` class off the row instead, so the row is simply a
+   normal row while revealed, and these rules only tint it.
+
+   That is not a style preference. Bootstrap's `.hidden` is
+   `display: none !important`, so a rule that reveals the row has to be !important
+   too - and an author !important beats an inline style. `TestInstance.hide()`,
+   which the category filter uses, hides a row by setting `display: none` on the
+   element, so a revealed row could no longer be filtered out: deselecting every
+   category left nothing on screen but the hidden rows, each marked skipped.
+   Removing the class leaves show()/hide() working, and needs no !important
+   anywhere.
 
    The revealed row is tinted so it is obvious it is not part of the normal list,
    and its inputs are made readonly by qa/js/qahidden.js. */
-#perform-qa-table.show-hidden-tests > tbody > tr.hidden {
-    display: table-row !important;
-}
-
-#perform-qa-table.show-hidden-tests > tbody > tr.hidden > td,
-#perform-qa-table.show-hidden-tests > tbody > tr.hidden > th {
+#perform-qa-table > tbody > tr.qahidden-revealed > td,
+#perform-qa-table > tbody > tr.qahidden-revealed > th {
     background-color: #fcf8e3;
 }
 
@@ -413,7 +418,7 @@ div.sublist-description {
    The child selector covers both shapes: iCheck replaces the checkbox with a
    wrapping div and an `ins` helper, and an un-wrapped checkbox is a child of the
    cell directly. */
-#perform-qa-table.show-hidden-tests > tbody > tr.hidden > td.qa-skip > * {
+#perform-qa-table > tbody > tr.qahidden-revealed > td.qa-skip > * {
     display: none;
 }
 

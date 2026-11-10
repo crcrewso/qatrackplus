@@ -104,64 +104,81 @@ class TestTheToggleIsOfferedOnlyWhenThereIsSomethingToReveal:
         )
 
 
-class TestTheRevealBeatsBootstrap:
-    """Both rules are !important, so this comes down to specificity."""
+class TestTheRevealDoesNotFightBootstrap:
+    """The row is revealed by removing `hidden`, not by out-specifying it.
 
-    def reveal_rules(self):
-        return rules_matching(QA_CSS, SHOW_CLASS)
+    The first version added `display: table-row !important` on a selector that
+    beat Bootstrap's `.hidden` on specificity. That worked for the reveal and
+    broke the category filter: `TestInstance.hide()` hides a row by setting
+    `display: none` on the element, and an author !important beats an inline
+    style. With the reveal on, deselecting every category left the page showing
+    nothing but the hidden rows - each one marked skipped, with "Category not
+    performed" written into its comment.
 
-    @staticmethod
-    def controls_the_row_itself(selector):
-        """The rule that decides whether the row displays, not one aimed inside it.
+    Removing the class has no such interaction, because a revealed row is then
+    an ordinary row. These tests guard the absence of the old mechanism, which
+    is the part that can silently come back.
+    """
 
-        Other rules under the same class legitimately select descendants of the
-        revealed row - its cells, and the Skip control that is taken out of
-        reach there - and one of those sets `display: none` on purpose. Matching
-        on `tr.hidden` appearing anywhere in the selector caught those too, and
-        read them as the reveal hiding the row.
+    def test_no_rule_forces_a_hidden_row_to_display(self):
+        """The regression would arrive as a `display` with `!important`."""
+        offenders = []
+        for selector, body in rules_matching(QA_CSS, 'hidden'):
+            if 'display' in body and '!important' in body:
+                offenders.append((selector, body))
+        assert not offenders, (
+            'qa.css forces a row to display with !important: %r. An author '
+            '!important beats the inline `display: none` that TestInstance.hide() '
+            'sets, so the category filter can no longer hide that row.' % offenders
+        )
+
+    def test_the_reveal_adds_no_important_at_all(self):
+        for selector, body in rules_matching(QA_CSS, 'qahidden-revealed'):
+            assert '!important' not in body, (
+                '%r uses !important. Nothing in the reveal needs it now that the '
+                'class is removed rather than overridden: %r' % (selector, body)
+            )
+
+    def test_the_revealed_row_is_still_tinted(self):
+        tinted = [
+            body for selector, body in rules_matching(QA_CSS, 'qahidden-revealed')
+            if 'background' in body
+        ]
+        assert tinted, (
+            'nothing tints a revealed row, so there is no longer anything on screen '
+            'saying it is not part of the normal list'
+        )
+
+    def test_the_module_reveals_by_removing_the_class(self):
+        source = read(MODULE)
+        assert "removeClass('hidden')" in source, (
+            'qahidden.js no longer removes the `hidden` class. If it has gone back '
+            'to overriding the rule, read this class docstring before changing it.'
+        )
+
+    def test_the_module_puts_the_class_back(self):
+        source = read(MODULE)
+        assert "addClass('hidden')" in source, (
+            'qahidden.js removes `hidden` but never restores it, so hiding the '
+            'tests again leaves them on screen'
+        )
+
+    def test_only_rows_it_hid_are_restored(self):
+        """The same discipline as the readonly marker: never invent a `hidden`.
+
+        Asserted on the pair of operations rather than on a slice of the file -
+        a marker that is set and never read, or read and never cleared, is the
+        bug this is about, and either shows up as one of these going missing.
         """
-        return any(part.strip().endswith('tr.hidden') for part in selector.split(','))
-
-    def test_there_is_a_reveal_rule(self):
-        assert self.reveal_rules(), (
-            'no rule in qa.css selects on .%s, so the toggle adds a class that '
-            'nothing acts on' % SHOW_CLASS
-        )
-
-    def test_the_reveal_shows_the_row(self):
-        displays = [
-            body for selector, body in self.reveal_rules()
-            if self.controls_the_row_itself(selector) and 'display' in body
-        ]
-        assert displays, 'no reveal rule sets a display on tr.hidden'
-        for body in displays:
-            assert 'none' not in body, 'the reveal rule hides the row: %r' % body
-            assert '!important' in body, (
-                "the reveal is not !important, so Bootstrap's "
-                "`.hidden { display: none !important }` wins: %r" % body
-            )
-
-    def test_bootstrap_still_hides_with_important(self):
-        """If this stops being true, the !important above is unnecessary."""
-        hiding = [
-            body for selector, body in rules_matching(BOOTSTRAP_CSS, '.hidden')
-            if selector.strip() == '.hidden'
-        ]
-        assert hiding, 'bootstrap.css no longer has a bare `.hidden` rule'
-        assert any('!important' in body for body in hiding), (
-            'bootstrap no longer marks `.hidden` !important; the override in '
-            'qa.css can be simplified'
-        )
-
-    def test_the_reveal_out_specifies_the_rule_it_has_to_beat(self):
-        bootstrap = specificity('.hidden')
-        for selector, body in self.reveal_rules():
-            if not self.controls_the_row_itself(selector) or 'display' not in body:
-                continue
-            assert specificity(selector) > bootstrap, (
-                '%r is %s against bootstrap\'s %s, so with both !important the '
-                'row stays hidden' % (selector, specificity(selector), bootstrap)
-            )
+        source = read(MODULE)
+        for fragment, why in [
+            ('.data(ROW_MARKER, true)', 'nothing records that this module hid the row'),
+            ('$row.data(ROW_MARKER)', 'the restore does not check whether this module hid the row, '
+                                      'so a row that arrived without `hidden` could be given one'),
+            ('removeData(ROW_MARKER)', 'the marker is never cleared, so a row stays marked after '
+                                       'it has been put back'),
+        ]:
+            assert fragment in source, '%s (looked for %r)' % (why, fragment)
 
 
 class TestTheModuleIsWiredUp:
