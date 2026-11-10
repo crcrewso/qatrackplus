@@ -1438,7 +1438,9 @@ class TestShowHiddenTests(BaseQATests):
     SNAPSHOT = """
         var table = document.getElementById('perform-qa-table');
         var rows = Array.prototype.slice.call(
-            table.querySelectorAll(':scope > tbody > tr.hidden')
+            // Both states: still hidden, or revealed - revealing takes the
+            // `hidden` class off the row, so this cannot select on it alone.
+            table.querySelectorAll(':scope > tbody > tr.hidden, :scope > tbody > tr.qahidden-revealed')
         ).filter(function (r) { return r.querySelector('.qa-input'); });
         return {
             showing: table.classList.contains('show-hidden-tests'),

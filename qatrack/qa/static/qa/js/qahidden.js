@@ -23,6 +23,18 @@
  *    Only inputs it made readonly itself are restored, never one that was
  *    readonly to begin with.
  *
+ * How a row is revealed: by taking Bootstrap's `hidden` class OFF it, not by
+ * out-specifying `display: none !important` with a rule of our own. The first
+ * version did the latter, and an author !important beats an inline style - so
+ * `TestInstance.hide()`, which the category filter uses and which sets
+ * `display: none` on the element, could no longer hide a revealed row. Deselect
+ * every category with the reveal on and the page showed nothing but the hidden
+ * rows, each one marked skipped. Removing the class instead leaves `show()` and
+ * `hide()` working normally, and no rule anywhere needs !important.
+ *
+ * Only rows this module hid are put back, the same discipline as the readonly
+ * marker: a row that arrives without `hidden` is never given one.
+ *
  * A test's row is not the only thing that decides what it submits. Its comment
  * lives in a sibling row (`#<slug>-comment-row`, which carries no `hidden`
  * class of its own), and a simple test also has a Skip checkbox in its own row.
@@ -37,10 +49,30 @@ define(['jquery'], function ($) {
     "use strict";
 
     var SHOW_CLASS = 'show-hidden-tests';
+    var REVEALED_CLASS = 'qahidden-revealed';
     var MARKER = 'qahiddenReadonly';
+    var ROW_MARKER = 'qahiddenRevealed';
 
+    /* The rows this module is responsible for, in either state: still hidden, or
+     * revealed by us. It has to match both, because revealing takes the class
+     * that identified them away. */
     function hidden_rows($table) {
-        return $table.children('tbody').children('tr.hidden');
+        return $table.children('tbody').children('tr.hidden, tr.' + REVEALED_CLASS);
+    }
+
+    function reveal_rows($table) {
+        $table.children('tbody').children('tr.hidden').each(function () {
+            $(this).removeClass('hidden').addClass(REVEALED_CLASS).data(ROW_MARKER, true);
+        });
+    }
+
+    function rehide_rows($table) {
+        $table.children('tbody').children('tr.' + REVEALED_CLASS).each(function () {
+            var $row = $(this);
+            if ($row.data(ROW_MARKER)) {
+                $row.removeClass(REVEALED_CLASS).addClass('hidden').removeData(ROW_MARKER);
+            }
+        });
     }
 
     /* Every control a revealed test can submit: its own inputs, and the comment
@@ -95,9 +127,11 @@ define(['jquery'], function ($) {
         function apply() {
             var showing = $toggle.is(':checked');
             if (showing) {
+                reveal_rows($table);
                 lock($table);
             } else {
                 unlock($table);
+                rehide_rows($table);
             }
             $table.toggleClass(SHOW_CLASS, showing);
             $.Topic("hiddenTestsToggled").publish(showing);
