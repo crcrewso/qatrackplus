@@ -60,19 +60,34 @@ define(['jquery'], function ($) {
         return $table.children('tbody').children('tr.hidden, tr.' + REVEALED_CLASS);
     }
 
-    function reveal_rows($table) {
-        $table.children('tbody').children('tr.hidden').each(function () {
+    /* Reveal and re-hide take a set rather than the table, because a hidden test
+     * has something to hide outside it: its image box. */
+    function reveal($els) {
+        $els.filter('.hidden').each(function () {
             $(this).removeClass('hidden').addClass(REVEALED_CLASS).data(ROW_MARKER, true);
         });
     }
 
-    function rehide_rows($table) {
-        $table.children('tbody').children('tr.' + REVEALED_CLASS).each(function () {
-            var $row = $(this);
-            if ($row.data(ROW_MARKER)) {
-                $row.removeClass(REVEALED_CLASS).addClass('hidden').removeData(ROW_MARKER);
+    function rehide($els) {
+        $els.filter('.' + REVEALED_CLASS).each(function () {
+            var $el = $(this);
+            if ($el.data(ROW_MARKER)) {
+                $el.removeClass(REVEALED_CLASS).addClass('hidden').removeData(ROW_MARKER);
             }
         });
+    }
+
+    /* `display_image` renders into #qa-images, a container OUTSIDE the table, so
+     * hiding a test's row never hid its image - or the heading above it, which
+     * names the test. Both are the thing `hidden` exists to suppress, so they
+     * are revealed and re-hidden with the rows rather than separately. */
+    function image_boxes() {
+        return $('#qa-images').children('.qahidden-image, .' + REVEALED_CLASS);
+    }
+
+    function managed($table) {
+        return $table.children('tbody').children('tr.hidden, tr.' + REVEALED_CLASS)
+            .add(image_boxes());
     }
 
     /* Every control a revealed test can submit: its own inputs, and the comment
@@ -127,11 +142,11 @@ define(['jquery'], function ($) {
         function apply() {
             var showing = $toggle.is(':checked');
             if (showing) {
-                reveal_rows($table);
+                reveal(managed($table));
                 lock($table);
             } else {
                 unlock($table);
-                rehide_rows($table);
+                rehide(managed($table));
             }
             $table.toggleClass(SHOW_CLASS, showing);
             $.Topic("hiddenTestsToggled").publish(showing);

@@ -172,11 +172,11 @@ class TestTheRevealDoesNotFightBootstrap:
         """
         source = read(MODULE)
         for fragment, why in [
-            ('.data(ROW_MARKER, true)', 'nothing records that this module hid the row'),
-            ('$row.data(ROW_MARKER)', 'the restore does not check whether this module hid the row, '
-                                      'so a row that arrived without `hidden` could be given one'),
-            ('removeData(ROW_MARKER)', 'the marker is never cleared, so a row stays marked after '
-                                       'it has been put back'),
+            ('.data(ROW_MARKER, true)', 'nothing records that this module hid the element'),
+            ('data(ROW_MARKER)', 'the restore does not check whether this module hid the element, '
+                                 'so one that arrived without `hidden` could be given one'),
+            ('removeData(ROW_MARKER)', 'the marker is never cleared, so an element stays marked '
+                                       'after it has been put back'),
         ]:
             assert fragment in source, '%s (looked for %r)' % (why, fragment)
 
@@ -369,6 +369,40 @@ class TestTheToggleReachesEveryPageThatRendersTheForm(TestCase):
                         "it." % name
                     ),
                 )
+
+    def test_a_hidden_tests_image_box_is_hidden_with_it(self):
+        """`display_image` renders into #qa-images, outside the table.
+
+        So hiding the test's row never hid its image, nor the heading above it,
+        which names the test. Both are what `hidden` exists to suppress.
+        """
+        self.hidden.display_image = True
+        self.hidden.save()
+        self.visible.display_image = True
+        self.visible.save()
+
+        response = self.client.get(self.urls()["perform_qa"])
+        self.assertEqual(200, response.status_code)
+        html = response.content.decode()
+
+        assert 'id="%s"' % self.hidden.slug in html, "the hidden test has no image box at all"
+        assert 'id="%s"' % self.visible.slug in html, "the visible test has no image box at all"
+
+        for cls in ("hidden", "qahidden-image"):
+            self.assertContains(
+                response, 'class="row %s' % cls if cls == "hidden" else cls,
+                msg_prefix=(
+                    "a hidden test's image box does not carry %r, so its image and the "
+                    "heading naming the test both display while the test is hidden" % cls
+                ),
+            )
+
+        # The visible test's box must NOT be marked, or revealing would move it.
+        before, _, after = html.partition('id="%s"' % self.visible.slug)
+        box_open = before.rfind("<div class=")
+        assert "qahidden-image" not in before[box_open:], (
+            "the visible test's image box is marked as hidden-test furniture"
+        )
 
     def test_no_view_offers_the_toggle_when_there_is_nothing_to_reveal(self):
         """The flag is a gate, not a constant - the negative case proves it."""
