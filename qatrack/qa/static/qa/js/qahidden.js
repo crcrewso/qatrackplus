@@ -16,12 +16,24 @@
  *    test that is not visible has its value nulled on submit ("Filtered values
  *    will be nulled on submitt" in qa.js) - which for a hidden test would throw
  *    away the computed value the test exists to store.
- *  - it does not leave a revealed input editable. A composite or constant is
- *    already readonly; a hidden *simple* test is not, and is only unreachable
- *    because nobody can see it. Revealing it would quietly make it editable, so
- *    this marks what it reveals readonly and puts that back on hiding again.
- *    Only inputs it made readonly itself are restored, never one that was
- *    readonly to begin with.
+ *  - it does not reveal a test anybody could type into, and so does not have to
+ *    make anything read-only. It reveals Composite, Constant and String
+ *    Composite only - the three types in NO_SKIP_REQUIRED_TYPES, which are the
+ *    types nobody enters, which is why they have no Skip checkbox either. Their
+ *    controls are already readonly before this module touches them.
+ *
+ *    An earlier version revealed every hidden row and tried to neuter what it
+ *    exposed with `prop('readonly', true)`. That is meaningless on a <select>
+ *    or a radio, and never reached an upload's anchor at all, so a revealed
+ *    boolean or multiple-choice test stayed fully editable - the one thing this
+ *    feature promises cannot happen. Not revealing them removes the promise's
+ *    only hard part.
+ *
+ *    A hidden test of an enterable type should not exist: the admin has always
+ *    offered the Hidden checkbox for those three types alone, and TestForm.clean
+ *    now clears the flag when a type change strands it. `qatrack.W016` reports
+ *    any that predate that. Until a site is clean, such a row simply stays
+ *    hidden, which is what it did before this feature existed.
  *
  * How a row is revealed: by taking Bootstrap's `hidden` class OFF it, not by
  * out-specifying `display: none !important` with a rule of our own. The first
@@ -32,17 +44,13 @@
  * rows, each one marked skipped. Removing the class instead leaves `show()` and
  * `hide()` working normally, and no rule anywhere needs !important.
  *
- * Only rows this module hid are put back, the same discipline as the readonly
- * marker: a row that arrives without `hidden` is never given one.
+ * Only rows this module hid are put back: it marks each one as it reveals it,
+ * and a row that arrives without `hidden` is never given one.
  *
- * A test's row is not the only thing that decides what it submits. Its comment
- * lives in a sibling row (`#<slug>-comment-row`, which carries no `hidden`
- * class of its own), and a simple test also has a Skip checkbox in its own row.
- * Both were unreachable while the row was hidden, so both are covered here:
- * the comment box the same way as the value, and the Skip checkbox by CSS,
- * because `readonly` has no effect on a checkbox and `disabled` would drop it
- * from the POST - changing what is submitted, which is the one thing this is
- * not allowed to do.
+ * The comment row and the Skip checkbox needed handling while every hidden test
+ * could be revealed. They do not now: a Composite, Constant or String Composite
+ * has no Skip checkbox at all (that is what NO_SKIP_REQUIRED_TYPES means), and
+ * its comment box is as readonly as the rest of it.
  */
 define(['jquery'], function ($) {
 
@@ -50,14 +58,26 @@ define(['jquery'], function ($) {
 
     var SHOW_CLASS = 'show-hidden-tests';
     var REVEALED_CLASS = 'qa-hidden-revealed';
-    var MARKER = 'qahiddenReadonly';
     var ROW_MARKER = 'qahiddenRevealed';
+
+    /* The three types nobody enters. qavalue_form.html puts the test's type on
+     * its row as `qa-<type>`, so the page already says which is which. */
+    var REVEALABLE = ['qa-composite', 'qa-constant', 'qa-scomposite'];
+
+    function revealable_selector(state) {
+        return REVEALABLE.map(function (cls) {
+            return 'tr.' + state + '.' + cls;
+        }).join(', ');
+    }
 
     /* The rows this module is responsible for, in either state: still hidden, or
      * revealed by us. It has to match both, because revealing takes the class
-     * that identified them away. */
+     * that identified them away. A hidden row of any other type is deliberately
+     * absent - see the header. */
     function hidden_rows($table) {
-        return $table.children('tbody').children('tr.hidden, tr.' + REVEALED_CLASS);
+        return $table.children('tbody').children(
+            revealable_selector('hidden') + ', ' + revealable_selector(REVEALED_CLASS)
+        );
     }
 
     /* Reveal and re-hide take a set rather than the table, because a hidden test
@@ -90,44 +110,6 @@ define(['jquery'], function ($) {
             .add(image_boxes());
     }
 
-    /* Every control a revealed test can submit: its own inputs, and the comment
-     * box in the sibling row that `tr.hidden` does not include. The two rows are
-     * tied together by the form prefix class both carry, `row-<prefix>`, which
-     * is also how the rest of the page finds one from the other. */
-    function controls($table) {
-        var $rows = hidden_rows($table);
-        var $comments = $();
-        $rows.each(function () {
-            var prefix = $(this).data('prefix');
-            if (prefix !== undefined && prefix !== null && prefix !== '') {
-                $comments = $comments.add(
-                    $table.children('tbody').children('tr.qa-comment.row-' + prefix)
-                );
-            }
-        });
-        return $rows.add($comments)
-            .find('input.qa-input, textarea.qa-input, select.qa-input, textarea[name$="-comment"]');
-    }
-
-    function lock($table) {
-        controls($table).each(function () {
-            var $input = $(this);
-            if ($input.prop('readonly') || $input.prop('disabled')) {
-                return;
-            }
-            $input.prop('readonly', true).data(MARKER, true);
-        });
-    }
-
-    function unlock($table) {
-        controls($table).each(function () {
-            var $input = $(this);
-            if ($input.data(MARKER)) {
-                $input.prop('readonly', false).removeData(MARKER);
-            }
-        });
-    }
-
     /* Call with the table and the checkbox that drives it. Returns a function
      * that applies the checkbox's current state, so a caller can re-apply it
      * after anything that re-renders rows. */
@@ -143,9 +125,7 @@ define(['jquery'], function ($) {
             var showing = $toggle.is(':checked');
             if (showing) {
                 reveal(managed($table));
-                lock($table);
             } else {
-                unlock($table);
                 rehide(managed($table));
             }
             $table.toggleClass(SHOW_CLASS, showing);
