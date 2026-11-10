@@ -1320,11 +1320,15 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'qahidden', 'chee
          *
          * The module returns a function that re-applies the checkbox's state,
          * for anything that re-renders rows later; nothing here needs it yet, so
-         * it is not kept. The category filter does not need it: it
-         * calls show()/hide() per test, and Bootstrap's `.hidden` is
-         * `display: none !important`, so a filtered-in hidden test stays hidden
-         * unless this toggle is on - which is the behaviour we want and is
-         * asserted in the tests. */
+         * it is not kept.
+         *
+         * The category filter and the reveal no longer contend. The reveal takes
+         * Bootstrap's `hidden` class off the row rather than out-specifying it,
+         * so a revealed row is an ordinary row and TestInstance.show()/hide()
+         * behave normally on it. An earlier version used
+         * `display: table-row !important`, which beat the inline `display: none`
+         * that hide() sets - so with the reveal on, deselecting every category
+         * left nothing on screen but the hidden rows, each marked skipped. */
         show_hidden_tests(context, '#show-hidden-tests');
 
         pass_fail_only = $("#pass-fail-only").val() === "yes" ? true : false;

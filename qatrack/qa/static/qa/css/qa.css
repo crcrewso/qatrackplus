@@ -403,8 +403,8 @@ div.sublist-description {
 
    The revealed row is tinted so it is obvious it is not part of the normal list,
    and its inputs are made readonly by qa/js/qahidden.js. */
-#perform-qa-table > tbody > tr.qahidden-revealed > td,
-#perform-qa-table > tbody > tr.qahidden-revealed > th {
+#perform-qa-table > tbody > tr.qa-hidden-revealed > td,
+#perform-qa-table > tbody > tr.qa-hidden-revealed > th {
     background-color: #fcf8e3;
 }
 
@@ -418,7 +418,7 @@ div.sublist-description {
    The child selector covers both shapes: iCheck replaces the checkbox with a
    wrapping div and an `ins` helper, and an un-wrapped checkbox is a child of the
    cell directly. */
-#perform-qa-table > tbody > tr.qahidden-revealed > td.qa-skip > * {
+#perform-qa-table > tbody > tr.qa-hidden-revealed > td.qa-skip > * {
     display: none;
 }
 

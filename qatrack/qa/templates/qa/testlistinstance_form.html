@@ -657,7 +657,7 @@
                                                    Without the class below a hidden test displayed both its
                                                    name and its image - the two things `hidden` exists to
                                                    suppress. qa/js/qahidden.js reveals these with the rows.{% endcomment %}
-                                                <div class="row {% if test.hidden %}hidden qahidden-image{% endif %}">
+                                                <div class="row {% if test.hidden %}hidden qa-hidden-image{% endif %}">
                                                     <div class="col-sm-12">
                                                         <strong>
                                                             <p>
@@ -668,7 +668,7 @@
                                                         </strong>
                                                     </div>
                                                 </div>
-                                                <div class="row {% if test.hidden %}hidden qahidden-image{% endif %}">
+                                                <div class="row {% if test.hidden %}hidden qa-hidden-image{% endif %}">
                                                     <div id="{{ test.slug }}"></div>
                                                 </div>
                                             {% endif %}
