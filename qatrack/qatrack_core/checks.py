@@ -685,3 +685,80 @@ def check_cache_tables_exist(app_configs=None, databases=None, **kwargs):
             )
     return problems
 
+
+
+@register(Tags.database)
+def check_hidden_tests_are_not_user_entered(app_configs=None, databases=None, **kwargs):
+    """Warn when a test is hidden but is a type somebody has to type into.
+
+    `Test.hidden` means "don't display this test when performing QC", and it is
+    meant for an intermediate value a composite depends on. A test nobody enters
+    can be hidden harmlessly; a Simple, Boolean, Multiple Choice, Date, String or
+    Upload test cannot, because hiding it removes the only way to give it a
+    value. The admin has always agreed - `test_admin.js` offers the Hidden
+    checkbox only for Composite, Constant and String Composite - but it offers it
+    by showing and hiding the field, so the value kept posting and nothing
+    cleared it. Changing a hidden Composite to Simple, which
+    `Test.allow_type_transition` permits, therefore saved a hidden Simple test.
+
+    `TestForm.clean` now clears it, so this cannot be created again. This check
+    is for the rows that already exist, which no code change reaches.
+
+    **A Warning, not an Error**, and for the same reason as
+    `check_unique_constraints_enforced` above: checks run before `migrate`, so an
+    Error would abort the upgrade on precisely the installations that have the
+    problem. Nothing here is unsafe to run with - a hidden test of an enterable
+    type is unfillable, which is a configuration mistake, not a hazard.
+
+    Registered under Tags.database so it costs nothing on management commands
+    that do not touch one.
+    """
+    if not databases:
+        return []
+
+    from django.db.utils import DatabaseError
+
+    from qatrack.qa import models
+
+    try:
+        offenders = list(
+            models.Test.objects.filter(hidden=True)
+            .exclude(type__in=models.NO_SKIP_REQUIRED_TYPES)
+            .values_list("slug", "type")[:20]
+        )
+        total = (
+            models.Test.objects.filter(hidden=True)
+            .exclude(type__in=models.NO_SKIP_REQUIRED_TYPES)
+            .count()
+        )
+    except DatabaseError:
+        # The table does not exist yet, which is normal on a first `migrate`.
+        return []
+
+    if not offenders:
+        return []
+
+    labels = dict(models.TEST_TYPE_CHOICES)
+    shown = ", ".join("%s (%s)" % (slug, labels.get(t, t)) for slug, t in offenders)
+    more = "" if total <= len(offenders) else ", and %d more" % (total - len(offenders))
+
+    return [
+        Warning(
+            "%d test%s hidden but of a type somebody has to enter: %s%s."
+            % (total, "" if total == 1 else "s are", shown, more),
+            hint=(
+                "Hiding one of these removes the only way to give it a value, so "
+                "it can never be filled in. It is almost always left over from a "
+                "test that used to be a Composite: the admin hides the Hidden "
+                "checkbox for other types but kept posting its value, so changing "
+                "the type carried it across. Saving each test in the admin now "
+                "clears the flag, or clear it in bulk with:\n\n"
+                "    from qatrack.qa.models import Test, NO_SKIP_REQUIRED_TYPES\n"
+                "    Test.objects.filter(hidden=True).exclude("
+                "type__in=NO_SKIP_REQUIRED_TYPES).update(hidden=False)\n\n"
+                "Check first whether any of them should instead go back to being "
+                "the Composite they were."
+            ),
+            id='qatrack.W016',
+        )
+    ]

@@ -256,39 +256,73 @@ class TestTheToggleIsWiredToTheEventTheRealPageSends:
         )
 
 
-class TestARevealedTestHasMoreThanOneWayToChangeWhatIsSubmitted:
-    """A test's row is not all of a test.
+class TestOnlyTestsNobodyEntersAreRevealed:
+    """The promise is kept by what is revealed, not by neutering what was.
 
-    The value box is in `tr.hidden`; the comment box is in a sibling row that
-    carries no `hidden` class, and a simple test also has a Skip checkbox. All
-    three were unreachable while the row was hidden, and all three have to stay
-    that way once it is shown, or the release note's promise is not true.
+    An earlier version revealed every hidden row and marked its inputs
+    `readonly`. That is meaningless on a `<select>` or a radio and never reached
+    an upload's anchor, so a revealed boolean or multiple-choice test stayed
+    fully editable - the one thing the feature says cannot happen. The tests for
+    it passed, because they asserted `readOnly` on a radio, which the lock did
+    set, while the radio stayed clickable.
+
+    So the module now reveals Composite, Constant and String Composite only.
+    Those are NO_SKIP_REQUIRED_TYPES: the types nobody enters, which is why they
+    have no Skip checkbox, and whose controls are readonly before this module
+    touches anything. There is nothing left to lock, and nothing left to get
+    wrong per type.
     """
 
-    def test_the_comment_box_is_locked_too(self):
-        source = read(MODULE)
-        assert 'tr.qa-comment' in source, (
-            "qahidden.js does not reach the comment row, so a comment can be typed on a "
-            "revealed hidden test and submitted with it"
-        )
-        assert 'comment' in source.split('function controls')[1].split('function lock')[0], (
-            "the comment row is mentioned but not from the function that collects what to lock"
-        )
+    REVEALABLE = ['qa-composite', 'qa-constant', 'qa-scomposite']
 
-    def test_the_skip_checkbox_is_put_out_of_reach_by_css(self):
-        """Not by `readonly`, which browsers ignore on a checkbox."""
-        rules = rules_matching(QA_CSS, 'qa-skip')
-        assert rules, (
-            "no rule takes the Skip checkbox out of reach on a revealed hidden test, so it can "
-            "be clicked and the test submitted as skipped"
-        )
-
-    def test_the_skip_checkbox_is_not_disabled_anywhere(self):
-        """`disabled` would drop it from the POST, which changes what is submitted."""
+    def test_the_module_names_the_three_types_it_will_reveal(self):
         source = read(MODULE)
+        for cls in self.REVEALABLE:
+            assert cls in source, (
+                "qahidden.js does not name %r, so it is either revealing by type "
+                "incorrectly or has gone back to revealing every hidden row" % cls
+            )
+
+    def test_no_enterable_type_is_revealed(self):
+        """The types whose controls a user can operate must not appear."""
+        source = read(MODULE)
+        for cls in ['qa-simple', 'qa-boolean', 'qa-multchoice', 'qa-string',
+                    'qa-date', 'qa-datetime', 'qa-upload', 'qa-wraparound']:
+            assert cls not in source, (
+                "qahidden.js reveals %r. Somebody can type into that, and nothing "
+                "here can stop them: `readonly` does not work on a select, a radio "
+                "or an upload anchor." % cls
+            )
+
+    @staticmethod
+    def code_only(source):
+        """The module without its comments.
+
+        The header explains at length what the earlier version did wrong, and
+        quotes the call it made. Searching the raw file for that call finds the
+        explanation and reads it as the defect - which would make the write-up
+        that stops somebody reinstating it the reason the test fails.
+        """
+        source = re.sub(r'/\*.*?\*/', '', source, flags=re.S)
+        return re.sub(r'(?m)^\s*//.*$', '', source)
+
+    def test_the_module_no_longer_marks_anything_readonly(self):
+        """If this comes back, the per-type problem comes back with it."""
+        source = self.code_only(read(MODULE))
+        for fragment in ["prop('readonly'", 'prop("readonly"', "function lock", "function unlock"]:
+            assert fragment not in source, (
+                "qahidden.js is marking controls read-only again (%r). Revealing only "
+                "the types nobody enters is what makes that unnecessary; if the set of "
+                "revealed types has widened, read this class's docstring first."
+                % fragment
+            )
+
+    def test_nothing_is_disabled_either(self):
+        """`disabled` would drop a control from the POST, changing what is submitted."""
+        source = self.code_only(read(MODULE))
         assert ".prop('disabled', true)" not in source, (
-            "qahidden.js disables a control. A disabled input is not submitted, so the value "
-            "the form posts changes - which is the one thing this feature must not do."
+            "qahidden.js disables a control. A disabled input is not submitted, so the "
+            "value the form posts changes - which is the one thing this must not do."
         )
 
 
