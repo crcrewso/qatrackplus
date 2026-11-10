@@ -78,22 +78,26 @@ place:
     -- ... run the suite ...
     ALTER SERVER ROLE [dbcreator] DROP MEMBER [qatrack];
 
-**The GUI tests are skipped for you, and the summary will say so.** Around forty
-of them drive a real browser, which a server has no reason to have installed, so
-plain ``pytest`` skips them and reports them as skips. That is not a gap in the
-run and not a failure of your installation - it is the only thing that can be
-done without a browser. Nothing needs passing on the command line:
+**The GUI tests need a browser.** Around 35 of them drive a real one, and on a
+server with none installed they error at setup rather than being skipped. That is
+not a failure of your installation. Deselect them by marker - ignoring the file
+they mostly live in is not enough, because other test modules import its base
+class and define browser-driven tests of their own:
 
 .. code-block:: bash
 
-    .venv/bin/python -m pytest
+    .venv/bin/python -m pytest -m "not selenium"
 
-On Windows that is ``.venv\Scripts\python.exe -m pytest``, and the grant above is
-the SQL Server one.
+On Windows that is ``.venv\Scripts\python.exe -m pytest -m "not selenium"``, and the
+grant above is the SQL Server one.
 
-If you do want them, install Chrome or Firefox on the server and add
-``--run-selenium``. They drive a real browser against a real server, so the run
-takes considerably longer, and they are not what tells you an upgrade landed.
+.. note::
+
+    This page ends with your site on 4.0.2, which has no ``conftest.py`` and so
+    neither skips the GUI tests for you nor understands ``--run-selenium``. The
+    marker is what works there. From 4.1 a plain ``pytest`` skips them itself;
+    the marker goes on working until it is removed in 4.2, so the command above
+    is correct on both.
 
 .. warning::
 

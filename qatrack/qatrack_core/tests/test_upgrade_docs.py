@@ -124,13 +124,31 @@ class TestInstallDocsDoNotTeachTheDeprecatedSeleniumForm(unittest.TestCase):
 
     `docs/developer/` is deliberately excluded: those pages document the
     deprecation itself and have to name the form to deprecate it.
+
+    **The pages that upgrade a site *to* a pre-4.1 release are excluded too**,
+    and for the opposite reason. A reader of
+    `*_upgrade_from_4_0*.rst` ends the page on 4.0.x, which has no
+    `conftest.py`: there, plain `pytest` errors at setup on ~40 GUI tests and
+    `--run-selenium` is not understood. The marker expression is the only form
+    that works on the release those pages deliver, and it keeps working on 4.1
+    until it is removed in 4.2 - so it is correct for that audience on both
+    sides of the upgrade, which plain `pytest` is not.
+
+    Banning it there made those three pages tell operators to run a command
+    that fails on the code they are running. The ban is right everywhere a
+    reader is already on 4.1 or later.
     """
+
+    #: Pages whose reader finishes on a release older than the conftest change.
+    PRE_CONFTEST_PAGES = ("_upgrade_4_0", "upgrade_from_4_0", "upgrade_from_3")
 
     def test_there_are_pages_to_check(self):
         assert sorted(DOCS.glob("*.rst")), "no install pages found under %s" % DOCS
 
     def test_no_install_page_asks_for_the_marker_expression(self):
         for page in sorted(DOCS.glob("*.rst")):
+            if any(token in page.name for token in self.PRE_CONFTEST_PAGES):
+                continue
             with self.subTest(page=page.name):
                 assert "not selenium" not in page.read_text(encoding="utf-8"), (
                     '%s tells the reader to pass `-m "not selenium"`, which is '
