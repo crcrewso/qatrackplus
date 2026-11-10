@@ -33,6 +33,11 @@ import re
 
 import tinycss2
 from django.conf import settings
+from django.test import TestCase
+from django.urls import reverse
+
+from qatrack.qa import models
+from qatrack.qa.tests import utils
 
 QA_CSS = os.path.join(settings.PROJECT_ROOT, 'qa', 'static', 'qa', 'css', 'qa.css')
 BOOTSTRAP_CSS = os.path.join(
@@ -288,3 +293,80 @@ class TestTheTemplateDoesNotPrintItsOwnComments:
             "a `{# ... #}` comment is not closed on its own line, so Django renders it as "
             "visible text on the page:\n  %s" % '\n  '.join(offenders)
         )
+
+
+class TestTheToggleReachesEveryPageThatRendersTheForm(TestCase):
+    """Perform, Edit and Continue all render `qa/testlistinstance_form.html`.
+
+    The toggle is gated on `has_hidden_tests`, so a view that never sets it
+    renders the page with the block silently absent - no error, no empty menu
+    entry, just a feature that is not there. Neither `EditTestListInstance` nor
+    `ContinueTestListInstance` declares a `template_name`, so both inherit that
+    template from `ModelFormMixin` and both were missing the flag.
+
+    Asserting that `perform.py` contains the assignment - which this module did
+    elsewhere - cannot catch that: the line was present and correct the whole
+    time, in the one view that already worked. Only asking a view for a page
+    distinguishes the three.
+    """
+
+    def setUp(self):
+        self.status = utils.create_status()
+        self.test_list = utils.create_test_list()
+
+        self.visible = utils.create_test(name="a_visible_test")
+        self.hidden = utils.create_test(name="an_intermediate_test")
+        self.hidden.hidden = True
+        self.hidden.save()
+
+        utils.create_test_list_membership(self.test_list, self.visible)
+        utils.create_test_list_membership(self.test_list, self.hidden)
+
+        self.utc = utils.create_unit_test_collection(test_collection=self.test_list)
+        self.tli = utils.create_test_list_instance(unit_test_collection=self.utc)
+        for test in (self.visible, self.hidden):
+            uti = models.UnitTestInfo.objects.get(test=test, unit=self.utc.unit)
+            utils.create_test_instance(self.tli, unit_test_info=uti, value=1, status=self.status)
+
+        assert self.client.login(username="user", password="password")
+
+    def urls(self):
+        return {
+            "perform_qa": reverse("perform_qa", kwargs={"pk": self.utc.pk}),
+            "edit_tli": reverse("edit_tli", kwargs={"pk": self.tli.pk}),
+            "continue_tli": reverse("continue_tli", kwargs={"pk": self.tli.pk}),
+        }
+
+    def test_every_view_offers_the_toggle_when_the_list_has_a_hidden_test(self):
+        for name, url in self.urls().items():
+            with self.subTest(view=name):
+                response = self.client.get(url)
+                self.assertEqual(200, response.status_code)
+                self.assertContains(
+                    response,
+                    'id="show-hidden-tests"',
+                    msg_prefix=(
+                        "%s renders the perform form but does not offer the toggle. "
+                        "The view has to put `has_hidden_tests` in its context; the "
+                        "template gates the block on it and fails silently without "
+                        "it." % name
+                    ),
+                )
+
+    def test_no_view_offers_the_toggle_when_there_is_nothing_to_reveal(self):
+        """The flag is a gate, not a constant - the negative case proves it."""
+        self.hidden.hidden = False
+        self.hidden.save()
+
+        for name, url in self.urls().items():
+            with self.subTest(view=name):
+                response = self.client.get(url)
+                self.assertEqual(200, response.status_code)
+                self.assertNotContains(
+                    response,
+                    'id="show-hidden-tests"',
+                    msg_prefix=(
+                        "%s offers the toggle on a list with no hidden tests, so the "
+                        "flag is not gating anything" % name
+                    ),
+                )
