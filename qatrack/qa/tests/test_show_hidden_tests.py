@@ -1,0 +1,457 @@
+"""A test list's hidden tests can be revealed, without that changing a value.
+
+`Test.hidden` means "Don't display this test when performing QC", and in
+practice it marks an intermediate value that a composite depends on. The row is
+rendered in full and only CSS-hidden, so revealing it is a class on the table -
+which is why this is a stylesheet, a template and twenty lines of JavaScript
+rather than a change to the form or the view.
+
+Three things have to hold, and each fails independently:
+
+- the toggle is offered only on a list that has something to reveal, so it does
+  not appear on the many lists with no hidden tests;
+- the stylesheet's reveal actually beats Bootstrap's `.hidden`, which is
+  `display: none !important` - an override that loses on specificity is the
+  failure nobody notices, because the markup looks right;
+- revealing cannot change what is submitted. A composite or constant is readonly
+  already; a hidden *simple* test is not, and is unreachable only because nobody
+  can see it, so the module marks what it reveals readonly.
+
+**Everything here reads the CSS, the template and the JavaScript as text, and
+that is not enough on its own.** Every test in this file passed while a click on
+the toggle did nothing whatsoever: the checkbox is wrapped by iCheck, which
+reports a click as `ifChanged` and never fires `change`, and `change` was all
+the module listened for. crane found that by driving a real browser on
+2026-11-06. `TestShowHiddenTests` in `qatrack/qa/tests/test_selenium.py` is the
+test that would have caught it, and it is the one to extend when this feature
+changes; what is here guards the pieces it cannot see, such as the specificity
+of the CSS override.
+"""
+
+import os
+import re
+
+import tinycss2
+from django.conf import settings
+from django.test import TestCase
+from django.urls import reverse
+
+from qatrack.qa import models
+from qatrack.qa.tests import utils
+
+QA_CSS = os.path.join(settings.PROJECT_ROOT, 'qa', 'static', 'qa', 'css', 'qa.css')
+BOOTSTRAP_CSS = os.path.join(
+    settings.PROJECT_ROOT, 'qatrack_core', 'static', 'bootstrap', 'css', 'bootstrap.css'
+)
+PERFORM_TEMPLATE = os.path.join(
+    settings.PROJECT_ROOT, 'qa', 'templates', 'qa', 'testlistinstance_form.html'
+)
+PERFORM_VIEW = os.path.join(settings.PROJECT_ROOT, 'qa', 'views', 'perform.py')
+MODULE = os.path.join(settings.PROJECT_ROOT, 'qa', 'static', 'qa', 'js', 'qahidden.js')
+QA_JS = os.path.join(settings.PROJECT_ROOT, 'qa', 'static', 'qa', 'js', 'qa.js')
+REQUIREJS_CONFIG = os.path.join(
+    settings.PROJECT_ROOT, 'qatrack_core', 'static', 'requirejs', 'js', 'requirejs-config.js'
+)
+ICHECK_JS = os.path.join(
+    settings.PROJECT_ROOT, 'qatrack_core', 'static', 'icheck', 'js', 'icheck.js'
+)
+
+SHOW_CLASS = 'show-hidden-tests'
+
+
+def read(path):
+    with open(path, encoding='utf8') as f:
+        return f.read()
+
+
+def rules_matching(path, needle):
+    sheet = tinycss2.parse_stylesheet(read(path), skip_whitespace=True, skip_comments=True)
+    matched = []
+    for rule in sheet:
+        if rule.type != 'qualified-rule':
+            continue
+        selector = tinycss2.serialize(rule.prelude).strip()
+        if needle in selector:
+            matched.append((selector, tinycss2.serialize(rule.content)))
+    return matched
+
+
+def specificity(selector):
+    """(ids, classes+attributes+pseudo-classes, elements) for one selector."""
+    selector = selector.split(',')[0].strip()
+    ids = len(re.findall(r'#[\w-]+', selector))
+    classes = len(re.findall(r'\.[\w-]+|\[[^\]]+\]|:[a-z-]+(?!\()', selector))
+    elements = len(re.findall(r'(?:^|[\s>+~])([a-zA-Z][\w-]*)', selector))
+    return (ids, classes, elements)
+
+
+class TestTheToggleIsOfferedOnlyWhenThereIsSomethingToReveal:
+
+    def test_the_view_says_whether_the_list_has_hidden_tests(self):
+        assert "context['has_hidden_tests'] = any(x.test.hidden for x in self.unit_test_infos)" in read(PERFORM_VIEW), (
+            'the perform view no longer reports whether this list has hidden tests, '
+            'so the template below cannot decide whether to offer the toggle'
+        )
+
+    def test_the_template_gates_the_toggle_on_that_flag(self):
+        source = read(PERFORM_TEMPLATE)
+        assert 'id="show-hidden-tests"' in source, 'the toggle is gone from the perform page'
+        before = source.index('{% if has_hidden_tests %}')
+        after = source.index('id="show-hidden-tests"')
+        assert before < after, (
+            'the toggle is not inside `{% if has_hidden_tests %}`, so it would be '
+            'offered on lists with nothing to reveal'
+        )
+
+
+class TestTheRevealDoesNotFightBootstrap:
+    """The row is revealed by removing `hidden`, not by out-specifying it.
+
+    The first version added `display: table-row !important` on a selector that
+    beat Bootstrap's `.hidden` on specificity. That worked for the reveal and
+    broke the category filter: `TestInstance.hide()` hides a row by setting
+    `display: none` on the element, and an author !important beats an inline
+    style. With the reveal on, deselecting every category left the page showing
+    nothing but the hidden rows - each one marked skipped, with "Category not
+    performed" written into its comment.
+
+    Removing the class has no such interaction, because a revealed row is then
+    an ordinary row. These tests guard the absence of the old mechanism, which
+    is the part that can silently come back.
+    """
+
+    def test_no_rule_forces_a_hidden_row_to_display(self):
+        """The regression would arrive as a `display` with `!important`."""
+        offenders = []
+        for selector, body in rules_matching(QA_CSS, 'hidden'):
+            if 'display' in body and '!important' in body:
+                offenders.append((selector, body))
+        assert not offenders, (
+            'qa.css forces a row to display with !important: %r. An author '
+            '!important beats the inline `display: none` that TestInstance.hide() '
+            'sets, so the category filter can no longer hide that row.' % offenders
+        )
+
+    def test_the_reveal_adds_no_important_at_all(self):
+        for selector, body in rules_matching(QA_CSS, 'qa-hidden-revealed'):
+            assert '!important' not in body, (
+                '%r uses !important. Nothing in the reveal needs it now that the '
+                'class is removed rather than overridden: %r' % (selector, body)
+            )
+
+    def test_the_revealed_row_is_still_tinted(self):
+        tinted = [
+            body for selector, body in rules_matching(QA_CSS, 'qa-hidden-revealed')
+            if 'background' in body
+        ]
+        assert tinted, (
+            'nothing tints a revealed row, so there is no longer anything on screen '
+            'saying it is not part of the normal list'
+        )
+
+    def test_the_module_reveals_by_removing_the_class(self):
+        source = read(MODULE)
+        assert "removeClass('hidden')" in source, (
+            'qahidden.js no longer removes the `hidden` class. If it has gone back '
+            'to overriding the rule, read this class docstring before changing it.'
+        )
+
+    def test_the_module_puts_the_class_back(self):
+        source = read(MODULE)
+        assert "addClass('hidden')" in source, (
+            'qahidden.js removes `hidden` but never restores it, so hiding the '
+            'tests again leaves them on screen'
+        )
+
+    def test_only_rows_it_hid_are_restored(self):
+        """The same discipline as the readonly marker: never invent a `hidden`.
+
+        Asserted on the pair of operations rather than on a slice of the file -
+        a marker that is set and never read, or read and never cleared, is the
+        bug this is about, and either shows up as one of these going missing.
+        """
+        source = read(MODULE)
+        for fragment, why in [
+            ('.data(ROW_MARKER, true)', 'nothing records that this module hid the element'),
+            ('data(ROW_MARKER)', 'the restore does not check whether this module hid the element, '
+                                 'so one that arrived without `hidden` could be given one'),
+            ('removeData(ROW_MARKER)', 'the marker is never cleared, so an element stays marked '
+                                       'after it has been put back'),
+        ]:
+            assert fragment in source, '%s (looked for %r)' % (why, fragment)
+
+
+class TestTheModuleIsWiredUp:
+
+    def test_the_module_is_registered_with_requirejs(self):
+        assert "qahidden: siteConfig.STATIC_URL + 'qa/js/qahidden'" in read(REQUIREJS_CONFIG)
+
+    def test_the_perform_script_requires_it_and_calls_it(self):
+        source = read(QA_JS)
+        assert "'qahidden'" in source, 'qa.js no longer requires the module'
+        calls = [
+            line.strip() for line in source.splitlines()
+            if 'show_hidden_tests(' in line and not line.strip().startswith(('//', '/*', '*'))
+        ]
+        assert calls, 'qa.js requires the module but never calls it outside a comment'
+
+    def test_the_module_does_not_route_through_show_or_hide(self):
+        """`TestInstance.hide()` nulls the value on submit, which would throw
+        away the very value a hidden test exists to store.
+
+        Comments are stripped first: the module's own header explains why it
+        avoids those calls, and naming them there must not fail this.
+        """
+        source = re.sub(r'/\*.*?\*/', '', read(MODULE), flags=re.DOTALL)
+        source = re.sub(r'^\s*//.*$', '', source, flags=re.MULTILINE)
+        for forbidden in ('.show()', '.hide()', 'set_skip'):
+            assert forbidden not in source, (
+                'qahidden.js uses %s; revealing a test must not touch its '
+                'visible state' % forbidden
+            )
+
+
+class TestTheToggleIsWiredToTheEventTheRealPageSends:
+    """The failure that every other test in this file missed.
+
+    `sidebar.js` calls `$('.iCheck').iCheck(...)` over the whole page, and the
+    menu entry passes a click to iCheck's helper. iCheck 1.0.2 reports the
+    change as `ifChanged`/`ifToggled`/`ifChecked`/`ifUnchecked` and never fires
+    `change`, so a module that listens for `change` alone is never called. The
+    category checkboxes on the same page already listened for `ifChanged`; this
+    one did not.
+    """
+
+    def test_the_module_listens_for_icheck_s_event(self):
+        source = read(MODULE)
+        handlers = re.findall(r"""\$toggle\.on\(\s*['"]([^'"]+)['"]""", source)
+        assert handlers, "qahidden.js no longer binds a handler to the toggle at all"
+        events = ' '.join(handlers).split()
+        assert 'ifChanged' in events, (
+            "qahidden.js listens for %r. The page's checkbox is wrapped by iCheck, which never "
+            "fires 'change', so the toggle will do nothing when a user clicks it." % events
+        )
+        assert 'change' in events, (
+            "qahidden.js listens for %r. Keep 'change' as well: it is what a plain checkbox "
+            "sends, and what a test that drives the input directly will fire." % events
+        )
+
+    def test_the_toggle_is_the_kind_of_checkbox_icheck_wraps(self):
+        """If it ever stops being one, the `ifChanged` above becomes dead weight."""
+        template = read(PERFORM_TEMPLATE)
+        block = template[template.index('id="menu-show-hidden"'):]
+        block = block[:block.index('</li>')]
+        assert 'class="iCheck"' in block, (
+            "the show-hidden checkbox is no longer marked iCheck, so qahidden.js's 'ifChanged' "
+            "binding may no longer be the one that matters - check which event the page sends"
+        )
+
+    def test_icheck_still_does_not_fire_change(self):
+        """The premise, read from the vendored library rather than assumed."""
+        icheck = read(ICHECK_JS)
+        assert 'ifChanged' in icheck, "the vendored iCheck no longer mentions ifChanged"
+        assert not re.search(r"""callback\(\s*['"]change['"]""", icheck), (
+            "the vendored iCheck now appears to fire a 'change' callback; if it does, the "
+            "comment in qahidden.js explaining why 'ifChanged' is needed is out of date"
+        )
+
+
+class TestOnlyTestsNobodyEntersAreRevealed:
+    """The promise is kept by what is revealed, not by neutering what was.
+
+    An earlier version revealed every hidden row and marked its inputs
+    `readonly`. That is meaningless on a `<select>` or a radio and never reached
+    an upload's anchor, so a revealed boolean or multiple-choice test stayed
+    fully editable - the one thing the feature says cannot happen. The tests for
+    it passed, because they asserted `readOnly` on a radio, which the lock did
+    set, while the radio stayed clickable.
+
+    So the module now reveals Composite, Constant and String Composite only.
+    Those are NO_SKIP_REQUIRED_TYPES: the types nobody enters, which is why they
+    have no Skip checkbox, and whose controls are readonly before this module
+    touches anything. There is nothing left to lock, and nothing left to get
+    wrong per type.
+    """
+
+    REVEALABLE = ['qa-composite', 'qa-constant', 'qa-scomposite']
+
+    def test_the_module_names_the_three_types_it_will_reveal(self):
+        source = read(MODULE)
+        for cls in self.REVEALABLE:
+            assert cls in source, (
+                "qahidden.js does not name %r, so it is either revealing by type "
+                "incorrectly or has gone back to revealing every hidden row" % cls
+            )
+
+    def test_no_enterable_type_is_revealed(self):
+        """The types whose controls a user can operate must not appear."""
+        source = read(MODULE)
+        for cls in ['qa-simple', 'qa-boolean', 'qa-multchoice', 'qa-string',
+                    'qa-date', 'qa-datetime', 'qa-upload', 'qa-wraparound']:
+            assert cls not in source, (
+                "qahidden.js reveals %r. Somebody can type into that, and nothing "
+                "here can stop them: `readonly` does not work on a select, a radio "
+                "or an upload anchor." % cls
+            )
+
+    @staticmethod
+    def code_only(source):
+        """The module without its comments.
+
+        The header explains at length what the earlier version did wrong, and
+        quotes the call it made. Searching the raw file for that call finds the
+        explanation and reads it as the defect - which would make the write-up
+        that stops somebody reinstating it the reason the test fails.
+        """
+        source = re.sub(r'/\*.*?\*/', '', source, flags=re.S)
+        return re.sub(r'(?m)^\s*//.*$', '', source)
+
+    def test_the_module_no_longer_marks_anything_readonly(self):
+        """If this comes back, the per-type problem comes back with it."""
+        source = self.code_only(read(MODULE))
+        for fragment in ["prop('readonly'", 'prop("readonly"', "function lock", "function unlock"]:
+            assert fragment not in source, (
+                "qahidden.js is marking controls read-only again (%r). Revealing only "
+                "the types nobody enters is what makes that unnecessary; if the set of "
+                "revealed types has widened, read this class's docstring first."
+                % fragment
+            )
+
+    def test_nothing_is_disabled_either(self):
+        """`disabled` would drop a control from the POST, changing what is submitted."""
+        source = self.code_only(read(MODULE))
+        assert ".prop('disabled', true)" not in source, (
+            "qahidden.js disables a control. A disabled input is not submitted, so the "
+            "value the form posts changes - which is the one thing this must not do."
+        )
+
+
+class TestTheTemplateDoesNotPrintItsOwnComments:
+    """Django's `{# #}` is single-line only; a multi-line one renders as text.
+
+    This happened once on #818's branch and again here, in the same sitting, so
+    it is worth a test next to the feature rather than only the repository-wide
+    scan on the other branch.
+    """
+
+    def test_no_multi_line_hash_comment_in_the_perform_template(self):
+        offenders = []
+        for number, line in enumerate(read(PERFORM_TEMPLATE).splitlines(), start=1):
+            opened = line.count('{#')
+            if opened and line.count('#}') < opened:
+                offenders.append('%d: %s' % (number, line.strip()))
+        assert not offenders, (
+            "a `{# ... #}` comment is not closed on its own line, so Django renders it as "
+            "visible text on the page:\n  %s" % '\n  '.join(offenders)
+        )
+
+
+class TestTheToggleReachesEveryPageThatRendersTheForm(TestCase):
+    """Perform, Edit and Continue all render `qa/testlistinstance_form.html`.
+
+    The toggle is gated on `has_hidden_tests`, so a view that never sets it
+    renders the page with the block silently absent - no error, no empty menu
+    entry, just a feature that is not there. Neither `EditTestListInstance` nor
+    `ContinueTestListInstance` declares a `template_name`, so both inherit that
+    template from `ModelFormMixin` and both were missing the flag.
+
+    Asserting that `perform.py` contains the assignment - which this module did
+    elsewhere - cannot catch that: the line was present and correct the whole
+    time, in the one view that already worked. Only asking a view for a page
+    distinguishes the three.
+    """
+
+    def setUp(self):
+        self.status = utils.create_status()
+        self.test_list = utils.create_test_list()
+
+        self.visible = utils.create_test(name="a_visible_test")
+        self.hidden = utils.create_test(name="an_intermediate_test")
+        self.hidden.hidden = True
+        self.hidden.save()
+
+        utils.create_test_list_membership(self.test_list, self.visible)
+        utils.create_test_list_membership(self.test_list, self.hidden)
+
+        self.utc = utils.create_unit_test_collection(test_collection=self.test_list)
+        self.tli = utils.create_test_list_instance(unit_test_collection=self.utc)
+        for test in (self.visible, self.hidden):
+            uti = models.UnitTestInfo.objects.get(test=test, unit=self.utc.unit)
+            utils.create_test_instance(self.tli, unit_test_info=uti, value=1, status=self.status)
+
+        assert self.client.login(username="user", password="password")
+
+    def urls(self):
+        return {
+            "perform_qa": reverse("perform_qa", kwargs={"pk": self.utc.pk}),
+            "edit_tli": reverse("edit_tli", kwargs={"pk": self.tli.pk}),
+            "continue_tli": reverse("continue_tli", kwargs={"pk": self.tli.pk}),
+        }
+
+    def test_every_view_offers_the_toggle_when_the_list_has_a_hidden_test(self):
+        for name, url in self.urls().items():
+            with self.subTest(view=name):
+                response = self.client.get(url)
+                self.assertEqual(200, response.status_code)
+                self.assertContains(
+                    response,
+                    'id="show-hidden-tests"',
+                    msg_prefix=(
+                        "%s renders the perform form but does not offer the toggle. "
+                        "The view has to put `has_hidden_tests` in its context; the "
+                        "template gates the block on it and fails silently without "
+                        "it." % name
+                    ),
+                )
+
+    def test_a_hidden_tests_image_box_is_hidden_with_it(self):
+        """`display_image` renders into #qa-images, outside the table.
+
+        So hiding the test's row never hid its image, nor the heading above it,
+        which names the test. Both are what `hidden` exists to suppress.
+        """
+        self.hidden.display_image = True
+        self.hidden.save()
+        self.visible.display_image = True
+        self.visible.save()
+
+        response = self.client.get(self.urls()["perform_qa"])
+        self.assertEqual(200, response.status_code)
+        html = response.content.decode()
+
+        assert 'id="%s"' % self.hidden.slug in html, "the hidden test has no image box at all"
+        assert 'id="%s"' % self.visible.slug in html, "the visible test has no image box at all"
+
+        for cls in ("hidden", "qa-hidden-image"):
+            self.assertContains(
+                response, 'class="row %s' % cls if cls == "hidden" else cls,
+                msg_prefix=(
+                    "a hidden test's image box does not carry %r, so its image and the "
+                    "heading naming the test both display while the test is hidden" % cls
+                ),
+            )
+
+        # The visible test's box must NOT be marked, or revealing would move it.
+        before, _, after = html.partition('id="%s"' % self.visible.slug)
+        box_open = before.rfind("<div class=")
+        assert "qa-hidden-image" not in before[box_open:], (
+            "the visible test's image box is marked as hidden-test furniture"
+        )
+
+    def test_no_view_offers_the_toggle_when_there_is_nothing_to_reveal(self):
+        """The flag is a gate, not a constant - the negative case proves it."""
+        self.hidden.hidden = False
+        self.hidden.save()
+
+        for name, url in self.urls().items():
+            with self.subTest(view=name):
+                response = self.client.get(url)
+                self.assertEqual(200, response.status_code)
+                self.assertNotContains(
+                    response,
+                    'id="show-hidden-tests"',
+                    msg_prefix=(
+                        "%s offers the toggle on a list with no hidden tests, so the "
+                        "flag is not gating anything" % name
+                    ),
+                )

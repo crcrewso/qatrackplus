@@ -1410,3 +1410,199 @@ class TestStringToleranceChoices(BaseQATests):
 
         assert str(self.abs_tol) in options, options
         assert str(self.mc_tol) not in options, options
+
+
+@pytest.mark.selenium
+class TestShowHiddenTests(BaseQATests):
+    """"Show hidden tests" on the real perform page, driven the way a user drives it.
+
+    Every other test for this feature reads the CSS, the template and the
+    JavaScript as text, and all of them passed while the toggle did nothing at
+    all: the checkbox is wrapped by iCheck (`sidebar.js`), and iCheck 1.0.2
+    reports a click as `ifChanged` and never fires `change`, which was the only
+    event the module listened for. crane found that in a real browser on
+    2026-11-06. No text-level test can find it, so this clicks the menu entry
+    and looks at the page.
+
+    It builds its own fixture rather than extending `TestPerformQC`: marking
+    tests hidden in a subclass's `setUp` breaks every test that class already
+    has, which is a fixture this feature needs and nothing else does.
+
+    `test2` is a simple hidden test that feeds the composite, so it is the one
+    revealing could make editable. `testc` is the composite, readonly before
+    anything here touches it, and its Skip checkbox is already disabled by the
+    page - which is why the assertions below compare against what the page
+    rendered rather than against a fixed expectation.
+    """
+
+    SNAPSHOT = """
+        var table = document.getElementById('perform-qa-table');
+        var rows = Array.prototype.slice.call(
+            // Both states: still hidden, or revealed - revealing takes the
+            // `hidden` class off the row, so this cannot select on it alone.
+            table.querySelectorAll(':scope > tbody > tr.hidden, :scope > tbody > tr.qa-hidden-revealed')
+        ).filter(function (r) { return r.querySelector('.qa-input'); });
+        return {
+            showing: table.classList.contains('show-hidden-tests'),
+            rows: rows.map(function (r) {
+                var skip = r.querySelector('td.qa-skip input[type=checkbox]');
+                return {
+                    id: r.id,
+                    displayed: getComputedStyle(r).display !== 'none',
+                    inputs: Array.prototype.slice.call(
+                        r.querySelectorAll('input.qa-input:not([type=hidden])')
+                    ).map(function (i) { return {name: i.name, readonly: i.readOnly}; }),
+                    skip_present: !!skip,
+                    skip_reachable: !!(skip && skip.getClientRects().length),
+                    skip_disabled: !!(skip && skip.disabled),
+                    skip_checked: !!(skip && skip.checked)
+                };
+            })
+        };
+    """
+
+    def setUp(self):
+        with transaction.atomic():
+            super().setUp()
+
+            self.unit = utils.create_unit()
+            self.group = utils.create_group()
+            for p in Permission.objects.all():
+                self.group.permissions.add(p)
+            self.user.groups.add(self.group)
+
+            # Without a status the perform page refuses to render the test list
+            # at all - "There must be at least one Test Status defined before
+            # performing a TestList" - and every assertion below would be
+            # looking at a page with no rows on it.
+            utils.create_status()
+
+            self.test_list = utils.create_test_list()
+            self.visible = utils.create_test(name="test1")
+            self.simple_hidden = utils.create_test(name="test2")
+            self.composite_hidden = utils.create_test(name="testc", test_type=models.COMPOSITE)
+            self.composite_hidden.calculation_procedure = "result = test1 + test2 + 2"
+            self.composite_hidden.save()
+
+            for order, test in enumerate([self.visible, self.simple_hidden, self.composite_hidden]):
+                utils.create_test_list_membership(self.test_list, test, order=order)
+
+            models.Test.objects.filter(
+                pk__in=[self.simple_hidden.pk, self.composite_hidden.pk]
+            ).update(hidden=True)
+
+            self.utc = utils.create_unit_test_collection(unit=self.unit, test_collection=self.test_list)
+            self.utc.visible_to.add(self.group)
+            self.url = reverse("perform_qa", kwargs={'pk': self.utc.pk})
+
+    def snapshot(self):
+        return self.driver.execute_script(self.SNAPSHOT)
+
+    def toggle(self):
+        """Click the menu entry, which is how a user turns this on and off."""
+        self.driver.find_element(By.ID, 'menu-show-hidden').click()
+        time.sleep(1)
+
+    def open_perform_page(self):
+        self.login()
+        self.open(self.url)
+        self.wait_for_elements(By.CLASS_NAME, 'qa-input', minimum=2)
+        self.wait_for_ajax()
+
+    def test_the_menu_entry_reveals_the_hidden_rows(self):
+        self.open_perform_page()
+
+        before = self.snapshot()
+        assert len(before['rows']) == 2, (
+            "expected test2's and testc's rows to be the hidden ones: %r" % before
+        )
+        assert not any(r['displayed'] for r in before['rows']), (
+            "a hidden test's row is displayed before the toggle is used: %r" % before
+        )
+
+        self.toggle()
+        after = self.snapshot()
+        assert after['showing'], (
+            "clicking the menu entry did not put the class on the table, so the handler never "
+            "ran. iCheck reports a click as 'ifChanged', not 'change': %r" % after
+        )
+        assert all(r['displayed'] for r in after['rows']), (
+            "the class is on the table but the rows are still not displayed: %r" % after
+        )
+
+    def test_revealing_a_test_changes_nothing_it_can_submit(self):
+        self.open_perform_page()
+        before = {r['id']: r for r in self.snapshot()['rows']}
+
+        self.toggle()
+        after = {r['id']: r for r in self.snapshot()['rows']}
+        assert any(r['displayed'] for r in after.values()), (
+            "nothing was revealed, so there was nothing to check"
+        )
+
+        for row_id, row in after.items():
+            for field in row['inputs']:
+                assert field['readonly'], (
+                    "%s is editable on a revealed hidden test, so looking at an intermediate "
+                    "value can change what is submitted" % field['name']
+                )
+            if not row['skip_present']:
+                continue
+            assert not row['skip_reachable'], (
+                "%s's Skip checkbox can still be clicked on a revealed hidden test" % row_id
+            )
+            # Not "must be enabled": the page disables a composite's Skip itself.
+            # What matters is that revealing did not change it, because a
+            # disabled checkbox is left out of the POST.
+            assert row['skip_disabled'] == before[row_id]['skip_disabled'], (
+                "%s's Skip checkbox changed from disabled=%r to %r when the row was revealed, "
+                "which changes what the form posts" % (
+                    row_id, before[row_id]['skip_disabled'], row['skip_disabled'])
+            )
+            assert row['skip_checked'] == before[row_id]['skip_checked'], (
+                "%s's Skip checkbox changed state when the row was revealed" % row_id
+            )
+
+        # The comment box lives in a sibling row that carries no `hidden` class,
+        # so it is the easiest one for the lock to miss.
+        slug = 'test2'
+        self.driver.find_element(By.ID, 'comment-toggle-%s' % slug).click()
+        time.sleep(1)
+        box = self.driver.find_element(By.CSS_SELECTOR, '#%s-comment-row textarea' % slug)
+        assert box.get_attribute('readonly'), (
+            "the comment box of a revealed hidden test is editable, and a comment is submitted "
+            "with the test"
+        )
+
+    def test_turning_it_off_hides_them_and_gives_the_input_back(self):
+        self.open_perform_page()
+        self.toggle()
+        assert any(r['displayed'] for r in self.snapshot()['rows']), "nothing was revealed"
+
+        self.toggle()
+        after = self.snapshot()
+        assert not after['showing'], "a second click left the class on the table: %r" % after
+        assert not any(r['displayed'] for r in after['rows']), (
+            "a second click left the rows displayed: %r" % after
+        )
+
+        simple = [
+            field for row in after['rows'] if row['id'].startswith('test2')
+            for field in row['inputs']
+        ]
+        assert simple, "test2's row was not among the hidden rows: %r" % after
+        assert not any(field['readonly'] for field in simple), (
+            "test2 is still readonly after hiding the rows again, so the feature kept an edit it "
+            "only borrowed: %r" % simple
+        )
+
+    def test_the_page_does_not_print_its_own_template_comment(self):
+        """A multi-line `{# ... #}` renders as text; Django's is single-line only."""
+        self.open_perform_page()
+        body = self.driver.find_element(By.TAG_NAME, 'body').text
+        for delimiter in ('{#', '#}', '{%', '%}'):
+            found = body.find(delimiter)
+            assert found < 0, (
+                "the perform page prints the template delimiter %r as text: ...%s..."
+                % (delimiter, body[max(0, found - 40):found + 120])
+            )
