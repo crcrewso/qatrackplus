@@ -1,0 +1,233 @@
+# Does the suite still pass when the tests run in a different order?
+#
+# WHEN TO RUN IT - Cody, 2026-10-19:
+#
+#   * as preparation for any release;
+#   * when a maintainer brings in a new app, or makes a significant database
+#     change;
+#   * when a database driver or a maths library changes version significantly -
+#     psycopg, mysqlclient, mssql-django, numpy, scipy, pandas.
+#
+# The first two are judgement calls a person makes, which is why this is a
+# `workflow_dispatch` and not only a schedule: somebody decides the change is
+# significant and runs it. The path filters below catch the mechanical half of
+# the same policy, and are commented out for the reason given further down.
+#
+# Deliberately NOT part of ci.yml. A shuffled run can fail for a reason that has
+# nothing to do with the pull request in front of it, and a check that does that
+# teaches everybody to ignore it - the same way a `makemigrations` that always
+# reported 195 pending operations taught everybody to ignore `makemigrations`.
+# So it runs on demand - and, once the precondition below is met, on a schedule -
+# where a failure is its own signal and somebody has to look at it.
+#
+# What it catches is tests that depend on each other: state left in a module, a
+# class attribute mutated, an id that happens to be 1 because nothing ran first.
+# It does NOT catch a test that depends on the order a *database* returns rows
+# in - that is a property of the query, not of the test order. The fix there is an
+# explicit `order_by`, or an assertion that does not depend on order at all (see
+# `unit_test_info_pairs` in qa/tests/test_models.py, which takes the second
+# route).
+#
+# WHICH INDEPENDENCE - Cody, 2026-11-06:
+#
+# Independence *within* Django's own ordering guarantee, not independence from
+# it. Django's test runner promises that every `TestCase` runs before every
+# `TransactionTestCase`, and pytest-django keeps that promise with a sort of its
+# own. This job shuffles inside that sort rather than over it.
+#
+# That is why the pytest line below names both plugins, in that order, instead
+# of letting the environment supply them. The order the two are *registered* in
+# decides whether the sort survives, and it is not the same on every machine:
+# between two `tryfirst` hooks pluggy calls the last-registered first, so
+# pytest-randomly registered last shuffles first and pytest-django sorts
+# afterwards (the sort survives), while pytest-randomly registered first lets
+# pytest-django sort and then undoes it. Entry-point discovery order differs
+# between hosts, so an unpinned run is a different test on different machines.
+#
+# Measured on one tree (`bc0fcbd0`), one seed, two platforms - Windows
+# 2026-11-05 (crane), Linux 2026-11-06 (jackdaw), identical counts both times:
+#
+#   -p django -p randomly  ->  0 failed
+#   -p randomly -p django  ->  2 failed
+#
+# The two are one defect seen twice:
+#
+#   accounts/tests/test_accounts.py::TestAdminFilter::test_queryset_no
+#   qatrack_core/tests/test_sample_data.py::TestSampleDataGenerator::test_partially_loaded_default_fixtures
+#
+# Both read a user row that a freshly migrated database carries, and a
+# `TransactionTestCase` truncates it without putting it back - which is the very
+# thing Django's ordering guarantee exists to prevent. Testing independence from
+# that guarantee as well is a deliberate future step rather than an oversight:
+# it means `-p randomly -p django` here and fixing those two to stop borrowing a
+# user they did not create, plus ten further tests that borrow one the same way.
+name: Order independence
+
+# The schedule is deliberately commented out, and what is left to do before it
+# can be turned on has changed twice.
+#
+# Measured 2026-10-19, before this file was written: the suite did NOT pass
+# shuffled - 15 failures at each of seeds 1 and 2, 14 of them in
+# notifications/service_log_review/test_ser.py. Those needed the *whole* suite's
+# order to appear, so something earlier in a full run was leaving state behind;
+# `TestServiceEventReviewEmails.setUp` taking a user with `User.objects.latest`
+# that it never created was most of it, and fixing that took 15 to 2.
+#
+# Measured 2026-11-06, with the plugin order pinned as described above: 0
+# failed at seed 1. The remaining 2 were the sort being undone, not the suite
+# being order-dependent.
+#
+# So the failure count is no longer what is holding the schedule back. What is
+# left is this job's own precondition: run it by hand until it is green twice -
+# on the runner, not on a developer's machine - then uncomment. Turning it on
+# before that would risk a nightly red that nobody can act on, which is the
+# failure mode this file's header warns about.
+#
+# The second trigger is the mechanical half of the policy above - a pull request
+# that adds an app, changes the schema, or moves a driver or maths library. Same
+# precondition: enabling it before the suite can pass shuffled would put a red
+# check on every migration PR for a reason that has nothing to do with it.
+#
+# Both commented blocks live INSIDE `on:` below, indented to sit under it, so
+# that uncommenting them is all there is to do. They used to sit here, above
+# `on:` - where uncommenting the schedule gave
+# `ParserError: while parsing a block mapping` and the whole workflow stopped
+# loading, not just the trigger. A documented remedy has to work.
+on:
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Seed to reproduce a previous failure (blank for a new one)"
+        required: false
+        type: string
+
+#  schedule:
+#    - cron: "30 4 * * *"
+
+#  pull_request:
+#    paths:
+#      - "qatrack/*/migrations/**"        # a schema change
+#      - "qatrack/*/models.py"            # ... and the models behind it
+#      - "qatrack/*/apps.py"              # a new app
+#      - "qatrack/settings.py"            # INSTALLED_APPS, DATABASES, CACHES
+#      - "pyproject.toml"                 # a driver or maths library pin
+#      - "uv.lock"
+
+permissions:
+  contents: read
+
+jobs:
+  shuffled:
+    name: Shuffled test order (sqlite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # As ci.yml does on every one of its checkouts: this job never pushes,
+          # so leaving a credential in .git/config buys nothing.
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Setup Database configuration
+        run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+      - name: Install
+        # `--locked`, as everywhere in ci.yml: a shuffled run that resolved its
+        # own versions could fail or pass for a reason that is not in uv.lock,
+        # and this job exists to attribute failures precisely.
+        run: uv sync --locked
+      # The seed is decided here, before pytest runs, and passed in explicitly.
+      #
+      # It used to be left to pytest when no seed was given, and read back out
+      # of the log afterwards with `grep -oE 'randomly-seed=[0-9]+'`. That did
+      # not work: `addopts` carries `-q`, which suppresses the report header
+      # where pytest-randomly announces the seed it chose, so the grep found
+      # nothing and the summary below said ``Seed: `unknown` ``. Measured on
+      # this branch by running exactly what the job runs. The failing case was
+      # the generated-seed one, which is the only case that needs the seed
+      # reported - if you dispatched with a seed you already had it.
+      #
+      # Choosing it here fixes that and removes the dependence on pytest's
+      # output format, which is the part that broke. @copilot raised it on c#27.
+      - name: Choose the seed
+        id: seed
+        env:
+          # Through the environment, not `${{ inputs.seed }}` inside the script.
+          # GitHub substitutes an expression into the shell source *before* bash
+          # runs it, and command substitution happens inside double quotes, so a
+          # dispatch input of `$(...)` would execute on the runner before pytest
+          # saw it. As an environment variable the value is only ever data.
+          # Dispatching needs write access, so this is not a path in from
+          # outside - it is still an input, and an input should not be
+          # executable. Also @copilot, on the same review.
+          REQUESTED_SEED: ${{ inputs.seed }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REQUESTED_SEED" ]; then
+            case "$REQUESTED_SEED" in
+              *[!0-9]*)
+                echo "::error::seed must be digits only; got '$REQUESTED_SEED'"
+                exit 1
+                ;;
+            esac
+            seed="$REQUESTED_SEED"
+            echo "Reproducing seed $seed"
+          else
+            # Two draws, because $RANDOM alone is 0-32767 and a seed space that
+            # small would repeat orders often enough to hide an ordering bug.
+            seed=$(( RANDOM * 32768 + RANDOM ))
+            echo "New shuffle, seed $seed"
+          fi
+          echo "seed=$seed" >> "$GITHUB_OUTPUT"
+
+      - name: Run the suite in a shuffled order
+        id: shuffled
+        run: |
+          set -o pipefail
+          # `-p django -p randomly` pins the registration order, and so pins
+          # which independence this job tests. See the header. Dropping either
+          # name makes the result depend on the runner's entry-point order.
+          #
+          # No `-m "not selenium"`: plain pytest has skipped the GUI tests by
+          # default since #867, and the marker form now raises a deprecation
+          # warning of its own (removal in 4.2). The tests are collected and
+          # skipped rather than deselected, so they take part in the shuffled
+          # order without running - which is what we want, since a module being
+          # imported is itself a thing that can leave state behind.
+          # `--shuffle` is what turns the shuffle on; `-p django -p randomly`
+          # still has to be here, and in that order, because it fixes which
+          # plugin registers last and therefore which of the two sorts wins.
+          # conftest.py owns the on/off switch, not the plugin's presence, so a
+          # bare `pytest` is in source order and this line is the opt-in.
+          uv run pytest --shuffle -p django -p randomly \
+            --randomly-seed="${{ steps.seed.outputs.seed }}" 2>&1 | tee run.log
+
+      - name: Say how to reproduce it
+        # Not a bare `failure()`: that is true when the install step or the seed
+        # validation failed, with the shuffled run never started - and this
+        # summary would then report an order-dependent test failure, and hand
+        # over a reproduce command with an empty seed. A setup error has to keep
+        # its own diagnosis. Raised by Copilot.
+        if: failure() && steps.shuffled.outcome == 'failure'
+        env:
+          USED_SEED: ${{ steps.seed.outputs.seed }}
+        run: |
+          set -euo pipefail
+          # No `${used:-unknown}` fallback any more. The seed comes from the
+          # step above, which always sets it, so there is no case where it is
+          # not known - and printing "unknown" is what this summary used to do
+          # on every generated-seed failure.
+          {
+            echo "### The suite failed in a shuffled order"
+            echo
+            echo "Seed: \`$USED_SEED\`"
+            echo
+            echo "Reproduce locally:"
+            echo
+            echo '```bash'
+            echo "uv run pytest --shuffle -p django -p randomly --randomly-seed=$USED_SEED"
+            echo '```'
+            echo
+            echo "A failure here is a test depending on another test, not a flaky"
+            echo "machine. The order is reproducible from the seed."
+          } >> "$GITHUB_STEP_SUMMARY"

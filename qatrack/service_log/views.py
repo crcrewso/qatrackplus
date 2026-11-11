@@ -813,7 +813,23 @@ class DetailsServiceEvent(DetailView):
             raise Http404
 
 
-class DeleteServiceEvent(DeleteView, FormView, PermissionRequiredMixin):
+class DeleteServiceEvent(PermissionRequiredMixin, DeleteView, FormView):
+    """`PermissionRequiredMixin` comes first, and the order is the whole point.
+
+    Django resolves `dispatch()` by method order. Listed after `DeleteView` and
+    `FormView`, the mixin never got to run: `View.dispatch` won, and
+    `permission_required` below was set and never consulted. Moving it to the front
+    is what makes the declaration take effect.
+
+    `FormView` stays. This view uses it - `form_class`, `get_form()`, `form_valid()`
+    and `form_invalid()` below are all form handling - so dropping it to shorten the
+    bases would take the delete form with it.
+
+    `TestPermissionMixinsActuallyRun` in
+    `qatrack/service_log/tests/test_permission_mixin_order.py` asserts this property
+    for every view in the project that declares `permission_required`, rather than for
+    this class alone, because the mistake is invisible at the point it is made.
+    """
 
     permission_required = 'service_log.delete_serviceevent'
     raise_exception = True
@@ -859,7 +875,12 @@ class DeleteServiceEvent(DeleteView, FormView, PermissionRequiredMixin):
         messages.add_message(
             self.request, messages.WARNING, f'Could not delete service event {form.instance.id}'
         )
-        return reverse('sl_dash')
+        # A redirect, not the URL on its own: a view has to return a response,
+        # and this returned the string - so a permitted user who submitted an
+        # invalid delete form got an exception rather than being sent back to
+        # the dashboard. Predates this branch; raised by CodeRabbit against it,
+        # and it is the one class this branch touches.
+        return HttpResponseRedirect(reverse('sl_dash'))
 
     def get_success_url(self):
         return reverse('sl_dash')
