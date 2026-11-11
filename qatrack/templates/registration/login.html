@@ -18,6 +18,58 @@
   });
 {% endif %}
 
+  /* Let somebody check what they typed into the password box.
+   *
+   * Only Edge renders a reveal control of its own; Chrome, Firefox and Safari
+   * show nothing, so on those there is no browser setting to turn on and a
+   * mistyped password is simply invisible. This is the login page alone - the
+   * field people type a password they were handed into, rather than one their
+   * browser fills.
+   *
+   * Built here rather than in the template on purpose: the control does nothing
+   * without JavaScript, and a dead button is worse than no button. If the script
+   * does not run, the page is exactly what it was.
+   *
+   * It does not touch `_form.html`, which renders every form in QATrack+.
+   */
+  require(['jquery'], function ($) {
+
+    var $field = $("#id_password");
+    if ($field.length === 0) {
+      return;
+    }
+
+    var show = "{% trans "Show password" %}";
+    var hide = "{% trans "Hide password" %}";
+
+    var $button = $("<button>", {
+      type: "button",                 // not submit: this is inside the form
+      "class": "btn btn-default btn-flat",
+      "aria-controls": "id_password",
+      "aria-pressed": "false",
+      title: show,
+      text: show
+    });
+
+    // Bootstrap 3's input group, so the button sits against the field and
+    // inherits the form control's height rather than being styled by hand.
+    $field.wrap($("<div>", {"class": "input-group"}));
+    $field.after($("<span>", {"class": "input-group-btn"}).append($button));
+
+    $button.on("click", function () {
+      var revealed = $field.attr("type") === "text";
+      $field.attr("type", revealed ? "password" : "text");
+      $button
+        .attr("aria-pressed", revealed ? "false" : "true")
+        .attr("title", revealed ? show : hide)
+        .text(revealed ? show : hide);
+      // Keep the caret where it was; changing `type` moves it to the end in
+      // some browsers, which is jarring mid-password.
+      $field.focus();
+    });
+
+  });
+
 {% endblock require_javascript %}
 
 {% block account_box %}
