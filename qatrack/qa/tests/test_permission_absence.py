@@ -21,8 +21,6 @@ while the page leaked.
 
 Each test comes with its positive control, in the same class, because a page
 that showed nothing to anybody would satisfy every negative assertion here.
-
-Asked for by Cody, 2026-11-03.
 """
 
 import json
@@ -106,6 +104,24 @@ class PerformPageRights(TestCase):
         response = self.client.get(self.url)
         assert response.status_code == 200, response.status_code
         return response.content.decode('utf-8')
+
+    def reference_cells(self, content):
+        """The contents of every rendered reference `<td>`, and nothing else.
+
+        `class="qa-reference"` on its own is not enough to assert on: the
+        column header carries it too (`testlistinstance_form.html`), so it is
+        present whether or not a single value cell was rendered. Nor is
+        searching the whole page for the value - `test_without_it_the_value_is
+        _still_in_the_page_data` twenty lines below asserts that the reference
+        value reaches the browser in `unit_test_infos` *regardless* of this
+        permission, which is the finding this module exists to record. So a
+        bare `str(REFERENCE_VALUE) in content` passes with the cell deleted.
+
+        Scoping to the `<td>` is what makes the positive control able to fail.
+        """
+        return re.findall(
+            r'<td class="qa-reference">(.*?)</td>', content, re.S
+        )
 
     def unit_test_infos_json(self, content):
         """The JSON the page hands its JavaScript.
@@ -227,10 +243,30 @@ class TestTheReferenceAndToleranceRight(PerformPageRights):
 
     def test_with_it_the_reference_value_is_shown(self):
         self.sign_in_with('add_testlistinstance', 'can_view_ref_tol')
-        content = self.page()
+        cells = self.reference_cells(self.page())
 
-        assert 'class="qa-reference"' in content
-        assert str(REFERENCE_VALUE) in content
+        assert cells, (
+            "the page rendered no reference cell at all, so the right this "
+            "test is the positive control for is not being honoured"
+        )
+        assert any(str(REFERENCE_VALUE) in cell for cell in cells), (
+            "a reference cell was rendered but none of them contains the "
+            "reference value: %r" % cells
+        )
+
+    def test_without_it_no_reference_cell_is_rendered(self):
+        """The half that makes the control above mean something.
+
+        Without this pair, 'the value is shown' and 'the value is withheld'
+        are both satisfied by a page that always renders the cell, or by one
+        that never does.
+        """
+        self.sign_in_with('add_testlistinstance')
+
+        assert self.reference_cells(self.page()) == [], (
+            "a reference cell was rendered for a user without "
+            "`can_view_ref_tol`, so the column is not actually withheld"
+        )
 
     def test_without_it_the_page_is_put_into_pass_fail_only_mode(self):
         """A second, separate consequence: the JS is told to hide values too.
