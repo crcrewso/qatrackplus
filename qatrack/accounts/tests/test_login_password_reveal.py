@@ -59,11 +59,12 @@ class TestTheLoginPageOffersToRevealThePassword(TestCase):
         )
 
     def test_the_shared_form_partial_is_untouched(self):
-        """This is the login page only, by Cody's decision 2026-11-11.
+        """The reveal is the login page only, and stays that way.
 
-        `_form.html` renders every form in QATrack+; a reveal added there would
-        appear on the admin's change-password form and anywhere else a password
-        field is rendered, which was not what was asked for.
+        `_form.html` renders every form in QATrack+, so a reveal added there
+        would appear on the admin's change-password form and anywhere else a
+        password field is rendered. That is a wider change than this is, and it
+        should be a deliberate one rather than a side effect of this.
         """
         partial = os.path.join(settings.PROJECT_ROOT, "templates", "_form.html")
         with open(partial, encoding="utf-8") as f:
