@@ -539,8 +539,8 @@ count differs by platform and by which optional dependencies you installed. What
 matters is that nothing *failed*.
 
 Both numbers are expected on a standard install. The **deselected** ones are
-the browser tests: ``make test_simple`` runs pytest with the Selenium tests
-excluded, so they are never collected. Of the **skips**, one says *this
+the browser tests: on the 4.0 line ``make test_simple`` runs pytest with the
+Selenium tests excluded, so they are never collected. Of the **skips**, one says *this
 installation is not using a database cache*, which is true of any site that has
 not changed ``CACHES``; the rest need an optional dependency a standard install
 does not have - the Active Directory tests skip without ``python-ldap``. Add
