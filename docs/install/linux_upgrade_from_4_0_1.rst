@@ -137,6 +137,55 @@ on this machine, as described at the end of this page.
         cd ~/web/qatrackplus
         uv sync --extra mysql --no-dev
 
+.. dropdown:: For Active Directory / LDAP authentication
+    :color: warning
+
+    **If this site authenticates against Active Directory or another LDAP
+    directory, add the ``ldap`` extra to the command above.**
+
+    ``python-ldap`` is compiled from source on Linux, so install its build
+    headers **first** - the sync fails partway through without them:
+
+    .. code-block:: bash
+
+        sudo apt install libldap2-dev libsasl2-dev
+
+    Then run the sync with the extra added:
+
+    .. code-block:: bash
+
+        cd ~/web/qatrackplus
+        uv sync --extra postgres --extra ldap --no-dev
+
+    ``uv sync`` is exact: it installs what the command names and uninstalls
+    everything else. Neither the ``postgres`` nor the ``mysql`` extra carries
+    ``python-ldap``, and nothing about Active Directory requires SQL Server, so
+    a PostgreSQL or MySQL site that authenticates against a directory has the
+    package from somewhere else - the ``mssql`` extra, the ``ldap`` extra added
+    in 4.0.2, or a hand install. Running the command above without
+    ``--extra ldap`` **removes it**.
+
+    **Without it, nobody can sign in at all** - not just directory users. The
+    import error is swallowed where the backend imports it, so the backend
+    loads and the site starts; but Django builds every backend in
+    ``AUTHENTICATION_BACKENDS`` before any of them authenticates, and building
+    the Active Directory one touches the missing module. Every sign-in attempt
+    then raises from inside the login view and the page returns a server error,
+    whatever order the backends are in and whoever is signing in - a local
+    account does not get you in, because it never gets its turn.
+
+    **QATrack+ does not warn you about this.** Nothing in the upgrade reports
+    a missing ``python-ldap``, so confirm it yourself after the sync and
+    before restarting:
+
+    .. code-block:: bash
+
+        python -c "import ldap; print(ldap.__version__)"
+
+    If that prints a version you are fine. If it raises ``ModuleNotFoundError``
+    the sync removed it, and directory sign-in will be broken when the site
+    comes back up.
+
 Check the installation before touching the database. ``--database default`` runs the
 checks that need a connection as well as the ones that do not; on PostgreSQL and MySQL
 they find nothing, because the constraint loss this release repairs only happened on

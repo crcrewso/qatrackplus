@@ -129,6 +129,13 @@ requirements/   # Pinned pip requirements (dev.txt) — see TODO below
 
 ## Getting started
 
+> **On Linux, install the OpenLDAP build headers first:**
+> `sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev`.
+> `python-ldap` is in the `dev` group and has no wheel on PyPI, so `uv sync`
+> compiles it; without the headers the sync stops at `fatal error: lber.h`.
+> Windows needs nothing - a prebuilt wheel is pinned in `pyproject.toml`.
+> See "Prerequisites" in `docs/developer/guide.rst`.
+
 ```bash
 # 1. Create a virtual environment and install all dependencies
 uv sync --dev

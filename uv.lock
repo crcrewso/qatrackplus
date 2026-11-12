@@ -2282,6 +2282,7 @@ win = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
+    { name = "django-auth-ldap" },
     { name = "django-coverage" },
     { name = "django-debug-toolbar" },
     { name = "django-upgrade" },
@@ -2296,6 +2297,8 @@ dev = [
     { name = "pytest-django" },
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
+    { name = "python-ldap", version = "3.4.5", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
+    { name = "python-ldap", version = "3.4.5", source = { url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" }, marker = "sys_platform == 'win32'" },
     { name = "ruff" },
     { name = "selenium" },
     { name = "sphinx" },
@@ -2380,6 +2383,7 @@ provides-extras = ["mysql", "mssql", "postgres", "win", "docker", "ldap", "trans
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=6.0,<8.0" },
+    { name = "django-auth-ldap", specifier = "<4.9" },
     { name = "django-coverage", specifier = ">=1.2.4,<2.0" },
     { name = "django-debug-toolbar", specifier = ">=4.0,<5.0" },
     { name = "django-upgrade", specifier = ">=1.25.0" },
@@ -2394,6 +2398,8 @@ dev = [
     { name = "pytest-django", specifier = ">=4.5.0,<5.0" },
     { name = "pytest-sugar", specifier = ">=0.9.6,<1.0" },
     { name = "pytest-xdist", specifier = ">=3.0,<4.0" },
+    { name = "python-ldap", marker = "python_full_version != '3.12.*' or sys_platform != 'win32'" },
+    { name = "python-ldap", marker = "python_full_version == '3.12.*' and sys_platform == 'win32'", url = "https://github.com/cgohlke/python-ldap-build/releases/download/v3.4.5/python_ldap-3.4.5-cp312-cp312-win_amd64.whl" },
     { name = "ruff" },
     { name = "selenium", specifier = ">=4.38,<5.0" },
     { name = "sphinx", specifier = "==7.4.7" },

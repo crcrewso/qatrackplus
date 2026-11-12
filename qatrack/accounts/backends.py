@@ -232,6 +232,17 @@ class ActiveDirectoryGroupMembershipSSLBackend:
         return username.replace(settings.CLEAN_USERNAME_STRING, "").replace(settings.AD_CLEAN_USERNAME_STRING, "")
 
 
+def _decoded(value):
+    """An LDAP attribute value as text.
+
+    python-ldap hands back bytes. `None` is passed through so a missing
+    attribute stays falsy and the `or user.email` style guards keep working.
+    """
+    if isinstance(value, bytes):
+        return value.decode('utf-8', errors='replace')
+    return value
+
+
 class WindowsIntegratedAuthenticationBackend(ModelBackend):
 
     # Create a User object if not already in the database?
@@ -301,9 +312,17 @@ class WindowsIntegratedAuthenticationBackend(ModelBackend):
             l.unbind_s()
 
             # get personal info
-            user.email = result.get(settings.AD_LU_MAIL, [None])[0]
-            user.last_name = result.get(settings.AD_LU_SURNAME, [None])[0]
-            user.first_name = result.get(settings.AD_LU_GIVEN_NAME, [None])[0]
+            #
+            # Decoded, because LDAP returns attribute values as bytes. Without
+            # this the assignments below stored b'...' objects, which Django
+            # coerces to the *string* "b'jane@example.com'" on save - a
+            # malformed address that notification email would be sent to, and a
+            # first name displayed as b'Jane'. get_user_attrs() in the sign-in
+            # backend has always decoded; this path never did, and nothing
+            # tested it until TestWindowsIntegratedAuthentication.
+            user.email = _decoded(result.get(settings.AD_LU_MAIL, [None])[0])
+            user.last_name = _decoded(result.get(settings.AD_LU_SURNAME, [None])[0])
+            user.first_name = _decoded(result.get(settings.AD_LU_GIVEN_NAME, [None])[0])
 
         except Exception:
             return None

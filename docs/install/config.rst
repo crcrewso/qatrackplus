@@ -1459,10 +1459,21 @@ must then be a name on the directory server's certificate. If the file is
 missing, unreadable or not PEM, QATrack+ shows a warning when it starts. On
 Docker, see :ref:`docker_ldaps`.
 
-Non-SSL AD Connection Settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Unencrypted AD Connection Settings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If using a non-SSL connection use these
+**Most directories will refuse this.** A bind sends the user's password, so over
+a plain ``ldap://`` connection it goes in clear text - and a domain controller
+with LDAP signing enforced, which Microsoft has pushed as the default since 2020
+and which new Windows Server 2025 domains have on out of the box, rejects the
+bind outright. QATrack+ can then only report *"Unable to contact LDAP server"*,
+which reads like a network fault and sends people to look at firewalls.
+
+Use it only against a directory you know permits it; otherwise use LDAPS on 636,
+above. **Measured against a Samba Active Directory domain controller**, which
+refuses an unencrypted simple bind the same way.
+
+If using an unencrypted connection use these
 
 .. code-block:: python
 

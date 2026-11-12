@@ -117,10 +117,22 @@ Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``
      an interpreter for you -- so this is an extra prerequisite rather than
      a substitution. Check it with ``python --version`` before creating the
      virtual environment.
-   * **If you use Active Directory**, the ``python_ldap`` wheel step in
-     :ref:`auth_backends` is written as ``uv pip install``. Use plain
-     ``pip install C:\path\to\python_ldap-...whl`` instead, with the
-     virtual environment activated.
+   * **If you authenticate against an on-premises Active Directory**, install
+     ``python-ldap`` yourself first. The ``mssql`` extra above requires it, but
+     the prebuilt Windows wheel is pinned in ``[tool.uv.sources]``, which only
+     ``uv`` reads. ``pip`` sees only the source distribution on PyPI and will
+     try to build it, which needs a C compiler and the OpenLDAP headers.
+     Download ``python_ldap-3.4.5-cp312-cp312-win_amd64.whl`` from
+     https://github.com/cgohlke/python-ldap-build and install it with the
+     virtual environment activated, before the command above:
+
+     .. code-block:: console
+
+        >>  pip install C:\path\to\python_ldap-3.4.5-cp312-cp312-win_amd64.whl
+
+     If your organization uses **Microsoft 365 / Entra ID** rather than an
+     on-premises domain controller, none of this applies: see
+     :ref:`auth_onprem_vs_cloud`.
 
    This is a minimally-supported fallback path. It resolves dependency
    versions at install time rather than from ``uv.lock``, so two sites
@@ -131,17 +143,6 @@ Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``
 .. dropdown:: Side note: ```C:\deploy```
 
    This folder is a convenient convention for storing the QATrack+ source code, virtual environment, and any other files related to your QATrack+ installation.  You can use a different folder if you prefer, but you will need to adjust the instructions accordingly.
-
-.. If you are going to be using :ref:`Active Directory <active_directory>` for
-   authenticating your users, you need to install pyldap.  There are binaries
-   available on this page:
-   https://github.com/cgohlke/python-ldap-build.  Download the
-   relevant wheel for your distribution (e.g.
-   python_ldap-3.4.5-cp312-cp312-win_amd64.whl) and install it directly into your venv:
-
-   .. code-block:: console
-
-      uv pip install C:\path\to\python_ldap-3.4.5-cp312-cp312-win_amd64.whl
 
 Creating a database with SQL Server
 -----------------------------------

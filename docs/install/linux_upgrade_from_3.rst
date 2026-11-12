@@ -155,11 +155,64 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
         cd ~/web/qatrackplus
         uv sync --extra mysql
 
+.. dropdown:: For Active Directory / LDAP authentication: Install Requirements
+    :color: warning
+
+    ``python-ldap`` is not installed by default, and a 3.x installation that
+    used Active Directory will not have it after this step - 3.x installed it
+    with ``pip`` into its own virtual environment, and this step builds a new
+    one.
+
+    It is compiled from source on Linux, so install its build headers
+    **first**; without them the sync fails partway through with a compiler
+    error:
+
+    .. code-block:: bash
+
+        sudo apt install libldap2-dev libsasl2-dev
+
+    Then install it. **The ``ldap`` extra does not exist in this release** - it
+    arrives in 4.0.2 - and ``uv`` stops with *"Extra `ldap` is not defined"*
+    rather than ignoring it, so naming it here fails the whole sync. On 4.0.0
+    the routes are the ``mssql`` extra, which has always carried
+    ``python-ldap``, or installing the package on its own afterwards:
+
+    .. code-block:: bash
+
+        uv sync --extra postgres
+        uv pip install python-ldap 'django-auth-ldap<4.9'
+
+    A package installed that second way is removed by the next ``uv sync``, so
+    note it somewhere your next upgrade will find.
+
+    **Without it, nobody can sign in at all** - not just directory users. The
+    import error is swallowed where the backend imports it, so the backend
+    loads and the site starts; but Django builds every backend in
+    ``AUTHENTICATION_BACKENDS`` before any of them authenticates, and building
+    the Active Directory one touches the missing module. Every sign-in attempt
+    then raises from inside the login view and the page returns a server error,
+    whatever order the backends are in and whoever is signing in - a local
+    account does not get you in, because it never gets its turn.
+
+    **QATrack+ does not warn you about this.** Nothing in the upgrade reports
+    a missing ``python-ldap``, so confirm it yourself after the sync:
+
+    .. code-block:: bash
+
+        python -c "import ldap; print(ldap.__version__)"
+
+    If that raises ``ModuleNotFoundError``, directory sign-in will be broken
+    when the site comes back up.
+
+
 
 Performing the migration
 ------------------------
 
-We can now migrate the tables in our database:
+We can now migrate the tables in our database. ``migrate`` runs QATrack+'s
+system checks before it touches anything, so a settings problem stops it here
+rather than halfway through:
+
 
 .. code-block:: console
 

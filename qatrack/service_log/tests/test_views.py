@@ -562,6 +562,52 @@ class TestCreateServiceEvent(TestCase):
         assert formset[0].initial['unit_test_collection'] == utc1
         assert formset[1].initial['unit_test_collection'] == utc2
 
+    def test_initial_rts_forms_are_in_a_deterministic_order(self):
+        """The formset's order is what the reader sees, so it must not be the
+        database's choice.
+
+        UnitTestCollection has no Meta.ordering, so before the explicit
+        order_by in ServiceEventUpdateCreate these came back unordered.
+        SQLite returns insertion order and PostgreSQL does not, which is why
+        test_initial_rts_form_initiated_by_schedule above passed on every
+        engine row but PostgreSQL - and why the failure read as
+        `assert <UnitTestCollection: test_list_0814> ==
+        <UnitTestCollection: test_list_0814>`, two objects whose reprs cannot
+        tell them apart.
+
+        Asserting against the ordering directly, rather than against creation
+        order, is what makes this test say something the code promises.
+        """
+        group = create_group()
+        schedule = sl_utils.create_service_event_schedule()
+        schedule.visible_to.add(group)
+        self.user.groups.add(group)
+
+        unit = schedule.unit_service_area.unit
+        # Named out of alphabetical order, so sorting by name is visible and a
+        # fallback to insertion order or pk would be caught.
+        tls = [qa_utils.create_test_list(name=n) for n in ("charlie", "alpha", "bravo")]
+        for tl in tls:
+            qa_utils.create_unit_test_collection(unit=unit, assigned_to=group, test_collection=tl)
+            schedule.service_event_template.return_to_service_test_lists.add(tl)
+
+        view = views.ServiceEventUpdateCreate()
+        view.user = self.user
+        view.object = None
+        view.request = mock.Mock(user=self.user, GET={'se_schedule': schedule.pk})
+        formset = view.get_context_data()['rtsqa_formset']
+
+        got = [formset[i].initial['unit_test_collection'] for i in range(len(tls))]
+        expected = list(
+            qa_models.UnitTestCollection.objects.filter(
+                unit=unit, object_id__in=[tl.pk for tl in tls]
+            ).order_by("name", "pk")
+        )
+        assert got == expected, (
+            "the return-to-service forms are not in the order the view asks for; "
+            "got %r, expected %r" % (got, expected)
+        )
+
 
 class TestEditServiceEvent(TestCase):
 

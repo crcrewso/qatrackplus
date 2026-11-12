@@ -77,6 +77,13 @@ The documentation lives in `docs/` and is built with
 
 To build the docs locally:
 
+> **On Linux, install the OpenLDAP build headers first:**
+> `sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev`.
+> `python-ldap` is in the `dev` group and has no wheel on PyPI, so `uv sync`
+> compiles it; without the headers the sync stops at `fatal error: lber.h`.
+> Windows needs nothing - a prebuilt wheel is pinned in `pyproject.toml`.
+> See "Prerequisites" in `docs/developer/guide.rst`.
+
 ```bash
 uv sync --dev          # Sphinx and its extensions are part of the dev group
 uv run make docs       # from the repository root

@@ -81,6 +81,63 @@ Update the Python environment. Use the extra that matches your database:
         cd ~/web/qatrackplus
         uv sync --extra mysql
 
+.. dropdown:: For Active Directory / LDAP authentication
+    :color: warning
+
+    **If this site authenticates against Active Directory or another LDAP
+    directory, add the ``ldap`` extra to the command above.**
+
+    ``python-ldap`` is compiled from source on Linux, so install its build
+    headers **first** - the sync fails partway through without them:
+
+    .. code-block:: bash
+
+        sudo apt install libldap2-dev libsasl2-dev
+
+    Then run the sync with the extra added:
+
+    .. code-block:: bash
+
+        cd ~/web/qatrackplus
+        uv sync --extra postgres
+        uv pip install python-ldap 'django-auth-ldap<4.9'
+
+    **The ``ldap`` extra does not exist in 4.0.1** - it arrives in 4.0.2 - and
+    ``uv`` stops with *"Extra `ldap` is not defined"* rather than ignoring it,
+    so naming it here would fail the whole sync. The ``mssql`` extra is the
+    other route, since it has always carried ``python-ldap``. A package
+    installed the second way above is removed by the next ``uv sync``, so note
+    it somewhere your next upgrade will find.
+
+    ``uv sync`` is exact: it installs what the command names and uninstalls
+    everything else. Neither the ``postgres`` nor the ``mysql`` extra carries
+    ``python-ldap``, and nothing about Active Directory requires SQL Server, so
+    a PostgreSQL or MySQL site that authenticates against a directory has the
+    package from somewhere else - the ``mssql`` extra, the ``ldap`` extra added
+    in 4.0.2, or a hand install. Running the command above without
+    ``--extra ldap`` **removes it**.
+
+    **Without it, nobody can sign in at all** - not just directory users. The
+    import error is swallowed where the backend imports it, so the backend
+    loads and the site starts; but Django builds every backend in
+    ``AUTHENTICATION_BACKENDS`` before any of them authenticates, and building
+    the Active Directory one touches the missing module. Every sign-in attempt
+    then raises from inside the login view and the page returns a server error,
+    whatever order the backends are in and whoever is signing in - a local
+    account does not get you in, because it never gets its turn.
+
+    **QATrack+ does not warn you about this.** Nothing in the upgrade reports
+    a missing ``python-ldap``, so confirm it yourself after the sync and
+    before restarting:
+
+    .. code-block:: bash
+
+        python -c "import ldap; print(ldap.__version__)"
+
+    If that prints a version you are fine. If it raises ``ModuleNotFoundError``
+    the sync removed it, and directory sign-in will be broken when the site
+    comes back up.
+
 Check the installation before touching the database. This validates your settings
 against the new code and is the cheapest way to catch a problem while the services are
 still stopped:

@@ -469,6 +469,52 @@ again once you are done testing.
         cd ~/web/qatrackplus
         uv sync --extra mysql --no-dev
 
+.. dropdown:: For Active Directory / LDAP authentication: Install Requirements
+    :color: warning
+
+    ``python-ldap`` is not installed by default. If you intend to authenticate
+    against an on-premises Active Directory or another LDAP directory, add the
+    ``ldap`` extra to the command above.
+
+    It is compiled from source on Linux, so install its build headers
+    **first** - ``build-essential`` and ``python3-dev`` are already installed
+    above, these two are not:
+
+    .. code-block:: bash
+
+        sudo apt install libldap2-dev libsasl2-dev
+
+    Then add the extra to the sync, keeping ``--no-dev``:
+
+    .. code-block:: bash
+
+        cd ~/web/qatrackplus
+        uv sync --extra postgres --extra ldap --no-dev
+
+    **Without the package, nobody can sign in at all** once an LDAP backend is
+    configured - not just directory users. The import error is swallowed where
+    the backend imports it, so the backend loads and the site starts; but
+    Django builds every backend in ``AUTHENTICATION_BACKENDS`` before any of
+    them authenticates, and building the Active Directory one touches the
+    missing module. Every sign-in attempt then raises from inside the login
+    view and the page returns a server error, whatever order the backends are
+    in - a local account does not get you in, because it never gets its turn.
+
+    Nothing warns you. Confirm the package yourself after any change to the
+    virtual environment and before restarting:
+
+    .. code-block:: bash
+
+        python -c "import ldap; print(ldap.__version__)"
+
+    .. note::
+
+        If your organization uses **Microsoft 365 / Entra ID** rather than an
+        on-premises domain controller, these backends will not work at all -
+        Entra ID does not answer LDAP binds - and you do not need this extra.
+        See :ref:`auth_onprem_vs_cloud`.
+
+
 
 Making sure everything is working up to this point
 --------------------------------------------------
@@ -492,10 +538,14 @@ treat the exact numbers as a target** - they move with every release, and the
 count differs by platform and by which optional dependencies you installed. What
 matters is that nothing *failed*.
 
-The skips are expected on a standard install. Three of them are the Active Directory
-tests, which need the optional ``python-ldap`` package; a fourth says *this
-installation is not using a database cache*, which is true of a site that has not
-changed ``CACHES``, and is not a problem.
+The skips are expected on a standard install. Nearly all of them are the
+browser tests, which need a real browser and are skipped unless you ask for
+them; one says *this installation is not using a database cache*, which is true
+of any site that has not changed ``CACHES``. Add ``-rs`` to the command if you
+want pytest to print the reason for each one.
+
+The counts move with every release, so treat the line above as a shape rather
+than a target. What matters is that nothing **failed**.
 
 
 Configuration of QATrack+

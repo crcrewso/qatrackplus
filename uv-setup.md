@@ -97,6 +97,13 @@ Also run the GUI/Selenium tests (requires Chromium or Firefox installed):
 
 ```bash
 python -m pytest --run-selenium
+> **On Linux, install the OpenLDAP build headers first:**
+> `sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev`.
+> `python-ldap` is in the `dev` group and has no wheel on PyPI, so `uv sync`
+> compiles it; without the headers the sync stops at `fatal error: lber.h`.
+> Windows needs nothing - a prebuilt wheel is pinned in `pyproject.toml`.
+> See "Prerequisites" in `docs/developer/guide.rst`.
+
 ```
 
 You should see output showing the tests running, with most tests passing.

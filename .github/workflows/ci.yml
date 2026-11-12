@@ -1,8 +1,19 @@
 name: CI
 
 on:
+  # `push` is limited to the long-lived branches, and `pull_request` covers
+  # everything else. Both used to be "**", which fired two full runs for every
+  # push to a branch with an open pull request - and the concurrency group below
+  # collapses them, so the superseded run's jobs still appeared on the pull
+  # request as nine CANCELLED checks, one of them the unexpanded
+  # `Linux Tests (${{ matrix.os }}, ${{ matrix.db }})` placeholder. Green run,
+  # red-looking check list.
+  #
+  # The cost is that a branch with no pull request open gets no run. That is the
+  # deliberate trade: open the pull request, or use `workflow_dispatch` below,
+  # which is kept for exactly this case.
   push:
-    branches: [ "**" ]
+    branches: [ master, develop, "releases/**" ]
   pull_request:
     branches: [ "**" ]
   workflow_dispatch:
@@ -10,8 +21,26 @@ on:
 permissions:
   contents: read
 
+# Keyed on the *branch name*, the one value that is the same for both events
+# this workflow answers. Every push to a branch with an open pull request fires
+# `push` and `pull_request`, and both ran the whole matrix.
+#
+# The expression matters more than it looks:
+#   - `github.ref` differs by event (`refs/heads/<branch>` against
+#     `refs/pull/<n>/merge`), so grouping on it never collapses the pair.
+#   - `github.event.pull_request.number` is null on a `push` event, so that
+#     falls back to a different group too: it deduplicates successive pushes to
+#     one pull request and does nothing across the two events.
+#   - `github.event.pull_request.head.ref` and `github.ref_name` are both the
+#     plain branch name, so the pair shares a group and the later run cancels
+#     the earlier. Being per-branch rather than per-commit also keeps the
+#     behaviour where a new push supersedes a run still in flight.
+#
+# The survivor is whichever started second, normally the `pull_request` run:
+# the branch merged into its base, which is the more useful of the two to keep.
+# A branch with no pull request still gets its `push` run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -31,8 +60,43 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # uv caches wheels it builds itself, and a wheel built from a source
+          # distribution is tagged cp312-cp312-linux_x86_64 whichever Ubuntu
+          # built it - so without a per-image key, python-ldap built on 22.04
+          # (OpenLDAP 2.5) is restored on 24.04 (OpenLDAP 2.6) and every import
+          # dies with "libldap-2.5.so.0: cannot open shared object file".
+          # mysqlclient is compiled the same way and has the same exposure.
+          #
+          # `matrix.os` for the one job that spans images; `github.job` for
+          # the rest, which keeps each job's cache to itself.
+          #
+          # Note what this does NOT do: `lint`, `requirements` and
+          # `selenium-tests` run on `ubuntu-latest`, which is a moving alias, so
+          # their suffix is a constant and their cache survives an image change.
+          # When GitHub next moves that alias they will restore a wheel built
+          # against the previous image's OpenLDAP - the same failure this key
+          # was added to stop. Pinning those three to an explicit image, or
+          # reading the image from the runner environment into a step output,
+          # is the real fix; this key only solves it for the matrix job.
+          # Do NOT use `env.ImageOS` here: the `env` context holds only
+          # variables declared in a workflow, job or step `env:` block, so it
+          # resolves to an empty string and the suffix silently does nothing -
+          # which is how this was first "fixed" without changing the key.
+          cache-suffix: ${{ matrix.os || github.job }}
       - name: Setup Database configuration
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+      # A lint job needs OpenLDAP headers, which looks absurd until you follow
+      # the chain: the `django-check` hook in .pre-commit-config.yaml is
+      # `entry: uv run python manage.py check`, and `uv run` syncs the project
+      # environment - including the `dev` group, which carries python-ldap.
+      # python-ldap publishes no manylinux wheel, so it is compiled here, and
+      # without these two the build stops at `fatal error: lber.h`.
+      #
+      # Every job on this workflow that resolves the project's dependencies on
+      # Linux needs them for the same reason. If a new one is added, it needs
+      # this step too.
+      - name: Install LDAP build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
       - name: Run pre-commit
         run: uvx pre-commit@4.6.0 run --all-files
 
@@ -50,6 +114,29 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # uv caches wheels it builds itself, and a wheel built from a source
+          # distribution is tagged cp312-cp312-linux_x86_64 whichever Ubuntu
+          # built it - so without a per-image key, python-ldap built on 22.04
+          # (OpenLDAP 2.5) is restored on 24.04 (OpenLDAP 2.6) and every import
+          # dies with "libldap-2.5.so.0: cannot open shared object file".
+          # mysqlclient is compiled the same way and has the same exposure.
+          #
+          # `matrix.os` for the one job that spans images; `github.job` for
+          # the rest, which keeps each job's cache to itself.
+          #
+          # Note what this does NOT do: `lint`, `requirements` and
+          # `selenium-tests` run on `ubuntu-latest`, which is a moving alias, so
+          # their suffix is a constant and their cache survives an image change.
+          # When GitHub next moves that alias they will restore a wheel built
+          # against the previous image's OpenLDAP - the same failure this key
+          # was added to stop. Pinning those three to an explicit image, or
+          # reading the image from the runner environment into a step output,
+          # is the real fix; this key only solves it for the matrix job.
+          # Do NOT use `env.ImageOS` here: the `env` context holds only
+          # variables declared in a workflow, job or step `env:` block, so it
+          # resolves to an empty string and the suffix silently does nothing -
+          # which is how this was first "fixed" without changing the key.
+          cache-suffix: ${{ matrix.os || github.job }}
       - name: Sync dependencies
         run: uv sync --all-extras --locked
       - name: Check dependencies
@@ -142,7 +229,38 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # uv caches wheels it builds itself, and a wheel built from a source
+          # distribution is tagged cp312-cp312-linux_x86_64 whichever Ubuntu
+          # built it - so without a per-image key, python-ldap built on 22.04
+          # (OpenLDAP 2.5) is restored on 24.04 (OpenLDAP 2.6) and every import
+          # dies with "libldap-2.5.so.0: cannot open shared object file".
+          # mysqlclient is compiled the same way and has the same exposure.
+          #
+          # `matrix.os` for the one job that spans images; `github.job` for
+          # the rest, which keeps each job's cache to itself.
+          #
+          # Note what this does NOT do: `lint`, `requirements` and
+          # `selenium-tests` run on `ubuntu-latest`, which is a moving alias, so
+          # their suffix is a constant and their cache survives an image change.
+          # When GitHub next moves that alias they will restore a wheel built
+          # against the previous image's OpenLDAP - the same failure this key
+          # was added to stop. Pinning those three to an explicit image, or
+          # reading the image from the runner environment into a step output,
+          # is the real fix; this key only solves it for the matrix job.
+          # Do NOT use `env.ImageOS` here: the `env` context holds only
+          # variables declared in a workflow, job or step `env:` block, so it
+          # resolves to an empty string and the suffix silently does nothing -
+          # which is how this was first "fixed" without changing the key.
+          cache-suffix: ${{ matrix.os || github.job }}
           python-version: ${{ matrix.python-version }}
+
+      # python-ldap is in the `dev` dependency group, which every `uv sync`
+      # below installs, so the Active Directory tests run on every row rather
+      # than on one. It publishes no manylinux wheel and is compiled during the
+      # sync, so these headers have to be present first on every row - the same
+      # two the `requirements` job installs.
+      - name: Install LDAP build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install dependencies (Memory SQLite)
         if: matrix.db == 'memory'
@@ -254,6 +372,29 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # uv caches wheels it builds itself, and a wheel built from a source
+          # distribution is tagged cp312-cp312-linux_x86_64 whichever Ubuntu
+          # built it - so without a per-image key, python-ldap built on 22.04
+          # (OpenLDAP 2.5) is restored on 24.04 (OpenLDAP 2.6) and every import
+          # dies with "libldap-2.5.so.0: cannot open shared object file".
+          # mysqlclient is compiled the same way and has the same exposure.
+          #
+          # `matrix.os` for the one job that spans images; `github.job` for
+          # the rest, which keeps each job's cache to itself.
+          #
+          # Note what this does NOT do: `lint`, `requirements` and
+          # `selenium-tests` run on `ubuntu-latest`, which is a moving alias, so
+          # their suffix is a constant and their cache survives an image change.
+          # When GitHub next moves that alias they will restore a wheel built
+          # against the previous image's OpenLDAP - the same failure this key
+          # was added to stop. Pinning those three to an explicit image, or
+          # reading the image from the runner environment into a step output,
+          # is the real fix; this key only solves it for the matrix job.
+          # Do NOT use `env.ImageOS` here: the `env` context holds only
+          # variables declared in a workflow, job or step `env:` block, so it
+          # resolves to an empty string and the suffix silently does nothing -
+          # which is how this was first "fixed" without changing the key.
+          cache-suffix: ${{ matrix.os || github.job }}
           python-version: "3.12"
           
       - name: Install dependencies (SQLite)
@@ -1549,10 +1690,44 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # uv caches wheels it builds itself, and a wheel built from a source
+          # distribution is tagged cp312-cp312-linux_x86_64 whichever Ubuntu
+          # built it - so without a per-image key, python-ldap built on 22.04
+          # (OpenLDAP 2.5) is restored on 24.04 (OpenLDAP 2.6) and every import
+          # dies with "libldap-2.5.so.0: cannot open shared object file".
+          # mysqlclient is compiled the same way and has the same exposure.
+          #
+          # `matrix.os` for the one job that spans images; `github.job` for
+          # the rest, which keeps each job's cache to itself.
+          #
+          # Note what this does NOT do: `lint`, `requirements` and
+          # `selenium-tests` run on `ubuntu-latest`, which is a moving alias, so
+          # their suffix is a constant and their cache survives an image change.
+          # When GitHub next moves that alias they will restore a wheel built
+          # against the previous image's OpenLDAP - the same failure this key
+          # was added to stop. Pinning those three to an explicit image, or
+          # reading the image from the runner environment into a step output,
+          # is the real fix; this key only solves it for the matrix job.
+          # Do NOT use `env.ImageOS` here: the `env` context holds only
+          # variables declared in a workflow, job or step `env:` block, so it
+          # resolves to an empty string and the suffix silently does nothing -
+          # which is how this was first "fixed" without changing the key.
+          cache-suffix: ${{ matrix.os || github.job }}
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync --locked
+        # The three Active Directory sign-in tests in
+        # qatrack/accounts/tests/test_selenium.py drive the real login form and
+        # need python-ldap, which arrives with the `dev` group. It is compiled
+        # from source here, so its headers are installed first.
+        #
+        # The Windows Selenium job needs nothing equivalent: [tool.uv.sources]
+        # pins a prebuilt wheel for win32 on Python 3.12, and the
+        # `windows-tests` mssql row has been installing it that way for as long
+        # as the `mssql` extra has carried python-ldap.
+        run: |
+          sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+          uv sync --locked
 
       - name: Activate virtual environment
         run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
@@ -1655,6 +1830,29 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # uv caches wheels it builds itself, and a wheel built from a source
+          # distribution is tagged cp312-cp312-linux_x86_64 whichever Ubuntu
+          # built it - so without a per-image key, python-ldap built on 22.04
+          # (OpenLDAP 2.5) is restored on 24.04 (OpenLDAP 2.6) and every import
+          # dies with "libldap-2.5.so.0: cannot open shared object file".
+          # mysqlclient is compiled the same way and has the same exposure.
+          #
+          # `matrix.os` for the one job that spans images; `github.job` for
+          # the rest, which keeps each job's cache to itself.
+          #
+          # Note what this does NOT do: `lint`, `requirements` and
+          # `selenium-tests` run on `ubuntu-latest`, which is a moving alias, so
+          # their suffix is a constant and their cache survives an image change.
+          # When GitHub next moves that alias they will restore a wheel built
+          # against the previous image's OpenLDAP - the same failure this key
+          # was added to stop. Pinning those three to an explicit image, or
+          # reading the image from the runner environment into a step output,
+          # is the real fix; this key only solves it for the matrix job.
+          # Do NOT use `env.ImageOS` here: the `env` context holds only
+          # variables declared in a workflow, job or step `env:` block, so it
+          # resolves to an empty string and the suffix silently does nothing -
+          # which is how this was first "fixed" without changing the key.
+          cache-suffix: ${{ matrix.os || github.job }}
           python-version: "3.12"
 
       - name: Install dependencies
