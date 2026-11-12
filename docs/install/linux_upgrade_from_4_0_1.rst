@@ -141,7 +141,7 @@ on this machine, as described at the end of this page.
     :color: warning
 
     **If this site authenticates against Active Directory or another LDAP
-    directory, add the ``ldap`` extra to the command above.**
+    directory, add the ldap extra to the command above.**
 
     ``python-ldap`` is compiled from source on Linux, so install its build
     headers **first** - the sync fails partway through without them:

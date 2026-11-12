@@ -85,7 +85,7 @@ Update the Python environment. Use the extra that matches your database:
     :color: warning
 
     **If this site authenticates against Active Directory or another LDAP
-    directory, add the ``ldap`` extra to the command above.**
+    directory, add the ldap extra to the command above.**
 
     ``python-ldap`` is compiled from source on Linux, so install its build
     headers **first** - the sync fails partway through without them:
@@ -102,7 +102,7 @@ Update the Python environment. Use the extra that matches your database:
         uv sync --extra postgres
         uv pip install python-ldap 'django-auth-ldap<4.9'
 
-    **The ``ldap`` extra does not exist in 4.0.1** - it arrives in 4.0.2 - and
+    **The ldap extra does not exist in 4.0.1** - it arrives in 4.0.2 - and
     ``uv`` stops with *"Extra `ldap` is not defined"* rather than ignoring it,
     so naming it here would fail the whole sync. The ``mssql`` extra is the
     other route, since it has always carried ``python-ldap``. A package

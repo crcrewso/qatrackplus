@@ -171,7 +171,7 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
 
         sudo apt install libldap2-dev libsasl2-dev
 
-    Then install it. **The ``ldap`` extra does not exist in this release** - it
+    Then install it. **The ldap extra does not exist in this release** - it
     arrives in 4.0.2 - and ``uv`` stops with *"Extra `ldap` is not defined"*
     rather than ignoring it, so naming it here fails the whole sync. On 4.0.0
     the routes are the ``mssql`` extra, which has always carried
