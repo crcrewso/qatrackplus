@@ -43,8 +43,9 @@ jobs:
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
       # The django-check hook runs `uv run`, which syncs the dev group and so
       # compiles python-ldap. Any Linux job that syncs needs this step.
+      # python3-dev is already on GitHub's runners; act's images lack it.
       - name: Install LDAP build dependencies
-        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
       - name: Run pre-commit
         run: uvx pre-commit@4.6.0 run --all-files
 
@@ -56,7 +57,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install system dependencies for python-ldap
-        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
@@ -162,7 +163,7 @@ jobs:
 
       # python-ldap (dev group) is compiled during the sync.
       - name: Install LDAP build dependencies
-        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
 
       - name: Install dependencies (Memory SQLite)
         if: matrix.db == 'memory'
@@ -1578,7 +1579,7 @@ jobs:
       - name: Install dependencies
         # python-ldap (dev group) is compiled here; Windows uses a pinned wheel.
         run: |
-          sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+          sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
           uv sync --locked
 
       - name: Activate virtual environment
