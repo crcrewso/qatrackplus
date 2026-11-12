@@ -2,7 +2,7 @@
 
 The fast half of this coverage is in ``test_ldap_backend.py``, and nearly
 everything is asserted there, because a browser case costs about a hundred
-times as much. These two tests are the part only a browser can show: that
+times as much. These tests are the part only a browser can show: that
 somebody typing a directory password into the login page ends up on a page
 that is theirs, and that somebody the directory authenticates but QATrack+
 refuses is told so on the form rather than silently admitted.

@@ -402,6 +402,19 @@ deployment where **the web server has already authenticated the user** - IIS
 with Windows Integrated Authentication, for example - and passes the username
 to QATrack+. The backend trusts that username and does not verify a password.
 
+.. warning::
+
+    **Django's own** ``RemoteUserMiddleware`` **does not reach this backend.**
+    The middleware, which ``settings.py`` ships commented out for this purpose,
+    passes the web server's username as ``remote_user``; this backend accepts
+    ``username``, so Django skips it and the request stays signed out. Measured
+    on Django 4.2: no account is created and the browser is sent to the login
+    page, while Django's own ``RemoteUserBackend`` signs the same request in.
+    See `Authentication using REMOTE_USER
+    <https://docs.djangoproject.com/en/4.2/howto/auth-remote-user/>`__. If you
+    run this backend today, please tell us how:
+    https://github.com/qatrackplus/qatrackplus/issues
+
 It still uses LDAP, but not to authenticate. When it creates a user for the
 first time it binds to the directory with a **service account**
 (``AD_LDAP_USER`` and ``AD_LDAP_PW``, which are used by nothing else), looks up
@@ -429,7 +442,9 @@ Keeping a way in when the directory is unavailable
 keep at least one local account with a known password you have written down
 somewhere other than QATrack+.**
 
-Django tries each backend in turn until one returns a user, so a local account
+Django `tries each backend in turn
+<https://docs.djangoproject.com/en/4.2/topics/auth/customizing/#specifying-authentication-backends>`__
+until one returns a user, so a local account
 signs in from QATrack+'s own login form even while the directory is
 unreachable. This matters on a clinical system: if your only route in depends
 on a directory, an outage locks everybody out, administrators included.
@@ -477,57 +492,58 @@ As of version 3.1.0 comes with an ADFS backend for Single Sign On (SSO).  This
 can provide a convenient way for your users to log into QATrack+ using their
 hospital network login.
 
-There are two backends you can potentially use for using ADFS for SSO.  There
-is the raw ``django_auth_adfs.backend.AdfsAuthCodeBackend`` which you can read
-more about at https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html
-and there is the `qatrack.accounts.backends.QATrackAdfsAuthCodeBackend` which
-is a wrapper around the `AdfsAuthCodeBackend` with some QATrack+ specific
-functionality added. In order to enable one of these backends you need to set your
-`AUTHENTICATION_BACKENDS` setting like:
+Use ``qatrack.accounts.backends.QATrackAdfsAuthCodeBackend``, a wrapper around
+the library's `AdfsAuthCodeBackend
+<https://github.com/snok/django-auth-adfs/blob/1.16.0/django_auth_adfs/backend.py>`__
+that adds QATrack+'s username cleaning and group mapping:
 
 .. code:: python
 
     AUTHENTICATION_BACKENDS = [
         'qatrack.accounts.backends.QATrackAccountBackend',
         'qatrack.accounts.backends.QATrackAdfsAuthCodeBackend',
-        # or comment above and uncomment below
-        # 'django_auth_adfs.backend.AdfsAuthCodeBackend'
     ]
+
+The library's own ``django_auth_adfs.backend.AdfsAuthCodeBackend`` does not work
+in its place: QATrack+ mounts its AD FS sign-in URLs only when it finds the
+wrapper in ``AUTHENTICATION_BACKENDS``.
 
 
 Upstream documentation
 ......................
 
 The backend wraps `django-auth-adfs
-<https://django-auth-adfs.readthedocs.io/en/latest/>`__, and QATrack+ passes
+<https://django-auth-adfs.readthedocs.io/en/stable/>`__, and QATrack+ passes
 ``AUTH_ADFS`` to it almost unchanged, so its documentation is the reference for
-anything this page does not cover. QATrack+ tracks ``django-auth-adfs`` 1.x.
+anything this page does not cover. QATrack+ installs 1.16.0 (`source
+<https://github.com/snok/django-auth-adfs/tree/1.16.0>`__); the links below go
+to the library's stable documentation.
 
 * `Settings reference
-  <https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html>`__ -
+  <https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html>`__ -
   every key ``AUTH_ADFS`` accepts, including `SERVER
-  <https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html#server>`__,
+  <https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html#server>`__,
   `TENANT_ID
-  <https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html#tenant-id>`__,
+  <https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html#tenant-id>`__,
   `CLIENT_ID
-  <https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html#client-id>`__
+  <https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html#client-id>`__
   and `AUDIENCE
-  <https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html#audience>`__.
+  <https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html#audience>`__.
 * `Microsoft 365 / Entra ID (Azure AD) configuration guide
-  <https://django-auth-adfs.readthedocs.io/en/latest/azure_ad_config_guide.html>`__ -
+  <https://django-auth-adfs.readthedocs.io/en/stable/azure_ad_config_guide.html>`__ -
   registering the application and what to put in ``settings.py``. This is the
   one to follow for a cloud tenant.
 * On-premises AD FS guides, by server version: `AD FS 4.0
-  <https://django-auth-adfs.readthedocs.io/en/latest/adfs_4.0_config_guide.html>`__
+  <https://django-auth-adfs.readthedocs.io/en/stable/adfs_4.0_config_guide.html>`__
   and `AD FS 3.0
-  <https://django-auth-adfs.readthedocs.io/en/latest/adfs_3.0_config_guide.html>`__.
+  <https://django-auth-adfs.readthedocs.io/en/stable/adfs_3.0_config_guide.html>`__.
 * `How the OAuth2 flow works
-  <https://django-auth-adfs.readthedocs.io/en/latest/oauth2_explained.html>`__ -
+  <https://django-auth-adfs.readthedocs.io/en/stable/oauth2_explained.html>`__ -
   worth reading once if the redirect behaviour is unfamiliar.
 * `Troubleshooting
-  <https://django-auth-adfs.readthedocs.io/en/latest/troubleshooting.html>`__
+  <https://django-auth-adfs.readthedocs.io/en/stable/troubleshooting.html>`__
   and the `FAQ
-  <https://django-auth-adfs.readthedocs.io/en/latest/faq.html>`__ - start here
+  <https://django-auth-adfs.readthedocs.io/en/stable/faq.html>`__ - start here
   when a sign-in fails, since most failures are in the identity provider's
   configuration rather than in QATrack+.
 
@@ -581,7 +597,7 @@ That form is for an **on-premises AD FS server**: ``SERVER`` is its hostname,
 and the two guides above describe setting it up on Windows Server.
 
 If you require a different configuration for some reason, more options and settings
-are described in https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html
+are described in https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html
 
 .. _auth_adfs_entra:
 
@@ -632,9 +648,9 @@ AD FS form.
 
 **Follow upstream's guide for the tenant side:** `Azure AD / Entra ID
 configuration guide
-<https://django-auth-adfs.readthedocs.io/en/latest/azure_ad_config_guide.html>`__,
+<https://django-auth-adfs.readthedocs.io/en/stable/azure_ad_config_guide.html>`__,
 and the `settings reference
-<https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html#tenant-id>`__
+<https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html#tenant-id>`__
 for ``TENANT_ID`` and its neighbours. Those pages describe the library QATrack+
 uses, are maintained by people who test against real tenants, and will be
 ahead of this page.

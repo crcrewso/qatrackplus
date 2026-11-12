@@ -22,10 +22,9 @@ connection is not enough, because ``backends.py`` reads ``ldap.SCOPE_SUBTREE``,
 module must exist, with its real constants and its real exception classes. The
 alternative, injecting a fake ``ldap`` into ``sys.modules``, would have meant
 this file encoding assumptions about python-ldap's API that nothing verifies,
-which is the one failure a fake directory is prone to. Tests using this are
-therefore import ``ldap`` directly, which the `dev` dependency group
-provides; see
-``docs/developer/guide.rst`` for installing the extra.
+which is the one failure a fake directory is prone to. Tests using this
+therefore import ``ldap`` directly, which the `dev` dependency group provides;
+see ``docs/developer/guide.rst`` for the system packages it needs on Linux.
 
 **What this does not prove.** That our LDAP calls are the right calls. The fake
 answers ``simple_bind_s`` and ``search_ext_s`` the way we believe a directory

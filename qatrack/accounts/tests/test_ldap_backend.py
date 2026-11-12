@@ -136,6 +136,15 @@ class TestBind(ADTestCase):
         assert user is None
         assert directory.connections == []
 
+    def test_an_unknown_username_with_an_empty_password_never_reaches_the_directory(self):
+        """The empty-password check comes before anything else, so an unknown
+        name is refused the same way: no connection, and no account."""
+        user, directory = self.attempt("nobody", "")
+
+        assert user is None
+        assert directory.connections == []
+        assert not User.objects.filter(username="nobody").exists()
+
     def test_an_unreachable_server_authenticates_nobody(self):
         user, _ = self.attempt("jdoe", "s3cret", server_down=True)
         assert user is None

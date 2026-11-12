@@ -155,7 +155,9 @@ EMAIL_PORT = 587
 # "Authentication Backends" in the installation documentation has the settings
 # for both, worked examples and the failure modes. django-auth-adfs documents
 # its own keys at
-# https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html
+# https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html
+# and Django documents AUTHENTICATION_BACKENDS at
+# https://docs.djangoproject.com/en/4.2/ref/settings/#authentication-backends
 #
 # AD/LDAP sign-in has been tested against a Samba domain controller; the Entra
 # ID path has not yet. Questions and corrections are welcome:
