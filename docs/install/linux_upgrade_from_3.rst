@@ -171,19 +171,23 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
 
         sudo apt install libldap2-dev libsasl2-dev
 
-    Then install it. **The ldap extra does not exist in this release** - it
-    arrives in 4.0.2 - and ``uv`` stops with *"Extra `ldap` is not defined"*
-    rather than ignoring it, so naming it here fails the whole sync. On 4.0.0
-    the routes are the ``mssql`` extra, which has always carried
-    ``python-ldap``, or installing the package on its own afterwards:
+    Then run the sync again with the ``ldap`` extra added to the one you
+    already named:
 
     .. code-block:: bash
 
-        uv sync --extra postgres
-        uv pip install python-ldap 'django-auth-ldap<4.9'
+        uv sync --extra postgres --extra ldap
 
-    A package installed that second way is removed by the next ``uv sync``, so
-    note it somewhere your next upgrade will find.
+    .. note::
+
+        The ``ldap`` extra arrived in **4.0.2**, and you have it because the
+        step above checks out the ``releases/4.0`` *branch*, which carries the
+        whole 4.0 series. Had you pinned the checkout to the ``v4.0.0`` tag
+        instead, ``uv`` would stop with *"Extra `ldap` is not defined"*; there
+        the routes are the ``mssql`` extra, which has always carried
+        ``python-ldap``, or
+        ``uv pip install python-ldap 'django-auth-ldap<4.9'`` after the sync -
+        and a package installed that way is removed by the next ``uv sync``.
 
     **Without it, nobody can sign in at all** - not just directory users. The
     import error is swallowed where the backend imports it, so the backend
@@ -210,8 +214,9 @@ Performing the migration
 ------------------------
 
 We can now migrate the tables in our database. ``migrate`` runs QATrack+'s
-system checks before it touches anything, so a settings problem stops it here
-rather than halfway through:
+system checks before it touches anything, so an **error**-level settings
+problem stops it here rather than halfway through. Warnings are printed and do
+not stop it:
 
 
 .. code-block:: console

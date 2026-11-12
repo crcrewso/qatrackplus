@@ -187,8 +187,7 @@ place of it.
 
     **Under Docker there is nothing to do.**
     ``deploy/docker/django/Dockerfile`` already installs the ``ldap`` extra, so
-    the image carries ``python-ldap`` and ``django-auth-ldap`` whether or not
-    you use them. Skip to :ref:`Configuring QATrack+ to use your Active
+    the image carries ``python-ldap`` whether or not you use it. Skip to :ref:`Configuring QATrack+ to use your Active
     Directory Server <active_directory_settings>`, and for LDAPS with your own
     certificate authority see :ref:`docker_ldaps`.
 
@@ -246,12 +245,9 @@ explicitly costs nothing, says why the package is there, and keeps working if
 
 .. note::
 
-    The ``ldap`` extra itself is not new in 4.1 - it was added in **4.0.2**,
-    carrying ``python-ldap``. What 4.1 adds is ``django-auth-ldap`` alongside
-    it, so the extra is enough on its own for a site using
-    ``django_auth_ldap.backend.LDAPBackend`` directly. If you are on 4.0.2 and
-    already synced with ``--extra ldap``, you have ``python-ldap`` and nothing
-    on this page changes for you.
+    The ``ldap`` extra is not new in 4.1 - it was added in **4.0.2**, and it
+    carries ``python-ldap``. If you are on 4.0.2 and already synced with
+    ``--extra ldap``, nothing on this page changes for you.
 
 .. note::
 
@@ -270,6 +266,8 @@ import works:
     python -c "import ldap; print(ldap.__version__)"
 
 If that command prints the ldap version then ldap is installed correctly.
+
+.. _auth_check_package:
 
 Checking it before you restart
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -340,8 +338,8 @@ Copy the following lines to your `local_settings.py` file:
     AD_DEBUG_FILE = "C:/deploy/qatrackplus/logs/ad_log.txt"
     AD_DEBUG = False # set to True and restart QATrack+ Web Service if you need to debug AD Connection
 
-You will also obviously have to modify `AD_DNS_NAME1, `AD_SEARCH_DN` and
-`AD_NT4_DOMAIN` to suit your own Active Directory setup.  The complete set of
+You will also have to set ``AD_DNS_NAME``, ``AD_SEARCH_DN`` and
+``AD_NT4_DOMAIN`` to suit your own Active Directory.  The complete set of
 Active Directory settings are described here: :ref:`Active Directory Settings
 <settings_ad>`.
 
@@ -371,15 +369,15 @@ certificate in PEM format when your organization signs its own - see
 
 .. note::
 
-    **A current domain controller will refuse an unencrypted bind.** LDAP
-    signing has been the default Microsoft pushes since 2020, and new Windows
-    Server 2025 domains have it on out of the box. When that happens QATrack+
-    can only report *"Unable to contact LDAP server"*, which reads like a
-    network fault and sends people to look at firewalls. If sign-in is failing
-    and you are on ``ldap://`` port 389, this is the first thing to change.
+    **A current domain controller may refuse an unencrypted bind.** Microsoft
+    has recommended LDAP signing since 2020, and a new Windows Server 2025
+    domain enforces it out of the box. When it does, QATrack+ can only report
+    *"Unable to contact LDAP server"*, which reads like a network fault and
+    sends people to look at firewalls. If sign-in is failing and you are on
+    ``ldap://`` port 389, this is the first thing to change.
 
-    Measured the same way against a Samba Active Directory domain controller,
-    which refuses an unencrypted simple bind by default.
+    **Measured** against a Samba Active Directory domain controller, which
+    refuses an unencrypted simple bind by default.
 
 .. note::
 
@@ -408,8 +406,13 @@ It still uses LDAP, but not to authenticate. When it creates a user for the
 first time it binds to the directory with a **service account**
 (``AD_LDAP_USER`` and ``AD_LDAP_PW``, which are used by nothing else), looks up
 the username the web server supplied, and copies ``mail``, ``givenName`` and
-``sn`` onto the new QATrack+ user. Without ``python-ldap`` that lookup fails
-silently and accounts are created with no name and no email address.
+``sn`` onto the new QATrack+ user. If that lookup fails - no ``python-ldap``,
+a wrong ``AD_LDAP_PW``, a username the search does not match - the backend
+returns ``None``, so the **first** sign-in is refused even though the QATrack+
+user row has already been created. The next attempt signs the person in, with
+no name and no email address, because the row is no longer new and the lookup
+is not retried. Measured, and pinned by
+``TestWindowsIntegratedAuthentication``.
 
 **There is no AD FS or Entra equivalent of this.** Claims only ever arrive for
 the person who completed the sign-in redirect, so an identity provider cannot
@@ -463,7 +466,7 @@ one.
     account - which is the whole mechanism described above. When the *package*
     is absent, building the backend fails before any of that, so every sign-in
     returns a server error and the local account never gets its turn. See
-    :ref:`Checking it before you restart <auth_backends>`.
+    :ref:`Checking it before you restart <auth_check_package>`.
 
 .. _auth_adfs:
 
@@ -475,8 +478,8 @@ can provide a convenient way for your users to log into QATrack+ using their
 hospital network login.
 
 There are two backends you can potentially use for using ADFS for SSO.  There
-is the raw `django_adfs.backends.AdfsAuthCodeBackend` which you can read more
-about at https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html
+is the raw ``django_auth_adfs.backend.AdfsAuthCodeBackend`` which you can read
+more about at https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html
 and there is the `qatrack.accounts.backends.QATrackAdfsAuthCodeBackend` which
 is a wrapper around the `AdfsAuthCodeBackend` with some QATrack+ specific
 functionality added. In order to enable one of these backends you need to set your
@@ -488,7 +491,7 @@ functionality added. In order to enable one of these backends you need to set yo
         'qatrack.accounts.backends.QATrackAccountBackend',
         'qatrack.accounts.backends.QATrackAdfsAuthCodeBackend',
         # or comment above and uncomment below
-        # 'django_adfs.backends.AdfsAuthCodeBackend'
+        # 'django_auth_adfs.backend.AdfsAuthCodeBackend'
     ]
 
 

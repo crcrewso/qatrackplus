@@ -434,10 +434,11 @@ need and fill them in.
 
 * **Email**, for notifications and scheduled reports: the ``EMAIL_*`` settings.
   See :ref:`config_email`.
-* **Active Directory / LDAP sign-in**: put
-  ``qatrack.accounts.backends.ActiveDirectoryGroupMembershipSSLBackend`` first in
-  ``AUTHENTICATION_BACKENDS`` and fill in the ``AD_*`` settings. See
-  :ref:`active_directory` and :ref:`settings_ad`. For an encrypted (LDAPS)
+* **Active Directory / LDAP sign-in**: add
+  ``qatrack.accounts.backends.ActiveDirectoryGroupMembershipSSLBackend`` to
+  ``AUTHENTICATION_BACKENDS``, keep ``QATrackAccountBackend`` in the list, and
+  fill in the ``AD_*`` settings. See :ref:`active_directory`,
+  :ref:`settings_ad` and :ref:`auth_local_door`. For an encrypted (LDAPS)
   connection to the directory, see :ref:`docker_ldaps`.
 * **Time zone, language and the QC display options**: see :ref:`qatrack-config`.
 

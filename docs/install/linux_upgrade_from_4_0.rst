@@ -99,23 +99,23 @@ Update the Python environment. Use the extra that matches your database:
     .. code-block:: bash
 
         cd ~/web/qatrackplus
-        uv sync --extra postgres
-        uv pip install python-ldap 'django-auth-ldap<4.9'
+        uv sync --extra postgres --extra ldap
 
-    **The ldap extra does not exist in 4.0.1** - it arrives in 4.0.2 - and
-    ``uv`` stops with *"Extra `ldap` is not defined"* rather than ignoring it,
-    so naming it here would fail the whole sync. The ``mssql`` extra is the
-    other route, since it has always carried ``python-ldap``. A package
-    installed the second way above is removed by the next ``uv sync``, so note
-    it somewhere your next upgrade will find.
+    .. note::
+
+        The ``ldap`` extra arrived in **4.0.2**. You have it because this page
+        upgrades the ``releases/4.0`` *branch*, which carries the whole 4.0
+        series. If the installation was deliberately pinned to the ``v4.0.0``
+        or ``v4.0.1`` tag, ``uv`` stops with *"Extra `ldap` is not defined"*;
+        there the routes are the ``mssql`` extra, which has always carried
+        ``python-ldap``, or
+        ``uv pip install python-ldap 'django-auth-ldap<4.9'`` after the sync -
+        and a package installed that way is removed by the next ``uv sync``.
 
     ``uv sync`` is exact: it installs what the command names and uninstalls
     everything else. Neither the ``postgres`` nor the ``mysql`` extra carries
     ``python-ldap``, and nothing about Active Directory requires SQL Server, so
-    a PostgreSQL or MySQL site that authenticates against a directory has the
-    package from somewhere else - the ``mssql`` extra, the ``ldap`` extra added
-    in 4.0.2, or a hand install. Running the command above without
-    ``--extra ldap`` **removes it**.
+    running the sync without ``--extra ldap`` **removes it**.
 
     **Without it, nobody can sign in at all** - not just directory users. The
     import error is swallowed where the backend imports it, so the backend

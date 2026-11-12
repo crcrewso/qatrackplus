@@ -165,19 +165,10 @@ python-ldap = { url = "https://github.com/cgohlke/python-ldap-build/releases/dow
 
 [dependency-groups]
 dev = [
-    # Active Directory / LDAP, in the dev group rather than only the `ldap`
-    # extra so that qatrack/accounts/tests/test_ldap_backend.py and the browser
-    # sign-in tests always run. pytest itself is only in this group, so anyone
-    # able to run the suite has python-ldap too, and the tests have no reason to
-    # guard their imports.
-    #
-    # The cost is on Linux, where python-ldap publishes no wheel and is compiled
-    # during `uv sync`: libldap2-dev and libsasl2-dev have to be installed
-    # first. docs/developer/guide.rst says so under Prerequisites, as do
-    # AGENTS.md, CONTRIBUTING.md and uv-setup.md.
-    #
-    # Deployments are unaffected: they sync with --no-dev, and a site that
-    # authenticates against a directory names `--extra ldap`.
+    # Active Directory / LDAP, in the dev group so the accounts tests always
+    # run. Linux compiles python-ldap, so libldap2-dev and libsasl2-dev have to
+    # be installed first - see CONTRIBUTING.md. Deployments sync --no-dev and
+    # name the `ldap` extra instead.
     "python-ldap",
     "django-auth-ldap<4.9",
 

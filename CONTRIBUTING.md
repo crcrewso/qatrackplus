@@ -77,13 +77,6 @@ The documentation lives in `docs/` and is built with
 
 To build the docs locally:
 
-> **On Linux, install the OpenLDAP build headers first:**
-> `sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev`.
-> `python-ldap` is in the `dev` group and has no wheel on PyPI, so `uv sync`
-> compiles it; without the headers the sync stops at `fatal error: lber.h`.
-> Windows needs nothing - a prebuilt wheel is pinned in `pyproject.toml`.
-> See "Prerequisites" in `docs/developer/guide.rst`.
-
 ```bash
 uv sync --dev          # Sphinx and its extensions are part of the dev group
 uv run make docs       # from the repository root
@@ -103,6 +96,19 @@ copy-paste quickstart of the same sequence, and the *Developers Guide*
 ([`docs/developer/guide.rst`](docs/developer/guide.rst)) is the canonical,
 fuller treatment — including Windows, the per-engine test settings, and the
 Selenium setup.
+
+**On Linux, install the build headers before your first `uv sync`:**
+
+```bash
+sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev
+```
+
+`python-ldap` is in the `dev` group and publishes no wheel for Linux, so `uv
+sync` compiles it; without `libldap2-dev` and `libsasl2-dev` the sync stops at
+`fatal error: lber.h`. This applies to every command below, and to building the
+documentation — all of them sync the `dev` group. Windows needs nothing extra: a
+prebuilt wheel is pinned in `pyproject.toml`. See *Prerequisites* in
+[`docs/developer/guide.rst`](docs/developer/guide.rst).
 
 1. **Fork & clone** the repository.
 2. Install dependencies with [uv](https://docs.astral.sh/uv/) (uv creates and

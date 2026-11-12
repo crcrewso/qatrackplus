@@ -448,7 +448,7 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
     uv sync --extra postgres --no-dev
 
 ``--no-dev`` keeps the test and documentation tooling out of a deployment.
-Without it ``uv`` installs the ``dev`` dependency group as well - around 220
+Without it ``uv`` installs the ``dev`` dependency group as well - around 200
 packages including pytest, selenium, sphinx and **django-debug-toolbar** - none
 of which a server needs in order to run QATrack+. Leave it off only if you
 intend to run the test suite on this machine; see :ref:`linux_upgrade_from_4_0_1`.
@@ -538,14 +538,13 @@ treat the exact numbers as a target** - they move with every release, and the
 count differs by platform and by which optional dependencies you installed. What
 matters is that nothing *failed*.
 
-The skips are expected on a standard install. Nearly all of them are the
-browser tests, which need a real browser and are skipped unless you ask for
-them; one says *this installation is not using a database cache*, which is true
-of any site that has not changed ``CACHES``. Add ``-rs`` to the command if you
-want pytest to print the reason for each one.
-
-The counts move with every release, so treat the line above as a shape rather
-than a target. What matters is that nothing **failed**.
+Both numbers are expected on a standard install. The **deselected** ones are
+the browser tests: ``make test_simple`` runs pytest with the Selenium tests
+excluded, so they are never collected. Of the **skips**, one says *this
+installation is not using a database cache*, which is true of any site that has
+not changed ``CACHES``; the rest need an optional dependency a standard install
+does not have - the Active Directory tests skip without ``python-ldap``. Add
+``-rs`` to the command if you want pytest to print the reason for each one.
 
 
 Configuration of QATrack+

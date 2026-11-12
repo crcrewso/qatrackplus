@@ -1470,7 +1470,7 @@ bind outright. QATrack+ can then only report *"Unable to contact LDAP server"*,
 which reads like a network fault and sends people to look at firewalls.
 
 Use it only against a directory you know permits it; otherwise use LDAPS on 636,
-above. **Measured against a Samba Active Directory domain controller**, which
+below. **Measured against a Samba Active Directory domain controller**, which
 refuses an unencrypted simple bind the same way.
 
 If using an unencrypted connection use these
