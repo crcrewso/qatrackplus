@@ -1466,8 +1466,9 @@ Unencrypted AD Connection Settings
 a plain ``ldap://`` connection it goes in clear text - and a domain controller
 with LDAP signing enforced, which Microsoft has pushed as the default since 2020
 and which new Windows Server 2025 domains have on out of the box, rejects the
-bind outright. QATrack+ can then only report *"Unable to contact LDAP server"*,
-which reads like a network fault and sends people to look at firewalls.
+bind outright. The user sees only the ordinary bad-password error, and QATrack+
+logs *"Exception occurred while trying to authenticate"* with
+``STRONG_AUTH_REQUIRED`` in the traceback.
 
 Use it only against a directory you know permits it; otherwise use LDAPS on 636,
 below. **Measured against a Samba Active Directory domain controller**, which

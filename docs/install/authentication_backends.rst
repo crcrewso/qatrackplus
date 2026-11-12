@@ -322,10 +322,11 @@ certificate in PEM format when your organization signs its own - see
 
     **A current domain controller may refuse an unencrypted bind.** Microsoft
     has recommended LDAP signing since 2020, and a new Windows Server 2025
-    domain enforces it out of the box. When it does, QATrack+ can only report
-    *"Unable to contact LDAP server"*, which reads like a network fault and
-    sends people to look at firewalls. If sign-in is failing and you are on
-    ``ldap://`` port 389, this is the first thing to change.
+    domain enforces it out of the box. When it does, the user sees only the
+    ordinary bad-password error, and QATrack+ logs *"Exception occurred while
+    trying to authenticate"* with ``STRONG_AUTH_REQUIRED`` (*"Transport
+    encryption required"*) in the traceback. If sign-in is failing and you are
+    on ``ldap://`` port 389, this is the first thing to change.
 
     **Measured** against a Samba Active Directory domain controller, which
     refuses an unencrypted simple bind by default.
@@ -569,8 +570,10 @@ Entra ID mode when it sees a tenant, and points itself at
         # Do NOT also set "SERVER" - the two are mutually exclusive.
         "TENANT_ID": "00000000-0000-0000-0000-000000000000",
         "CLIENT_ID": "<the application (client) ID of your app registration>",
+        # A secret created on the app registration; keep it out of version control.
+        "CLIENT_SECRET": "<client secret>",
         "RELYING_PARTY_ID": "<the application (client) ID>",
-        "AUDIENCE": "api://<the application (client) ID>",
+        "AUDIENCE": "<the application (client) ID>",
         "CLAIM_MAPPING": {
             "first_name": "given_name",
             "last_name": "family_name",
@@ -578,12 +581,10 @@ Entra ID mode when it sees a tenant, and points itself at
         },
         "USERNAME_CLAIM": "upn",
         "GROUPS_CLAIM": "groups",
-        # Entra ID issues v2.0 tokens for new app registrations.
-        "VERSION": "v2.0",
     }
 
 On the Entra side, whoever administers your tenant registers QATrack+ as an
-application, adds a **web** redirect URI of
+application, creates a client secret, adds a **web** redirect URI of
 ``https://your.qatrackserver.com/accounts/oauth2/callback``, and configures the
 app to emit a groups claim. The claim names differ from on-premises AD FS -
 ``upn`` and ``groups`` rather than ``winaccountname`` and ``group`` - so the
