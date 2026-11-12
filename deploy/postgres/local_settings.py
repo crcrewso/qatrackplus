@@ -143,37 +143,21 @@ EMAIL_PORT = 587
 # ------------------------------------------------------------------------------
 # Authentication
 #
-# The default is QATrack+'s own user database: nothing to configure here.
+# QATrack+ uses its own user database unless you say otherwise, and has
+# supported Active Directory / LDAP for years: uncomment one of the AD backends
+# in AUTHENTICATION_BACKENDS and set the AD_* settings. Both ship commented out
+# in qatrack/settings.py - copy what you change into this file. Keep
+# QATrackAccountBackend in the list, and keep one local account you can sign in
+# with while you set the rest up.
 #
-# For Active Directory, AD FS or Microsoft 365 / Entra ID, see "Authentication
-# Backends" in the installation documentation. It covers which backend suits
-# which deployment, the settings each needs, and the two things most likely to
-# catch you out: Entra ID does not answer LDAP binds, and encrypting the
-# connection is not optional on a current domain controller.
+# AD FS and Microsoft 365 / Entra ID go through the AUTH_ADFS dict instead.
 #
-# Three things worth knowing before you start, because the symptoms do not point
-# at the cause:
+# "Authentication Backends" in the installation documentation has the settings
+# for both, worked examples and the failure modes. django-auth-adfs documents
+# its own keys at
+# https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html
 #
-#  * Keep a local account you can sign in with, and record its password
-#    somewhere other than QATrack+.
-#  * Use LDAPS on port 636. A domain controller with LDAP signing enforced -
-#    the default Microsoft has pushed since 2020 - refuses an unencrypted bind,
-#    and all QATrack+ can report is "Unable to contact LDAP server".
-#  * On Linux, install python-ldap through the `ldap` extra rather than by hand;
-#    `uv sync` removes anything it was not told to keep. Without the package,
-#    once an LDAP backend is configured, nobody can sign in at all - not just
-#    directory users.
-#
-# For the AUTH_ADFS keys and for registering the application on the identity
-# provider, see django-auth-adfs's own documentation:
-#   settings reference   https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html
-#   Entra ID / Azure AD  https://django-auth-adfs.readthedocs.io/en/latest/azure_ad_config_guide.html
-#   on-prem AD FS 4.0    https://django-auth-adfs.readthedocs.io/en/latest/adfs_4.0_config_guide.html
-#   troubleshooting      https://django-auth-adfs.readthedocs.io/en/latest/troubleshooting.html
-#
-# NOT YET IDEALLY TESTED: the Microsoft 365 / Entra ID path. The project has no
-# tenant, so those instructions come from the library's behaviour and
-# Microsoft's documented claim names rather than from a working deployment.
-# Please tell us what you had to change:
+# The AD/LDAP sign-in path is tested against a directory server; the Entra ID
+# path is not yet. Questions and corrections are welcome:
 # https://github.com/qatrackplus/qatrackplus/issues
 # ------------------------------------------------------------------------------
