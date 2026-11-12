@@ -51,25 +51,20 @@ in the list is what keeps a way in when the directory is unavailable - see
     **How much of this we can test is limited, and you should assume your
     deployment is one we have never seen.**
 
-    QATrack+'s automated tests cover the LDAP backends against a *stand-in*
-    directory - a fake that answers binds and searches in-process. That
-    catches our own mistakes in bind handling, group membership, username
-    cleaning and TLS options. It does not and cannot tell us how a real
-    directory behaves: referrals, nested or primary groups, multi-domain
-    forests, unusual schema, certificate chains from an internal CA, and
-    anything specific to your AD topology are all outside it. The project has
-    no permanent Active Directory, AD FS or Entra tenant to test against.
+    QATrack+'s automated tests cover the LDAP backends against an in-process
+    stand-in directory: bind handling, group membership, username cleaning and
+    TLS options. Sign-in has also been measured against a Samba domain
+    controller. Neither covers referrals, nested groups, multi-domain forests,
+    unusual schema or your own topology, and the project has no permanent
+    Active Directory, AD FS or Entra tenant to test against.
 
     The ADFS/Entra backend is tested only at the claim-handling layer; no test
     completes a real OAuth2 redirect against a real identity provider.
 
-    **So please get in touch rather than struggle alone.** If sign-in does not
-    work, or these pages do not describe your setup, open an issue at
-    https://github.com/qatrackplus/qatrackplus/issues or ask on the mailing
-    list at https://groups.google.com/g/qatrack. Details of a configuration
-    that does *not* work are genuinely useful to us - they are the evidence we
-    cannot generate ourselves, and several of the settings documented here
-    exist because somebody reported exactly that.
+    **So please get in touch rather than struggle alone** - open an issue at
+    https://github.com/qatrackplus/qatrackplus/issues or ask at
+    https://groups.google.com/g/qatrack. A configuration that does *not* work
+    is exactly the evidence we cannot generate ourselves.
 
 .. _auth_onprem_vs_cloud:
 
@@ -92,56 +87,32 @@ no domain controller of its own - the LDAP backends in this page
 :ref:`QATrackAdfsAuthCodeBackend <auth_adfs_entra>` instead, which talks
 OAuth2/OIDC to Entra ID and needs no extra packages.
 
-**Hybrid** - a domain controller on your network *and* Entra ID - is the common
-case in hospitals today, and it is not one stable arrangement but a range of
-them. At one end the on-premises domain is still authoritative and Entra ID is
-synchronised from it; at the other the cloud has become primary and the local
-domain controller is a secondary copy. **Both ends look the same from
-QATrack+**, which is why this matters: the LDAP settings that worked on Monday
-can stop working after a migration step nobody told you about.
+**Hybrid** - a domain controller on your network *and* Entra ID - is common in
+hospitals, and it shifts over time: the LDAP settings that worked on Monday can
+stop working after a migration step nobody told you about.
 
 .. important::
 
     **Several sites are migrating to Microsoft 365 enterprise authentication,
-    at various stages.** That is why the :ref:`AD FS / Entra backend
-    <auth_adfs>` exists and is actively supported - it is the direction of
-    travel, not a legacy alternative. If your organization is moving this way,
-    plan on moving QATrack+ to that backend as part of the migration rather
-    than waiting for LDAP to fail.
+    at various stages.** The :ref:`AD FS / Entra backend <auth_adfs>` is the
+    direction of travel; plan on moving QATrack+ to it as part of such a
+    migration rather than waiting for LDAP to fail.
 
-Four things to watch for during such a migration, in rough order of how often
-they bite:
+What tends to break during one:
 
-**Multi-factor authentication and conditional access cannot be satisfied by an
-LDAP bind.** A bind sends a username and a password, and that is all it can
-send. For accounts that can still bind, LDAP either stops working once the
-policy applies, or it keeps working and *bypasses* the policy - which your
-information security team will reasonably object to. The OAuth2 route goes
-through the identity provider, so whatever MFA and conditional access your
-organization enforces applies to QATrack+ too, without QATrack+ implementing
-any of it.
+* **MFA and conditional access** cannot be satisfied by an LDAP bind - it either
+  stops working or bypasses the policy. The OAuth2 route goes through the
+  identity provider, so its policies apply.
+* **Cloud-only accounts** may have no on-premises object, so new staff cannot
+  sign in while existing staff still can.
+* **Authentication may move before the directory does**: searches succeed,
+  binds fail, and a correct password is rejected.
+* **Group membership can diverge**: ``memberOf`` on the local object lags, and
+  :ref:`group mapping <ad_group_map>` stops granting what it used to.
 
-**Cloud-only accounts may have no on-premises object at all.** New staff
-created directly in Entra ID can be invisible to an LDAP search against the
-local domain controller, so they cannot sign in to QATrack+ while existing
-staff still can. This tends to appear as "the new physicist can't log in" long
-after the migration, and it is not a QATrack+ configuration problem.
-
-**Authentication may move to the cloud before the directory does.** A local
-domain controller that is still present and answering LDAP searches is not
-necessarily still accepting those users' passwords. Searches succeed, binds
-fail, and the symptom is a login form that rejects a password the user knows
-is correct.
-
-**Group membership can diverge.** If groups are managed in Entra ID, the
-``memberOf`` attribute on the on-premises object may lag or omit them, and
-:ref:`group mapping <ad_group_map>` silently stops granting the permissions it
-used to.
-
-If you are at any stage of such a migration, it is worth telling us which -
-see :ref:`the note on what we can test <auth_testing_limits>`. These
-configurations are the ones we have least visibility into and most reports
-about.
+If you are at any stage of such a migration, please tell us which (see
+:ref:`what we can test <auth_testing_limits>`); these are the setups we see
+least of.
 
 .. note::
 
@@ -173,15 +144,11 @@ The two LDAP backends need ``python-ldap``, which QATrack+ declares as the
 hand.**
 
 ``uv sync`` is exact: it installs the extras the command names and
-**uninstalls everything else**. A package placed into the virtual environment
-on its own is therefore removed the next time anybody syncs - including during
-an upgrade, which is how a site that followed the earlier version of this page
-could lose Active Directory sign-in by following its own upgrade instructions.
+**uninstalls everything else**, so a package installed by hand is removed by
+the next sync, upgrades included.
 
-In each command below, ``--extra ldap`` is **added to** the sync command your
-own install or upgrade page gives you. Keep every other flag it has,
-``--no-dev`` included; do not treat these as complete commands to paste in
-place of it.
+Below, ``--extra ldap`` is **added to** the sync command your own install or
+upgrade page gives you; keep every other flag it has, ``--no-dev`` included.
 
 .. note::
 
@@ -238,10 +205,8 @@ Add the extra to the sync command in the :ref:`Windows Server installation
 
    >>  uv sync --exact --extra win --extra mssql --extra ldap
 
-The ``mssql`` extra carries ``python-ldap`` as well, and always has, so a
-Windows site that followed the install guide already has it. Naming ``ldap``
-explicitly costs nothing, says why the package is there, and keeps working if
-``mssql`` stops carrying it in a future release.
+The ``mssql`` extra carries ``python-ldap`` as well, so a Windows site that
+followed the install guide already has it; naming ``ldap`` says why it is there.
 
 .. note::
 
@@ -279,26 +244,12 @@ restarting QATrack+.** Nothing warns you if it is missing:
 
     python -c "import ldap; print(ldap.__version__)"
 
-If that raises ``ModuleNotFoundError``, stop and install it before restarting -
-because a site that restarts without it comes back up broken **for everybody**,
-which is worth being precise about because it is worse than it sounds.
-
-The import error is swallowed where the backend imports it, so the backend loads
-and the site starts. But Django builds every backend in
+If that raises ``ModuleNotFoundError``, install it before restarting. Without
+it the site starts, but **every sign-in returns a server error** - local
+accounts too, in any backend order - because Django builds every backend in
 ``AUTHENTICATION_BACKENDS`` before any of them authenticates, and building the
-Active Directory one touches the module that is not there. So every sign-in
-raises from inside the login view and the page returns a server error -
-directory users and local users alike, in any backend order.
-
-.. important::
-
-    **This is the one case the local account in** :ref:`auth_local_door`
-    **cannot rescue.** That advice is for a directory *outage*, where the
-    backend raises ``ldap.SERVER_DOWN``, QATrack+ catches it, and Django moves
-    on to your local account. A **missing package** is different: nothing is
-    caught, nothing falls through, and the login page is down until the package
-    is back. Keep the local account anyway - it covers the outage, which is far
-    more likely - but do not rely on it to cover this.
+Active Directory one needs the missing module. The local account in
+:ref:`auth_local_door` covers a directory outage, not this.
 
 .. _active_directory_settings:
 
@@ -419,13 +370,10 @@ It still uses LDAP, but not to authenticate. When it creates a user for the
 first time it binds to the directory with a **service account**
 (``AD_LDAP_USER`` and ``AD_LDAP_PW``, which are used by nothing else), looks up
 the username the web server supplied, and copies ``mail``, ``givenName`` and
-``sn`` onto the new QATrack+ user. If that lookup fails - no ``python-ldap``,
-a wrong ``AD_LDAP_PW``, a username the search does not match - the backend
-returns ``None``, so the **first** sign-in is refused even though the QATrack+
-user row has already been created. The next attempt signs the person in, with
-no name and no email address, because the row is no longer new and the lookup
-is not retried. Measured, and pinned by
-``TestWindowsIntegratedAuthentication``.
+``sn`` onto the new QATrack+ user. If that lookup fails - no ``python-ldap``, a
+wrong ``AD_LDAP_PW``, no match - the **first** sign-in is refused, but the user
+row is already created, so the next one signs in with no name or email and the
+lookup is not retried. Pinned by ``TestWindowsIntegratedAuthentication``.
 
 **There is no AD FS or Entra equivalent of this.** Claims only ever arrive for
 the person who completed the sign-in redirect, so an identity provider cannot
@@ -475,13 +423,9 @@ one.
 
 .. warning::
 
-    **This covers an outage, not a missing** ``python-ldap``. When the
-    directory is unreachable the LDAP backend raises ``ldap.SERVER_DOWN``,
-    QATrack+ catches it and returns nothing, and Django moves on to your local
-    account - which is the whole mechanism described above. When the *package*
-    is absent, building the backend fails before any of that, so every sign-in
-    returns a server error and the local account never gets its turn. See
-    :ref:`Checking it before you restart <auth_check_package>`.
+    **This covers an outage, not a missing** ``python-ldap``: then every
+    sign-in fails before the local account gets its turn. See
+    :ref:`auth_check_package`.
 
 .. _auth_adfs:
 
@@ -651,9 +595,7 @@ configuration guide
 <https://django-auth-adfs.readthedocs.io/en/stable/azure_ad_config_guide.html>`__,
 and the `settings reference
 <https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html#tenant-id>`__
-for ``TENANT_ID`` and its neighbours. Those pages describe the library QATrack+
-uses, are maintained by people who test against real tenants, and will be
-ahead of this page.
+for ``TENANT_ID`` and its neighbours. They will be ahead of this page.
 
 .. warning::
 
@@ -666,9 +608,7 @@ ahead of this page.
 
     If you are running QATrack+ against Microsoft 365, **please tell us what
     you had to change** - https://github.com/qatrackplus/qatrackplus/issues or
-    https://groups.google.com/g/qatrack. A working configuration from a real
-    tenant is something we cannot produce ourselves, and it would let us
-    replace this warning with instructions we can stand behind.
+    https://groups.google.com/g/qatrack.
 
 
 .. _ad_group_map:

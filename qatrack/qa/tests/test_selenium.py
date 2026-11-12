@@ -154,28 +154,14 @@ class BaseQATests(SeleniumTests, TransactionTestCase):
         self.force_login(self.user)
 
     def assert_signed_in_as(self, username):
-        """Whose session this is, not merely that one exists.
-
-        A logout link and a URL that is no longer `/accounts/login/` prove that
-        somebody is signed in, and a database assertion proves an account was
-        created. Neither says the browser session belongs to that account - a
-        test that signed in as the wrong user satisfies both. `site_base`
-        renders the signed-in username into a hidden input, which does.
-        """
+        """Whose session this is, from the hidden username input site_base renders."""
         shown = self.driver.find_element(By.ID, "username").get_attribute("value")
         assert shown == username, (
             "the page reports %r as the signed-in user, not %r" % (shown, username)
         )
 
     def submit_login_form(self, username, password):
-        """Fill the real login form with these credentials and submit it.
-
-        Assumes nothing about the outcome, so a test can wait for a landed page
-        or for a form error. login_through_form() below is the success case;
-        the Active Directory tests in qatrack/accounts/tests/test_selenium.py
-        use this directly, because a refused sign-in never reaches a landed
-        page to wait for.
-        """
+        """Fill and submit the real login form; assumes nothing about the outcome."""
         self.open("/accounts/login/")
         self.send_keys("id_username", username)
         self.send_keys("id_password", password)
@@ -190,13 +176,7 @@ class BaseQATests(SeleniumTests, TransactionTestCase):
         client.force_login(), both of which bypass it. This is the only path
         that covers form rendering, the POST handler and the redirect.
 
-        TestLoginPage below is the caller, and the only one. Every other
-        browser test goes through login(), so a second caller here would be a
-        second place a password is typed for no coverage gained.
-
-        This and submit_login_form() are the only places the browser's password
-        manager can still interfere, since they are the only places a password
-        is typed.
+        TestLoginPage below is the only caller; everything else uses login().
         """
         self.submit_login_form(self.user.username, self.password)
 

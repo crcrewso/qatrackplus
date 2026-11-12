@@ -490,21 +490,15 @@ again once you are done testing.
         cd ~/web/qatrackplus
         uv sync --extra postgres --extra ldap --no-dev
 
-    **Without the package, nobody can sign in at all** once an LDAP backend is
-    configured - not just directory users. The import error is swallowed where
-    the backend imports it, so the backend loads and the site starts; but
-    Django builds every backend in ``AUTHENTICATION_BACKENDS`` before any of
-    them authenticates, and building the Active Directory one touches the
-    missing module. Every sign-in attempt then raises from inside the login
-    view and the page returns a server error, whatever order the backends are
-    in - a local account does not get you in, because it never gets its turn.
-
-    Nothing warns you. Confirm the package yourself after any change to the
-    virtual environment and before restarting:
+    **Once an LDAP backend is configured, without the package nobody can sign
+    in at all**, local accounts included, and nothing warns you. Check before restarting:
 
     .. code-block:: bash
 
         python -c "import ldap; print(ldap.__version__)"
+
+    If that raises ``ModuleNotFoundError``, install it before restarting -
+    :ref:`auth_check_package` explains why.
 
     .. note::
 

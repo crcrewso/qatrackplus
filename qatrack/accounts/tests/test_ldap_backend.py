@@ -1,23 +1,14 @@
 """The Active Directory sign-in path, driven against a stand-in directory.
 
-Before this file, ``ActiveDirectoryGroupMembershipSSLBackend`` had three tests,
-all of them on ``clean_username()``. Nothing ran the bind, the user lookup, the
-qualifying-group check, or the account and group membership that come out the
-other end - so the eleven ``AD_*`` settings that configure it had no coverage at
-all, and neither did the decision about whether somebody may sign in.
-
-These are the fast half. The browser half - the login form, and what a signed-in
-AD user actually lands on - is in ``qatrack/accounts/tests/test_selenium.py``.
-Everything that can be asserted without a browser is asserted here, because the
-browser costs about a hundred times as much per case.
+The bind, the user lookup, the qualifying-group check, and the account and group
+membership that come out of them. The browser half is in
+``qatrack/accounts/tests/test_selenium.py``.
 
 See ``ldap_fake.py`` for what the stand-in does and does not prove.
 """
 
-# python-ldap is in the `dev` dependency group, so anyone able to run pytest
-# has it. Importing it plainly is deliberate: a guard here would turn a broken
-# environment into a green run, which is how these tests came to be skipped in
-# every CI job for as long as they existed.
+# python-ldap is in the dev group. No importorskip: a broken environment
+# should fail, not pass green.
 import ldap  # noqa: E402
 from django.conf import settings as django_settings
 from django.contrib.auth import authenticate
@@ -404,24 +395,13 @@ BOTH_BACKENDS = [
 
 @override_settings(AUTHENTICATION_BACKENDS=BOTH_BACKENDS)
 class TestTheLocalSideDoor(ADTestCase):
-    """A locally created account must keep working once AD is switched on.
+    """A locally created account must keep working once AD is switched on,
+    including while the directory is down.
 
-    This is the door a site needs when the directory is the thing that is
-    broken. A clinic whose AD server is down, or whose network path to it is
-    down, still has QC to review and service events to close, and the only way
-    back in is an account QATrack+ holds itself - which in practice is the
-    superuser made by `createsuperuser` during the install, plus whatever local
-    accounts an administrator has added.
-
-    It is not obvious that it works, and it is the kind of thing that breaks
-    silently: nothing fails until the day the directory is unreachable, which
-    is the worst day to find out. What makes it work is that
-    `ActiveDirectoryGroupMembershipSSLBackend.authenticate()` returns None for
-    every failure rather than raising - including `SERVER_DOWN` and anything
-    its bare `except Exception` catches - so Django moves on to the next
-    backend in the list. Each test below therefore checks that the directory
-    really was consulted and really did fail, so that a pass cannot come from
-    the AD backend having been skipped.
+    It works because the AD backend returns None for every failure, so Django
+    moves on to the next backend. Each test checks the directory really was
+    consulted and failed, so a pass cannot come from the AD backend being
+    skipped.
 
     This is the "side door" a site running AD relies on when the directory
     is unreachable, which is why it is covered rather than assumed.
@@ -598,12 +578,7 @@ class TestWindowsIntegratedAuthentication(TestCase):
     is no password, and no bind on the user's behalf. What it uses LDAP for is
     a *lookup*: a service account binds to fetch the new user's name and email.
 
-    That makes it the one backend an identity provider cannot replace, because
-    claims only ever arrive for the person who just signed in - and it had no
-    tests at all until this class. The fake could not drive it either: it
-    implements ``simple_bind_s`` and this backend calls ``bind_s``, so the
-    attempt died in ``configure_user``'s bare ``except Exception`` as a silent
-    "no user".
+    The fake implements ``bind_s`` for it as well as ``simple_bind_s``.
     """
 
     SERVICE = "qatrack-service"
@@ -644,14 +619,7 @@ class TestWindowsIntegratedAuthentication(TestCase):
         assert directory.connection.unbound, "the lookup left the service-account connection open"
 
     def test_the_profile_is_text_not_bytes(self):
-        """LDAP returns bytes, and this path used to store them undecoded.
-
-        Django coerces bytes to str on save, so an undecoded value became the
-        literal string "b'jdoe@example.com'" - an address notification email
-        would be sent to - and a first name rendered as b'Jane'. The sign-in
-        backend's get_user_attrs() has always decoded; this one did not, and
-        there was no test on this backend at all to notice.
-        """
+        """LDAP returns bytes; undecoded, Django saves the text "b'jdoe@...'"."""
         user, _ = self.attempt("jdoe")
         for field in ("email", "first_name", "last_name"):
             value = getattr(user, field)

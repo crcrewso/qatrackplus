@@ -233,13 +233,7 @@ class ActiveDirectoryGroupMembershipSSLBackend:
 
 
 def _decoded(value):
-    """An LDAP attribute value as text.
-
-    python-ldap hands back bytes. Anything else, `None` included, is returned
-    unchanged, so a missing attribute behaves exactly as it did before this
-    helper existed. `errors='replace'` because one undecodable byte in a name
-    should not refuse the sign-in.
-    """
+    """python-ldap returns bytes; anything else, `None` included, passes through."""
     if isinstance(value, bytes):
         return value.decode('utf-8', errors='replace')
     return value
@@ -313,15 +307,7 @@ class WindowsIntegratedAuthenticationBackend(ModelBackend):
             )[0][1]
             l.unbind_s()
 
-            # get personal info
-            #
-            # Decoded, because LDAP returns attribute values as bytes. Without
-            # this the assignments below stored b'...' objects, which Django
-            # coerces to the *string* "b'jane@example.com'" on save - a
-            # malformed address that notification email would be sent to, and a
-            # first name displayed as b'Jane'. get_user_attrs() in the sign-in
-            # backend has always decoded; this path never did, and nothing
-            # tested it until TestWindowsIntegratedAuthentication.
+            # get personal info (decoded, or Django saves the text "b'...'")
             user.email = _decoded(result.get(settings.AD_LU_MAIL, [None])[0])
             user.last_name = _decoded(result.get(settings.AD_LU_SURNAME, [None])[0])
             user.first_name = _decoded(result.get(settings.AD_LU_GIVEN_NAME, [None])[0])

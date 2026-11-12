@@ -103,12 +103,8 @@ Selenium setup.
 sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev
 ```
 
-`python-ldap` is in the `dev` group and publishes no wheel for Linux, so `uv
-sync` compiles it; without `libldap2-dev` and `libsasl2-dev` the sync stops at
-`fatal error: lber.h`. This applies to every command below, and to building the
-documentation — all of them sync the `dev` group. Windows needs nothing extra: a
-prebuilt wheel is pinned in `pyproject.toml`. See *Prerequisites* in
-[`docs/developer/guide.rst`](docs/developer/guide.rst).
+`python-ldap` is in the `dev` group and compiles from source on Linux; without
+these the sync stops at `fatal error: lber.h`. Windows needs nothing.
 
 1. **Fork & clone** the repository.
 2. Install dependencies with [uv](https://docs.astral.sh/uv/) (uv creates and

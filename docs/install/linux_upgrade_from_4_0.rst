@@ -117,26 +117,15 @@ Update the Python environment. Use the extra that matches your database:
     ``python-ldap``, and nothing about Active Directory requires SQL Server, so
     running the sync without ``--extra ldap`` **removes it**.
 
-    **Without it, nobody can sign in at all** - not just directory users. The
-    import error is swallowed where the backend imports it, so the backend
-    loads and the site starts; but Django builds every backend in
-    ``AUTHENTICATION_BACKENDS`` before any of them authenticates, and building
-    the Active Directory one touches the missing module. Every sign-in attempt
-    then raises from inside the login view and the page returns a server error,
-    whatever order the backends are in and whoever is signing in - a local
-    account does not get you in, because it never gets its turn.
-
-    **QATrack+ does not warn you about this.** Nothing in the upgrade reports
-    a missing ``python-ldap``, so confirm it yourself after the sync and
-    before restarting:
+    **Without it, nobody can sign in at all**, local accounts included, and
+    nothing warns you. Check before restarting:
 
     .. code-block:: bash
 
         python -c "import ldap; print(ldap.__version__)"
 
-    If that prints a version you are fine. If it raises ``ModuleNotFoundError``
-    the sync removed it, and directory sign-in will be broken when the site
-    comes back up.
+    If that raises ``ModuleNotFoundError``, install it before restarting -
+    :ref:`auth_check_package` explains why.
 
 Check the installation before touching the database. This validates your settings
 against the new code and is the cheapest way to catch a problem while the services are

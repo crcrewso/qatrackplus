@@ -339,41 +339,22 @@ class ServiceEventUpdateCreate(
                     template = self.se_schedule.service_event_template
 
                     # get initial RTS form data based on RTS UTC's associated with the template
-                    #
-                    # Both querysets are ordered explicitly, because the order
-                    # they come back in is the order the formset renders to the
-                    # person filling it in. UnitTestCollection has no
-                    # Meta.ordering, so unordered these return rows in whatever
-                    # order the database chooses: SQLite happens to give
-                    # insertion order and PostgreSQL makes no such promise, so
-                    # the same service event could list its return-to-service QC
-                    # differently on two consecutive loads.
-                    #
-                    # `name` first because that is what the reader sees, and it
-                    # is what makes the order meaningful rather than merely
-                    # repeatable. `pk` second because two assignments of the
-                    # same test list to the same unit share a `name` - without
-                    # the tie-break those two are still arbitrary. (`name` is
-                    # not nullable; an earlier version of this comment said so
-                    # and was wrong.)
-                    # The template's own list cannot be used: both are plain
-                    # ManyToManyFields with no through model, so no chosen order
-                    # is stored anywhere.
-                    rts_order = ("name", "pk")
+                    # Ordered by pk, the order the assignments were made, so
+                    # every database lists them the same way.
                     tl_ct = ContentType.objects.get_for_model(qa_models.TestList)
                     tl_utcs = qa_models.UnitTestCollection.objects.filter(
                         unit=unit_field_value,
                         content_type=tl_ct,
                         object_id__in=template.return_to_service_test_lists.values_list("pk", flat=True),
                         active=True,
-                    ).order_by(*rts_order)
+                    ).order_by("pk")
                     tlc_ct = ContentType.objects.get_for_model(qa_models.TestListCycle)
                     tlc_utcs = qa_models.UnitTestCollection.objects.filter(
                         unit=unit_field_value,
                         content_type=tlc_ct,
                         object_id__in=template.return_to_service_cycles.values_list("pk", flat=True),
                         active=True,
-                    ).order_by(*rts_order)
+                    ).order_by("pk")
                     initial_rts_utcs = [{'unit_test_collection': rts_utc} for rts_utc in list(tl_utcs) + list(tlc_utcs)]
             except ObjectDoesNotExist:
                 pass

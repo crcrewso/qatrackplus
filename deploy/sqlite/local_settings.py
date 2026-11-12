@@ -144,23 +144,13 @@ EMAIL_PORT = 587
 # ------------------------------------------------------------------------------
 # Authentication
 #
-# QATrack+ uses its own user database unless you say otherwise, and has
-# supported Active Directory / LDAP for years: uncomment one of the AD backends
-# in AUTHENTICATION_BACKENDS and set the AD_* settings. Both ship commented out
-# in qatrack/settings.py - copy what you change into this file. Keep
-# QATrackAccountBackend in the list, and keep one local account you can sign in
-# with while you set the rest up.
+# Local accounts by default. For Active Directory / LDAP, uncomment a backend in
+# AUTHENTICATION_BACKENDS and set the AD_* settings (both in qatrack/settings.py;
+# copy what you change into this file). For AD FS or Entra ID, set AUTH_ADFS.
+# Keep QATrackAccountBackend in the list so a local account can still sign in.
 #
-# AD FS and Microsoft 365 / Entra ID go through the AUTH_ADFS dict instead.
-#
-# "Authentication Backends" in the installation documentation has the settings
-# for both, worked examples and the failure modes. django-auth-adfs documents
-# its own keys at
-# https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html
-# and Django documents AUTHENTICATION_BACKENDS at
+# See "Authentication Backends" in the installation docs, and
 # https://docs.djangoproject.com/en/4.2/ref/settings/#authentication-backends
-#
-# AD/LDAP sign-in has been tested against a Samba domain controller; the Entra
-# ID path has not yet. Questions and corrections are welcome:
-# https://github.com/qatrackplus/qatrackplus/issues
+# https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html
+# AD/LDAP is tested against a Samba domain controller; Entra ID is not yet.
 # ------------------------------------------------------------------------------

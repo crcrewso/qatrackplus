@@ -165,12 +165,9 @@ python-ldap = { url = "https://github.com/cgohlke/python-ldap-build/releases/dow
 
 [dependency-groups]
 dev = [
-    # Active Directory / LDAP, in the dev group so the accounts tests always
-    # run. Linux compiles python-ldap, so libldap2-dev and libsasl2-dev have to
-    # be installed first - see CONTRIBUTING.md. Deployments sync --no-dev and
-    # name the `ldap` extra instead.
+    # So the LDAP tests always run. Linux compiles it: install libldap2-dev
+    # and libsasl2-dev first (CONTRIBUTING.md).
     "python-ldap",
-    "django-auth-ldap<4.9",
 
     # Testing framework and utilities
     "pytest>=7.0,<8.0",

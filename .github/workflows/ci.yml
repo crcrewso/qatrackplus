@@ -1,17 +1,8 @@
 name: CI
 
 on:
-  # `push` is limited to the long-lived branches, and `pull_request` covers
-  # everything else. Both used to be "**", which fired two full runs for every
-  # push to a branch with an open pull request - and the concurrency group below
-  # collapses them, so the superseded run's jobs still appeared on the pull
-  # request as nine CANCELLED checks, one of them the unexpanded
-  # `Linux Tests (${{ matrix.os }}, ${{ matrix.db }})` placeholder. Green run,
-  # red-looking check list.
-  #
-  # The cost is that a branch with no pull request open gets no run. That is the
-  # deliberate trade: open the pull request, or use `workflow_dispatch` below,
-  # which is kept for exactly this case.
+  # `push` only for long-lived branches, so a pull request's branch runs once.
+  # A branch with no pull request: use `workflow_dispatch`.
   push:
     branches: [ master, develop, "releases/**" ]
   pull_request:
@@ -21,12 +12,8 @@ on:
 permissions:
   contents: read
 
-# One group per branch: a new push cancels the run it supersedes, and a branch's
-# `push` and `pull_request` runs collapse into one. The key is the branch's
-# repository *and* its name, because two forks' `develop` branches - or a fork's
-# `develop` and this repository's - are different branches and must not cancel
-# each other. (`github.ref` would not collapse the pair, since it differs by
-# event, and the pull request number is null on `push`.)
+# One group per repository and branch, so a new push cancels the run it
+# supersedes and two forks' same-named branches don't cancel each other.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
@@ -48,32 +35,14 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
-          # uv caches wheels it builds itself, and a wheel built from a source
-          # distribution is tagged cp312-cp312-linux_x86_64 whichever Ubuntu built it -
-          # so without a per-image key, python-ldap built on 22.04 (OpenLDAP 2.5) is
-          # restored on 24.04 (OpenLDAP 2.6) and every import dies with
-          # "libldap-2.5.so.0: cannot open shared object file". mysqlclient has the same
-          # exposure. `matrix.os` covers the one job that spans images; `github.job`
-          # keeps every other job's cache to itself.
-          #
-          # Not covered: jobs on a moving alias (`ubuntu-latest`, `windows-latest`) get a
-          # constant suffix, so their cache survives an image change. Do NOT use
-          # `env.ImageOS` for this - the `env` context holds only variables declared in
-          # a workflow, job or step `env:` block, so it is empty and the key silently
-          # stops varying.
+          # Wheels uv builds (python-ldap, mysqlclient) link the image's
+          # libraries but are tagged the same on every Ubuntu, so the cache is
+          # keyed per image. (`env.ImageOS` is empty here; don't use it.)
           cache-suffix: ${{ matrix.os || github.job }}
       - name: Setup Database configuration
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
-      # A lint job needs OpenLDAP headers, which looks absurd until you follow
-      # the chain: the `django-check` hook in .pre-commit-config.yaml is
-      # `entry: uv run python manage.py check`, and `uv run` syncs the project
-      # environment - including the `dev` group, which carries python-ldap.
-      # python-ldap publishes no manylinux wheel, so it is compiled here, and
-      # without these two the build stops at `fatal error: lber.h`.
-      #
-      # Every job on this workflow that resolves the project's dependencies on
-      # Linux needs them for the same reason. If a new one is added, it needs
-      # this step too.
+      # The django-check hook runs `uv run`, which syncs the dev group and so
+      # compiles python-ldap. Any Linux job that syncs needs this step.
       - name: Install LDAP build dependencies
         run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
       - name: Run pre-commit
@@ -191,11 +160,7 @@ jobs:
           cache-suffix: ${{ matrix.os || github.job }}
           python-version: ${{ matrix.python-version }}
 
-      # python-ldap is in the `dev` dependency group, which every `uv sync`
-      # below installs, so the Active Directory tests run on every row rather
-      # than on one. It publishes no manylinux wheel and is compiled during the
-      # sync, so these headers have to be present first on every row - the same
-      # two the `requirements` job installs.
+      # python-ldap (dev group) is compiled during the sync.
       - name: Install LDAP build dependencies
         run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
 
@@ -1611,15 +1576,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        # The three Active Directory sign-in tests in
-        # qatrack/accounts/tests/test_selenium.py drive the real login form and
-        # need python-ldap, which arrives with the `dev` group. It is compiled
-        # from source here, so its headers are installed first.
-        #
-        # The Windows Selenium job needs nothing equivalent: [tool.uv.sources]
-        # pins a prebuilt wheel for win32 on Python 3.12, and the
-        # `windows-tests` mssql row has been installing it that way for as long
-        # as the `mssql` extra has carried python-ldap.
+        # python-ldap (dev group) is compiled here; Windows uses a pinned wheel.
         run: |
           sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
           uv sync --locked

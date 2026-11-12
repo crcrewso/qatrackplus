@@ -174,19 +174,10 @@ class TestLiveServerBehaviour(live.StaticLiveServerSingleThreadedTestCase):
     def test_an_idle_connection_does_not_hold_up_other_requests(self):
         """Browsers open connections before they use them; one sending nothing must not block the server.
 
-        Measured against a control in the same run rather than as an absolute
-        duration. The absolute form - `took < 2` - measured the runner as much
-        as the server: on a loaded windows-latest the same fetch took 3.2 s and
-        then 3.3 s on two consecutive runs with nothing blocked at all, so the
-        bound failed every time and `Windows Tests (mssql)` was permanently red.
-        Raising the number would only move it, because a bound loose enough
-        never to flake on shared infrastructure is looser than the stall it is
-        supposed to catch - `slow_view` sleeps 0.2 s, and 2 s was already ten
-        times that.
+        Timed against a control fetch in the same run, because a loaded CI
+        runner is slower than any fixed bound.
         """
-        # Warm up and discard: the first request pays for whatever the server
-        # and the client set up once, and counting that in the control would
-        # inflate the allowance and hide a real stall.
+        # Warm-up, discarded so one-off setup doesn't inflate the control.
         body, _ = self.timed_fetch()
         assert body == b'ok'
 
@@ -199,14 +190,8 @@ class TestLiveServerBehaviour(live.StaticLiveServerSingleThreadedTestCase):
         finally:
             idle.close()
 
-        # The primary guard is that this completed at all. A server that served
-        # the idle connection first would sit in readline() with nothing to
-        # read - socketserver sets no socket timeout - so the fetch would have
-        # raised rather than returned slowly, and `body` would never be reached.
+        # A server blocked on the idle socket never returns (no socket timeout).
         assert body == b'ok', 'the request behind an idle connection did not complete'
-
-        # The secondary guard is a *difference*, so the machine's cost per
-        # request cancels: whatever it charges, it charges in both measurements.
         assert with_idle < baseline + 2, (
             'a request waited %.1f s behind a connection that sent nothing, against %.1f s '
             'for the same request with nothing connected' % (with_idle, baseline)

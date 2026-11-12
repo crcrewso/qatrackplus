@@ -189,24 +189,15 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
         ``uv pip install python-ldap 'django-auth-ldap<4.9'`` after the sync -
         and a package installed that way is removed by the next ``uv sync``.
 
-    **Without it, nobody can sign in at all** - not just directory users. The
-    import error is swallowed where the backend imports it, so the backend
-    loads and the site starts; but Django builds every backend in
-    ``AUTHENTICATION_BACKENDS`` before any of them authenticates, and building
-    the Active Directory one touches the missing module. Every sign-in attempt
-    then raises from inside the login view and the page returns a server error,
-    whatever order the backends are in and whoever is signing in - a local
-    account does not get you in, because it never gets its turn.
-
-    **QATrack+ does not warn you about this.** Nothing in the upgrade reports
-    a missing ``python-ldap``, so confirm it yourself after the sync:
+    **Without it, nobody can sign in at all**, local accounts included, and
+    nothing warns you. Check before restarting:
 
     .. code-block:: bash
 
         python -c "import ldap; print(ldap.__version__)"
 
-    If that raises ``ModuleNotFoundError``, directory sign-in will be broken
-    when the site comes back up.
+    If that raises ``ModuleNotFoundError``, install it before restarting -
+    :ref:`auth_check_package` explains why.
 
 
 

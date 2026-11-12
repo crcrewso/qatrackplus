@@ -2282,7 +2282,6 @@ win = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "django-auth-ldap" },
     { name = "django-coverage" },
     { name = "django-debug-toolbar" },
     { name = "django-upgrade" },
@@ -2383,7 +2382,6 @@ provides-extras = ["mysql", "mssql", "postgres", "win", "docker", "ldap", "trans
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=6.0,<8.0" },
-    { name = "django-auth-ldap", specifier = "<4.9" },
     { name = "django-coverage", specifier = ">=1.2.4,<2.0" },
     { name = "django-debug-toolbar", specifier = ">=4.0,<5.0" },
     { name = "django-upgrade", specifier = ">=1.25.0" },

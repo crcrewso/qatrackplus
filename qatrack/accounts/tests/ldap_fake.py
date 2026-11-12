@@ -1,35 +1,16 @@
 """A stand-in directory, so the Active Directory sign-in path can be driven.
 
-``ActiveDirectoryGroupMembershipSSLBackend`` has never been exercised beyond
-``clean_username()``. What has never run at all is the whole path: bind, user
-lookup, the qualifying-group check, and the QATrack+ account and groups that
-come out the other end. That path decides whether somebody can sign in and
-what they can see once they have, and it is configured by eleven ``AD_*``
-settings that nothing checks.
+It runs in the test's own process, so it also works under the Selenium harness,
+whose live server is a thread of that process.
 
-**Why a fake and not a server.** A dockerised directory is a separate piece of
-work, and the two are complements rather than alternatives: a fake proves our
-code's logic, a real server proves our assumptions about a directory. The fake
-runs anywhere, in the test's own process, with no service to start - which is
-also what lets it work under the Selenium harness, where the live server runs
-in a thread of that same process and a patch applied from the test method
-reaches the backend.
+**python-ldap has to be installed; only its calls are replaced**, because
+``backends.py`` reads real constants and exception classes from the module. The
+dev group provides it; see ``docs/developer/guide.rst`` for the system packages
+it needs on Linux.
 
-**python-ldap has to be installed; only its calls are replaced.** Mocking the
-connection is not enough, because ``backends.py`` reads ``ldap.SCOPE_SUBTREE``,
-``ldap.OPT_REFERRALS``, ``ldap.OPT_X_TLS_CACERTFILE``,
-``ldap.INVALID_CREDENTIALS`` and ``ldap.SERVER_DOWN`` from the module - so the
-module must exist, with its real constants and its real exception classes. The
-alternative, injecting a fake ``ldap`` into ``sys.modules``, would have meant
-this file encoding assumptions about python-ldap's API that nothing verifies,
-which is the one failure a fake directory is prone to. Tests using this
-therefore import ``ldap`` directly, which the `dev` dependency group provides;
-see ``docs/developer/guide.rst`` for the system packages it needs on Linux.
-
-**What this does not prove.** That our LDAP calls are the right calls. The fake
-answers ``simple_bind_s`` and ``search_ext_s`` the way we believe a directory
-answers them; if that belief is wrong, these tests pass and a real sign-in
-still fails. Only a real directory can close that gap.
+**What this does not prove**: that our LDAP calls are the right calls. It
+answers ``simple_bind_s``, ``bind_s`` and ``search_ext_s`` the way we believe a
+directory does; only a real directory can check that belief.
 """
 
 from unittest import mock

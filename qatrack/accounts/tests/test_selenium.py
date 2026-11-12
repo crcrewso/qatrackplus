@@ -1,25 +1,12 @@
 """The Active Directory sign-in path, through the real login form.
 
-The fast half of this coverage is in ``test_ldap_backend.py``, and nearly
-everything is asserted there, because a browser case costs about a hundred
-times as much. These tests are the part only a browser can show: that
-somebody typing a directory password into the login page ends up on a page
-that is theirs, and that somebody the directory authenticates but QATrack+
-refuses is told so on the form rather than silently admitted.
+Only what a browser can show: a directory user lands on a page that is theirs,
+and one the directory accepts but QATrack+ refuses is told so on the form. The
+rest is in ``test_ldap_backend.py``.
 
-That distinction is the whole reason this file exists. ``backends.py`` drops a
-user who binds successfully but belongs to no qualifying group, and what a
-signed-in user can then see depends on the AD-group-to-QATrack+-group mapping -
-so a test on ``authenticate()`` alone cannot show the page they land on.
-
-**These tests deliberately drive the form.** The rest of the Selenium suite
-authenticates by session with ``login()``, on purpose: typing a password brings
-the browser's own credential dialogs into play, which WebDriver cannot see. The
-login page is what these tests are *for*, so they are the exception, along with
-``TestLoginPage`` in ``qatrack/qa/tests/test_selenium.py``. Anything that makes
-the suite faster by not typing passwords should leave these alone.
-
-See ``ldap_fake.py`` for what the stand-in directory does and does not prove.
+These tests type passwords on purpose, unlike the rest of the Selenium suite,
+which signs in by session with ``login()``. See ``ldap_fake.py`` for what the
+stand-in directory does and does not prove.
 """
 
 # As in test_ldap_backend.py: python-ldap comes from the `dev` group and is
@@ -40,11 +27,7 @@ from qatrack.qa.tests.test_selenium import BaseQATests
 
 @pytest.mark.selenium
 @override_settings(
-    # The AD backend is commented out of the shipped AUTHENTICATION_BACKENDS,
-    # so a site that has not configured it is unaffected by any of this. Here
-    # it is the only backend, which also means the local account that
-    # BaseQATests.setUp creates cannot sign in - correct for these tests, and
-    # the reason they never use login().
+    # The only backend, so BaseQATests' local account cannot sign in.
     AUTHENTICATION_BACKENDS=["qatrack.accounts.backends.ActiveDirectoryGroupMembershipSSLBackend"],
     AD_NT4_DOMAIN="EXAMPLE",
     AD_SEARCH_DN="DC=example,DC=com",
