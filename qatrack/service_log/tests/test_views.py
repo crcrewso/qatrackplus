@@ -608,6 +608,43 @@ class TestCreateServiceEvent(TestCase):
             "got %r, expected %r" % (got, expected)
         )
 
+    def test_initial_rts_forms_put_test_lists_before_cycles_and_skip_inactive(self):
+        """Both querysets are ordered, test lists come first, and an inactive
+        assignment is left out.
+
+        The test above uses test lists only, so it cannot see the cycle half
+        of the ordering or the order the two halves are joined in. Names are
+        inserted out of order within each half, and the inactive test list
+        sorts first, so each of those three things fails differently.
+        """
+        group = create_group()
+        schedule = sl_utils.create_service_event_schedule()
+        schedule.visible_to.add(group)
+        self.user.groups.add(group)
+        unit = schedule.unit_service_area.unit
+        template = schedule.service_event_template
+
+        for name in ("zulu", "alpha"):
+            tl = qa_utils.create_test_list(name=name)
+            qa_utils.create_unit_test_collection(unit=unit, assigned_to=group, test_collection=tl)
+            template.return_to_service_test_lists.add(tl)
+        for name in ("yankee", "bravo"):
+            cycle = qa_utils.create_cycle(test_lists=[qa_utils.create_test_list()], name=name)
+            qa_utils.create_unit_test_collection(unit=unit, assigned_to=group, test_collection=cycle)
+            template.return_to_service_cycles.add(cycle)
+        inactive = qa_utils.create_test_list(name="aardvark")
+        qa_utils.create_unit_test_collection(unit=unit, assigned_to=group, test_collection=inactive, active=False)
+        template.return_to_service_test_lists.add(inactive)
+
+        view = views.ServiceEventUpdateCreate()
+        view.user = self.user
+        view.object = None
+        view.request = mock.Mock(user=self.user, GET={'se_schedule': schedule.pk})
+        formset = view.get_context_data()['rtsqa_formset']
+
+        got = [f.initial['unit_test_collection'].name for f in formset if 'unit_test_collection' in f.initial]
+        assert got == ["alpha", "zulu", "bravo", "yankee"], got
+
 
 class TestEditServiceEvent(TestCase):
 

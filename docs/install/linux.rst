@@ -195,7 +195,12 @@ this deployment. Install them as follows:
 
 .. code-block:: bash
 
-    sudo apt install make build-essential python3-dev python3-tk curl
+    sudo apt install make build-essential python3-dev python3-tk curl libldap2-dev libsasl2-dev
+
+``libldap2-dev`` and ``libsasl2-dev`` are the OpenLDAP build headers. You need
+them for Active Directory sign-in, and from 4.1 also to run the test suite,
+because the test tooling then compiles ``python-ldap`` whatever your users
+sign in with.
 
 You will also need the Chrome browser installed for generating PDF reports:
 
@@ -476,15 +481,9 @@ again once you are done testing.
     against an on-premises Active Directory or another LDAP directory, add the
     ``ldap`` extra to the command above.
 
-    It is compiled from source on Linux, so install its build headers
-    **first** - ``build-essential`` and ``python3-dev`` are already installed
-    above, these two are not:
-
-    .. code-block:: bash
-
-        sudo apt install libldap2-dev libsasl2-dev
-
-    Then add the extra to the sync, keeping ``--no-dev``:
+    It is compiled from source on Linux; the build headers it needs were
+    installed with the system packages above. Add the extra to the sync,
+    keeping ``--no-dev``:
 
     .. code-block:: bash
 
@@ -543,7 +542,7 @@ the browser tests: on the 4.0 line ``make test_simple`` runs pytest with the
 Selenium tests excluded, so they are never collected. Of the **skips**, one says *this
 installation is not using a database cache*, which is true of any site that has
 not changed ``CACHES``; the rest need an optional dependency a standard install
-does not have - the Active Directory tests skip without ``python-ldap``. Add
+does not have - on 4.0 the Active Directory tests skip without ``python-ldap``. Add
 ``-rs`` to the command if you want pytest to print the reason for each one.
 
 

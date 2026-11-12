@@ -235,8 +235,10 @@ class ActiveDirectoryGroupMembershipSSLBackend:
 def _decoded(value):
     """An LDAP attribute value as text.
 
-    python-ldap hands back bytes. `None` is passed through so a missing
-    attribute stays falsy and the `or user.email` style guards keep working.
+    python-ldap hands back bytes. Anything else, `None` included, is returned
+    unchanged, so a missing attribute behaves exactly as it did before this
+    helper existed. `errors='replace'` because one undecodable byte in a name
+    should not refuse the sign-in.
     """
     if isinstance(value, bytes):
         return value.decode('utf-8', errors='replace')

@@ -307,6 +307,41 @@ class TestGroupMembership(ADTestCase):
         assert names == ["Physics", "Users"]
 
 
+class TestReturningUser(ADTestCase):
+    """A second sign-in, which every other test here leaves out.
+
+    The tests above sign a *new* account in, so they cannot tell whether a
+    returning user's profile is read from the directory again - and it is:
+    ``get_or_create_user()`` calls ``update_user_attributes()`` for an existing
+    account too. Values are read back from the database rather than from the
+    returned object, so a lost ``save()`` would show.
+    """
+
+    def test_a_changed_directory_profile_reaches_the_account(self):
+        self.attempt("jdoe", "s3cret")
+        self.jdoe.email = "jane.doe@example.com"
+        self.jdoe.given_name = "Janet"
+        self.jdoe.surname = "Doe-Smith"
+        self.attempt("jdoe", "s3cret")
+
+        stored = User.objects.get(username="jdoe")
+        assert (stored.email, stored.first_name, stored.last_name) == (
+            "jane.doe@example.com", "Janet", "Doe-Smith"
+        )
+
+    def test_a_blank_directory_value_keeps_what_is_stored(self):
+        """Only a non-empty directory value overwrites the account.
+
+        So clearing someone's ``mail`` in the directory leaves QATrack+ with
+        the old address. Asserted as the behaviour it is.
+        """
+        self.attempt("jdoe", "s3cret")
+        self.jdoe.email = ""
+        self.attempt("jdoe", "s3cret")
+
+        assert User.objects.get(username="jdoe").email == "jdoe@example.com"
+
+
 class TestTLSOptions(ADTestCase):
     """The options set on the ``ldap`` module itself, before any connection.
 
@@ -408,6 +443,18 @@ class TestTheLocalSideDoor(ADTestCase):
     def test_the_backends_are_both_configured(self):
         """The fixture itself, asserted - every test below depends on it."""
         assert django_settings.AUTHENTICATION_BACKENDS == BOTH_BACKENDS
+
+    def test_a_local_sign_in_joins_the_default_groups(self):
+        """``QATrackAccountBackend`` applies default groups on every sign-in,
+        as the directory backend does, so a local account is not left out of a
+        group every user is meant to have."""
+        everybody = Group.objects.create(name="Everybody")
+        models.DefaultGroup.objects.create(group=everybody)
+
+        user, _ = self.sign_in("local-op", "localpw")
+
+        assert user is not None and user.username == "local-op"
+        assert list(User.objects.get(username="local-op").groups.all()) == [everybody]
 
     def test_a_local_superuser_signs_in_with_ad_configured(self):
         user, _ = self.sign_in('local-admin', 'localpw')
@@ -582,6 +629,10 @@ class TestWindowsIntegratedAuthentication(TestCase):
         assert user.email == "jdoe@example.com"
         assert user.first_name == "Jane"
         assert user.last_name == "Doe"
+
+    def test_the_service_account_connection_is_unbound(self):
+        _, directory = self.attempt("jdoe")
+        assert directory.connection.unbound, "the lookup left the service-account connection open"
 
     def test_the_profile_is_text_not_bytes(self):
         """LDAP returns bytes, and this path used to store them undecoded.

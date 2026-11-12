@@ -117,22 +117,18 @@ Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``
      an interpreter for you -- so this is an extra prerequisite rather than
      a substitution. Check it with ``python --version`` before creating the
      virtual environment.
-   * **If you authenticate against an on-premises Active Directory**, install
-     ``python-ldap`` yourself first. The ``mssql`` extra above requires it, but
-     the prebuilt Windows wheel is pinned in ``[tool.uv.sources]``, which only
-     ``uv`` reads. ``pip`` sees only the source distribution on PyPI and will
-     try to build it, which needs a C compiler and the OpenLDAP headers.
-     Download ``python_ldap-3.4.5-cp312-cp312-win_amd64.whl`` from
+   * **Install the** ``python-ldap`` **wheel first, however your users sign
+     in.** The ``mssql`` extra above requires ``python-ldap``, but the prebuilt
+     Windows wheel is pinned in ``[tool.uv.sources]``, which only ``uv``
+     reads. ``pip`` sees only the source distribution on PyPI and will try to
+     build it, which needs a C compiler and the OpenLDAP headers. Download
+     ``python_ldap-3.4.5-cp312-cp312-win_amd64.whl`` from
      https://github.com/cgohlke/python-ldap-build and install it with the
      virtual environment activated, before the command above:
 
      .. code-block:: console
 
         >>  pip install C:\path\to\python_ldap-3.4.5-cp312-cp312-win_amd64.whl
-
-     If your organization uses **Microsoft 365 / Entra ID** rather than an
-     on-premises domain controller, none of this applies: see
-     :ref:`auth_onprem_vs_cloud`.
 
    This is a minimally-supported fallback path. It resolves dependency
    versions at install time rather than from ``uv.lock``, so two sites

@@ -157,7 +157,7 @@ EMAIL_PORT = 587
 # its own keys at
 # https://django-auth-adfs.readthedocs.io/en/latest/settings_ref.html
 #
-# The AD/LDAP sign-in path is tested against a directory server; the Entra ID
-# path is not yet. Questions and corrections are welcome:
+# AD/LDAP sign-in has been tested against a Samba domain controller; the Entra
+# ID path has not yet. Questions and corrections are welcome:
 # https://github.com/qatrackplus/qatrackplus/issues
 # ------------------------------------------------------------------------------
