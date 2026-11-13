@@ -2,6 +2,10 @@
 
 Release notes are located at http://docs.qatrackplus.com/en/latest/release_notes.html
 
+## v4.1.0
+
+* **QA**: A new system check, `qatrack.W017`, warns when a calculation procedure draws with `matplotlib.pyplot`. All of a test list's composite tests are calculated in one request, and pyplot is cleared only after the last, so one procedure's plot can end up in another's saved image, on every deployment. The warning names the procedures and shows the `UTILS.get_figure()` replacement. It runs on `migrate` and `manage.py check --database default`, and never blocks an upgrade. The cause is not changed, because clearing pyplot between procedures would change existing sites' saved plots ([#904](https://github.com/qatrackplus/qatrackplus/pull/904)).
+
 ## v4.0.2
 
 * **QA**: The Test List admin shows each member test's name again, and the view and change icons beside it work ([#897](https://github.com/qatrackplus/qatrackplus/issues/897)).
