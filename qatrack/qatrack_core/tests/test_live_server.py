@@ -166,14 +166,33 @@ class TestLiveServerBehaviour(live.StaticLiveServerSingleThreadedTestCase):
         assert errors == [] and bodies == [b'ok'] * 5, errors
         assert _in_view['most'] == 1, '%d requests were inside a view at once' % _in_view['most']
 
+    def timed_fetch(self, timeout=20):
+        started = time.monotonic()
+        body = self.fetch(timeout=timeout)
+        return body, time.monotonic() - started
+
     def test_an_idle_connection_does_not_hold_up_other_requests(self):
-        """Browsers open connections before they use them; one sending nothing must not block the server."""
+        """Browsers open connections before they use them; one sending nothing must not block the server.
+
+        Timed against a control fetch in the same run, because a loaded CI
+        runner is slower than any fixed bound.
+        """
+        # Warm-up, discarded so one-off setup doesn't inflate the control.
+        body, _ = self.timed_fetch()
+        assert body == b'ok'
+
+        body, baseline = self.timed_fetch()
+        assert body == b'ok', 'the control fetch failed before the real measurement'
+
         idle = socket.create_connection(('127.0.0.1', self.server_thread.port))
         try:
-            started = time.monotonic()
-            body = self.fetch(timeout=10)
-            took = time.monotonic() - started
+            body, with_idle = self.timed_fetch()
         finally:
             idle.close()
-        assert body == b'ok'
-        assert took < 2, 'a request waited %.1f s behind a connection that sent nothing' % took
+
+        # A server blocked on the idle socket never returns (no socket timeout).
+        assert body == b'ok', 'the request behind an idle connection did not complete'
+        assert with_idle < baseline + 2, (
+            'a request waited %.1f s behind a connection that sent nothing, against %.1f s '
+            'for the same request with nothing connected' % (with_idle, baseline)
+        )

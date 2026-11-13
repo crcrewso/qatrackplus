@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # `push` only for long-lived branches, so a pull request's branch runs once.
+  # A branch with no pull request: use `workflow_dispatch`.
   push:
-    branches: [ "**" ]
+    branches: [ master, develop, "releases/**" ]
   pull_request:
     branches: [ "**" ]
   workflow_dispatch:
@@ -10,8 +12,12 @@ on:
 permissions:
   contents: read
 
+# One group per event, repository and branch, so a new push cancels the run it
+# supersedes and two forks' same-named branches don't cancel each other. The
+# event is in the group because a push to develop and a pull request from
+# develop would otherwise share one group and cancel each other.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -31,8 +37,17 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # Wheels uv builds (python-ldap, mysqlclient) link the image's
+          # libraries but are tagged the same on every Ubuntu, so the cache is
+          # keyed per image. (`env.ImageOS` is empty here; don't use it.)
+          cache-suffix: ${{ matrix.os || github.job }}
       - name: Setup Database configuration
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+      # The django-check hook runs `uv run`, which syncs the dev group and so
+      # compiles python-ldap. Any Linux job that syncs needs this step.
+      # python3-dev is already on GitHub's runners; act's images lack it.
+      - name: Install LDAP build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
       - name: Run pre-commit
         run: uvx pre-commit@4.6.0 run --all-files
 
@@ -44,12 +59,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Install system dependencies for python-ldap
-        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
           version: "0.12.5"
           enable-cache: true
+          # Per-image cache key: see the comment in the `lint` job.
+          cache-suffix: ${{ matrix.os || github.job }}
       - name: Sync dependencies
         run: uv sync --all-extras --locked
       - name: Check dependencies
@@ -142,7 +159,13 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # Per-image cache key: see the comment in the `lint` job.
+          cache-suffix: ${{ matrix.os || github.job }}
           python-version: ${{ matrix.python-version }}
+
+      # python-ldap (dev group) is compiled during the sync.
+      - name: Install LDAP build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
 
       - name: Install dependencies (Memory SQLite)
         if: matrix.db == 'memory'
@@ -254,6 +277,8 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # Per-image cache key: see the comment in the `lint` job.
+          cache-suffix: ${{ matrix.os || github.job }}
           python-version: "3.12"
           
       - name: Install dependencies (SQLite)
@@ -1549,10 +1574,15 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # Per-image cache key: see the comment in the `lint` job.
+          cache-suffix: ${{ matrix.os || github.job }}
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv sync --locked
+        # python-ldap (dev group) is compiled here; Windows uses a pinned wheel.
+        run: |
+          sudo apt-get update && sudo apt-get install -y libldap2-dev libsasl2-dev python3-dev
+          uv sync --locked
 
       - name: Activate virtual environment
         run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
@@ -1655,6 +1685,8 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
+          # Per-image cache key: see the comment in the `lint` job.
+          cache-suffix: ${{ matrix.os || github.job }}
           python-version: "3.12"
 
       - name: Install dependencies

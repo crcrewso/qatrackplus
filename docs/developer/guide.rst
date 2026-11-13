@@ -26,11 +26,24 @@ there are lots of steps involved which can be intimidating to newcomers
 or have questions about using git or contributing code then please post to the
 :mailinglist:`mailing list <>` so we can help you out!
 
+.. _dev_prerequisites:
+
 Prerequisites
 ~~~~~~~~~~~~~
 
 QATrack+ is developed using Python 3.12. We recommend using the latest stable
 version of Python 3.12 for the best development experience and compatibility.
+
+**On Linux, install these system packages before your first** ``uv sync``:
+
+.. code-block:: shell
+
+    sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev
+
+``python-ldap`` is in the ``dev`` dependency group and is **compiled during**
+``uv sync``; without ``libldap2-dev`` and ``libsasl2-dev`` the sync fails. On
+Windows a prebuilt wheel is pinned, so nothing is needed; on macOS use
+``brew install openldap``.
 
 Git
 ~~~
@@ -710,6 +723,34 @@ counted either way; it still works and now warns, and goes in 4.2.)
     that were already excluded. ``conftest.py`` warns when it sees it, and the
     expression will stop being special-cased in a later release. ``uv run
     pytest`` on its own is the replacement.
+
+.. _dev_ldap_tests:
+
+**The Active Directory sign-in tests**
+
+``python-ldap`` is in the ``dev`` dependency group, so a plain ``uv sync``
+installs it and **the Active Directory tests always run** (on Linux, after
+:ref:`dev_prerequisites`). Deployments sync ``--no-dev`` and name the ``ldap``
+extra instead; see :ref:`auth_backends`.
+
+They need no directory server: ``qatrack/accounts/tests/ldap_fake.py`` stands
+in for one, in the test's own process. The browser tests cover the sign-in form
+itself: an AD user landing on a page, a user in no qualifying group told so on
+the form, and a local account that still works when the directory is down.
+
+.. warning::
+
+    **These tests do not tell us that QATrack+ works against a real
+    directory**, and if you are changing authentication code you should know
+    the limits of what they can catch.
+
+    ``ldap_fake.py`` catches our own errors - a missing ``set_option``, a
+    group check that lets everyone through, a search for the wrong attributes -
+    but not a wrong assumption about Active Directory itself. No automated test
+    completes a real OAuth2 redirect either.
+
+    If you change ``qatrack/accounts/backends.py``, say in the pull request
+    which directory, if any, you tried it against.
 
 For more on pytest itself, see the `pytest documentation
 <https://pytest.org>`__.

@@ -562,6 +562,35 @@ class TestCreateServiceEvent(TestCase):
         assert formset[0].initial['unit_test_collection'] == utc1
         assert formset[1].initial['unit_test_collection'] == utc2
 
+    def test_initial_rts_forms_put_test_lists_before_cycles_and_skip_inactive(self):
+        group = create_group()
+        schedule = sl_utils.create_service_event_schedule()
+        schedule.visible_to.add(group)
+        self.user.groups.add(group)
+        unit = schedule.unit_service_area.unit
+        template = schedule.service_event_template
+
+        for name in ("yankee", "bravo"):
+            cycle = qa_utils.create_cycle(test_lists=[qa_utils.create_test_list()], name=name)
+            qa_utils.create_unit_test_collection(unit=unit, assigned_to=group, test_collection=cycle)
+            template.return_to_service_cycles.add(cycle)
+        for name in ("zulu", "alpha"):
+            tl = qa_utils.create_test_list(name=name)
+            qa_utils.create_unit_test_collection(unit=unit, assigned_to=group, test_collection=tl)
+            template.return_to_service_test_lists.add(tl)
+        inactive = qa_utils.create_test_list(name="aardvark")
+        qa_utils.create_unit_test_collection(unit=unit, assigned_to=group, test_collection=inactive, active=False)
+        template.return_to_service_test_lists.add(inactive)
+
+        view = views.ServiceEventUpdateCreate()
+        view.user = self.user
+        view.object = None
+        view.request = mock.Mock(user=self.user, GET={'se_schedule': schedule.pk})
+        formset = view.get_context_data()['rtsqa_formset']
+
+        got = [f.initial['unit_test_collection'].name for f in formset if 'unit_test_collection' in f.initial]
+        assert got == ["zulu", "alpha", "yankee", "bravo"], got
+
 
 class TestEditServiceEvent(TestCase):
 
