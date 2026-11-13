@@ -885,7 +885,7 @@ class DeleteServiceEvent(PermissionRequiredMixin, DeleteView, FormView):
         is not what this line was written to do.
         """
         messages.add_message(
-            self.request, messages.WARNING, f'Could not delete service event {form.instance.id}'
+            self.request, messages.WARNING, f'Could not delete service event {self.kwargs["pk"]}'
         )
         return HttpResponseRedirect(reverse('sl_dash'))
 

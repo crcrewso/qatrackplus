@@ -19,6 +19,8 @@ from qatrack.service_log.tests import utils as sl_utils
 class TestDeleteServiceEventWithAReasonTheFormRejects(TestCase):
 
     def setUp(self):
+        # The dashboard redirects to configuration without a default status, which would hide its messages.
+        sl_utils.create_service_event_status(is_default=True)
         self.service_event = sl_utils.create_service_event()
         user = User.objects.create_user('se-deleter', 'd@example.com', 'pw')
         user.user_permissions.add(
@@ -59,8 +61,9 @@ class TestDeleteServiceEventWithAReasonTheFormRejects(TestCase):
         """Otherwise a redirect to the dashboard looks like success."""
         response = self.client.post(self.url, {}, follow=True)
 
+        assert response.resolver_match.url_name == 'sl_dash'
         messages = [str(m) for m in response.context['messages']]
-        assert any('Could not delete service event' in m for m in messages), messages
+        assert f'Could not delete service event {self.service_event.pk}' in messages, messages
 
     def test_a_valid_reason_still_deletes(self):
         """The negative control: the tests above would pass on a broken view."""

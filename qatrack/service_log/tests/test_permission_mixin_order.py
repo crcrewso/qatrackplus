@@ -229,4 +229,14 @@ class TestDeleteServiceEventRefusesTheWrongUser(TestCase):
         if url is None:
             self.skipTest("could not resolve the delete URL by name")
         self.client.force_login(self.allowed)
-        assert self.client.get(url).status_code != 403
+        assert self.client.get(url).status_code == 200
+
+    def test_a_user_without_the_permission_cannot_delete_by_post(self):
+        """The request the fix is for: a valid delete, posted by someone not allowed to make it."""
+        url = self.resolve()
+        if url is None:
+            self.skipTest("could not resolve the delete URL by name")
+        self.client.force_login(self.plain)
+        assert self.client.post(url, {'reason': 'Duplicate', 'comment': ''}).status_code == 403
+        self.service_event.refresh_from_db()
+        assert self.service_event.is_active
