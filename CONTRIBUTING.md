@@ -97,6 +97,15 @@ copy-paste quickstart of the same sequence, and the *Developers Guide*
 fuller treatment — including Windows, the per-engine test settings, and the
 Selenium setup.
 
+**On Linux, install the build headers before your first `uv sync`:**
+
+```bash
+sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev
+```
+
+`python-ldap` is in the `dev` group and compiles from source on Linux; without
+these the sync stops at `fatal error: lber.h`. Windows needs nothing.
+
 1. **Fork & clone** the repository.
 2. Install dependencies with [uv](https://docs.astral.sh/uv/) (uv creates and
    manages the virtual environment for you — pip + a manually-activated venv

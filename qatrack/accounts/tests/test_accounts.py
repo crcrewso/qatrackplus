@@ -1,6 +1,5 @@
 from unittest import mock
 
-import pytest
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import PermissionDenied
 from django.test import TestCase
@@ -20,19 +19,16 @@ from qatrack.qa.tests import utils
 class TestCleanUsername:
 
     def test_no_clean(self):
-        ldap = pytest.importorskip("ldap")  # noqa:F841,F811
         backend = ADBack()
         assert backend.clean_username("foo") == "foo"
 
     @override_settings(AD_CLEAN_USERNAME=lambda x: x.lower())
     def test_clean(self):
-        ldap = pytest.importorskip("ldap")  # noqa:F841,F811
         backend = ADBack()
         assert backend.clean_username("Foo") == "foo"
 
     @override_settings(AD_CLEAN_USERNAME=None, AD_CLEAN_USERNAME_STRING="Foo/")
     def test_replace(self):
-        ldap = pytest.importorskip("ldap")  # noqa:F841,F811
         backend = ADBack()
         assert backend.clean_username("Foo/bar") == "bar"
 
@@ -185,3 +181,85 @@ class TestADFSCreateUser(TestCase):
         # QATrack+ overrides authenticate to swallow PermissionDenied -> None
         with mock.patch.object(AdfsAuthCodeBackend, "authenticate", side_effect=PermissionDenied):
             assert self.backend.authenticate(authorization_code="x") is None
+
+
+class TestADFSLibraryCallPath(TestCase):
+    """The AD FS / Entra backend driven the way django-auth-adfs drives it.
+
+    The library works out the user's groups first (``process_user_groups``, a
+    *list* of names, from the token or from Microsoft Graph), then calls
+    ``create_user(claims)`` and ``update_user_groups(user, groups)``. The tests
+    above call ``update_user_groups`` with the claims *dict*, which the library
+    never passes, so they could not see that group mapping never ran on a real
+    sign-in (B258). These go through ``process_access_token``, with only the
+    token validation replaced.
+    """
+
+    def setUp(self):
+        from django_auth_adfs.config import settings as adfs_settings
+        adfs_settings.MIRROR_GROUPS = False
+        self.physics = Group.objects.create(name="Physics")
+        self.ad_map = models.ActiveDirectoryGroupMap.objects.create(ad_group="QA Physics AD")
+        self.ad_map.groups.add(self.physics)
+        self.backend = QATrackAdfsAuthCodeBackend()
+
+    def claims(self, **over):
+        c = {
+            "winaccountname": "jdoe",
+            "given_name": "Jane", "family_name": "Doe",
+            "email": "jdoe@example.com",
+            "group": ["QA Physics AD"],
+        }
+        c.update(over)
+        return c
+
+    def sign_in(self, claims):
+        with mock.patch.object(self.backend, "validate_access_token", return_value=claims):
+            return self.backend.process_access_token("an-access-token")
+
+    def make_qualifier(self):
+        self.ad_map.account_qualifier = True
+        self.ad_map.save()
+
+    def test_a_mapped_ad_group_reaches_the_user(self):
+        user = self.sign_in(self.claims())
+        assert list(user.groups.all()) == [self.physics]
+
+    def test_a_single_group_sent_as_a_string_is_one_group(self):
+        """AD FS sends a one-group claim as a string, not a one-item list."""
+        user = self.sign_in(self.claims(group="QA Physics AD"))
+        assert list(user.groups.all()) == [self.physics]
+
+    def test_a_qualifying_group_sent_as_a_string_admits_the_user(self):
+        """It used to become a set of its characters, so nobody qualified."""
+        self.make_qualifier()
+        user = self.sign_in(self.claims(group="QA Physics AD"))
+        assert user.username == "jdoe"
+
+    def test_no_groups_claim_with_qualifying_groups_is_refused_not_an_error(self):
+        """A token with no groups claim used to raise KeyError, a server error."""
+        self.make_qualifier()
+        claims = self.claims()
+        del claims["group"]
+        with self.assertRaises(PermissionDenied):
+            self.sign_in(claims)
+        assert not User.objects.filter(username="jdoe").exists()
+
+    def test_entra_groups_fetched_from_graph_qualify_and_map(self):
+        """Entra leaves the groups out of a token for a user in many groups.
+
+        The library then fetches them from Microsoft Graph. The qualifying
+        check has to use those, not the token, which has no groups claim.
+        """
+        from django_auth_adfs.config import settings as adfs_settings
+        self.make_qualifier()
+        claims = self.claims(_claim_names={"group": "src1"})
+        del claims["group"]
+        with mock.patch.object(adfs_settings, "TENANT_ID", "an-entra-tenant"), \
+                mock.patch.object(self.backend, "get_obo_access_token", return_value="obo"), \
+                mock.patch.object(
+                    self.backend, "get_group_memberships_from_ms_graph", return_value=["QA Physics AD"],
+                ):
+            user = self.sign_in(claims)
+        assert user.username == "jdoe"
+        assert list(user.groups.all()) == [self.physics]

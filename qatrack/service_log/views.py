@@ -339,20 +339,22 @@ class ServiceEventUpdateCreate(
                     template = self.se_schedule.service_event_template
 
                     # get initial RTS form data based on RTS UTC's associated with the template
+                    # Ordered by pk, the order the assignments were made, so
+                    # every database lists them the same way.
                     tl_ct = ContentType.objects.get_for_model(qa_models.TestList)
                     tl_utcs = qa_models.UnitTestCollection.objects.filter(
                         unit=unit_field_value,
                         content_type=tl_ct,
                         object_id__in=template.return_to_service_test_lists.values_list("pk", flat=True),
                         active=True,
-                    )
+                    ).order_by("pk")
                     tlc_ct = ContentType.objects.get_for_model(qa_models.TestListCycle)
                     tlc_utcs = qa_models.UnitTestCollection.objects.filter(
                         unit=unit_field_value,
                         content_type=tlc_ct,
                         object_id__in=template.return_to_service_cycles.values_list("pk", flat=True),
                         active=True,
-                    )
+                    ).order_by("pk")
                     initial_rts_utcs = [{'unit_test_collection': rts_utc} for rts_utc in list(tl_utcs) + list(tlc_utcs)]
             except ObjectDoesNotExist:
                 pass

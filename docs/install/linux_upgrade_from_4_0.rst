@@ -81,6 +81,55 @@ Update the Python environment. Use the extra that matches your database:
         cd ~/web/qatrackplus
         uv sync --extra mysql
 
+.. dropdown:: For Active Directory / LDAP authentication
+    :color: warning
+
+    **If this site authenticates against Active Directory or another LDAP
+    directory, add the ldap extra to the command above.**
+
+    ``python-ldap`` is compiled from source on Linux, so install its build
+    headers **first** - the sync fails partway through without them:
+
+    .. code-block:: bash
+
+        sudo apt install libldap2-dev libsasl2-dev
+
+    Then run the sync with the extra added:
+
+    .. code-block:: bash
+
+        cd ~/web/qatrackplus
+        uv sync --extra postgres --extra ldap
+
+    On a MySQL site, use ``--extra mysql`` in place of ``--extra postgres``: the
+    sync removes any database driver it is not told to keep.
+
+    .. note::
+
+        The ``ldap`` extra arrived in **4.0.2**. You have it because this page
+        upgrades the ``releases/4.0`` *branch*, which carries the whole 4.0
+        series. If the installation was deliberately pinned to the ``v4.0.0``
+        or ``v4.0.1`` tag, ``uv`` stops with *"Extra `ldap` is not defined"*;
+        there the routes are the ``mssql`` extra, which has always carried
+        ``python-ldap``, or
+        ``uv pip install python-ldap 'django-auth-ldap<4.9'`` after the sync -
+        and a package installed that way is removed by the next ``uv sync``.
+
+    ``uv sync`` is exact: it installs what the command names and uninstalls
+    everything else. Neither the ``postgres`` nor the ``mysql`` extra carries
+    ``python-ldap``, and nothing about Active Directory requires SQL Server, so
+    running the sync without ``--extra ldap`` **removes it**.
+
+    **Without it, nobody can sign in at all**, local accounts included, and
+    nothing warns you. Check before restarting:
+
+    .. code-block:: bash
+
+        python -c "import ldap; print(ldap.__version__)"
+
+    If that raises ``ModuleNotFoundError``, install it before restarting -
+    :ref:`auth_check_package` explains why.
+
 Check the installation before touching the database. This validates your settings
 against the new code and is the cheapest way to catch a problem while the services are
 still stopped:

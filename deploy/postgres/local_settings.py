@@ -138,3 +138,19 @@ EMAIL_PORT = 587
 #
 # See "Date and Time Format Settings" in docs/install/config.rst.
 # ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# Authentication
+#
+# Local accounts by default. For Active Directory / LDAP, uncomment a backend in
+# AUTHENTICATION_BACKENDS and set the AD_* settings (both in qatrack/settings.py;
+# copy what you change into this file). For AD FS or Entra ID, set AUTH_ADFS.
+# Keep QATrackAccountBackend in the list so a local account can still sign in.
+#
+# See "Authentication Backends" in the installation docs, and
+# https://docs.djangoproject.com/en/4.2/ref/settings/#authentication-backends
+# https://django-auth-adfs.readthedocs.io/en/stable/settings_ref.html
+# AD/LDAP is tested against a stand-in directory, and was checked once against
+# a Samba domain controller (not Windows AD). AD FS / Entra ID sign-in is not.
+# ------------------------------------------------------------------------------

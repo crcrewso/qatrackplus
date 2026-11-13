@@ -195,7 +195,12 @@ this deployment. Install them as follows:
 
 .. code-block:: bash
 
-    sudo apt install make build-essential python3-dev python3-tk curl
+    sudo apt install make build-essential python3-dev python3-tk curl libldap2-dev libsasl2-dev
+
+``libldap2-dev`` and ``libsasl2-dev`` are the OpenLDAP build headers. You need
+them for Active Directory sign-in, and from 4.1 also to run the test suite,
+because the test tooling then compiles ``python-ldap`` whatever your users
+sign in with.
 
 You will also need the Chrome browser installed for generating PDF reports:
 
@@ -448,7 +453,7 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
     uv sync --extra postgres --no-dev
 
 ``--no-dev`` keeps the test and documentation tooling out of a deployment.
-Without it ``uv`` installs the ``dev`` dependency group as well - around 220
+Without it ``uv`` installs the ``dev`` dependency group as well - around 200
 packages including pytest, selenium, sphinx and **django-debug-toolbar** - none
 of which a server needs in order to run QATrack+. Leave it off only if you
 intend to run the test suite on this machine; see :ref:`linux_upgrade_from_4_0_1`.
@@ -468,6 +473,43 @@ again once you are done testing.
 
         cd ~/web/qatrackplus
         uv sync --extra mysql --no-dev
+
+.. dropdown:: For Active Directory / LDAP authentication: Install Requirements
+    :color: warning
+
+    ``python-ldap`` is not installed by default. If you intend to authenticate
+    against an on-premises Active Directory or another LDAP directory, add the
+    ``ldap`` extra to the command above.
+
+    It is compiled from source on Linux; the build headers it needs were
+    installed with the system packages above. Add the extra to the sync,
+    keeping ``--no-dev``:
+
+    .. code-block:: bash
+
+        cd ~/web/qatrackplus
+        uv sync --extra postgres --extra ldap --no-dev
+
+    On a MySQL site, use ``--extra mysql`` in place of ``--extra postgres``: the
+    sync removes any database driver it is not told to keep.
+
+    **Once an LDAP backend is configured, without the package nobody can sign
+    in at all**, local accounts included, and nothing warns you. Check before restarting:
+
+    .. code-block:: bash
+
+        python -c "import ldap; print(ldap.__version__)"
+
+    If that raises ``ModuleNotFoundError``, install it before restarting -
+    :ref:`auth_check_package` explains why.
+
+    .. note::
+
+        If your organization uses **Microsoft 365 / Entra ID** rather than an
+        on-premises domain controller, these backends will not work at all -
+        Entra ID does not answer LDAP binds - and you do not need this extra.
+        See :ref:`auth_onprem_vs_cloud`.
+
 
 
 Making sure everything is working up to this point
@@ -492,10 +534,13 @@ treat the exact numbers as a target** - they move with every release, and the
 count differs by platform and by which optional dependencies you installed. What
 matters is that nothing *failed*.
 
-The skips are expected on a standard install. Three of them are the Active Directory
-tests, which need the optional ``python-ldap`` package; a fourth says *this
-installation is not using a database cache*, which is true of a site that has not
-changed ``CACHES``, and is not a problem.
+Both numbers are expected on a standard install. The **deselected** ones are
+the browser tests: on the 4.0 line ``make test_simple`` runs pytest with the
+Selenium tests excluded, so they are never collected. Of the **skips**, one says *this
+installation is not using a database cache*, which is true of any site that has
+not changed ``CACHES``; the rest need an optional dependency a standard install
+does not have - on 4.0 the Active Directory tests skip without ``python-ldap``. Add
+``-rs`` to the command if you want pytest to print the reason for each one.
 
 
 Configuration of QATrack+
