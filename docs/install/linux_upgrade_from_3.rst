@@ -178,6 +178,9 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
 
         uv sync --extra postgres --extra ldap
 
+    On a MySQL site, use ``--extra mysql`` in place of ``--extra postgres``: the
+    sync removes any database driver it is not told to keep.
+
     .. note::
 
         The ``ldap`` extra arrived in **4.0.2**, and you have it because the

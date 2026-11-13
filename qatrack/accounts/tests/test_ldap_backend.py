@@ -192,6 +192,16 @@ class TestUsernameCleaning(ADTestCase):
         assert filterstr == "sAMAccountName=jdoe"
         assert "memberOf" in attrlist
 
+    def test_filter_characters_in_the_username_are_escaped_in_the_search(self):
+        """B259: the username is escaped, so it cannot change the filter.
+
+        ``*`` unescaped is a wildcard: the search would match other accounts.
+        The bind succeeds here, so the search is the one that is reached.
+        """
+        star = FakeUser("j*", "s3cret")
+        _, directory = self.attempt("j*", "s3cret", users=[star])
+        assert directory.connection.searches[0][2] == r"sAMAccountName=j\2a"
+
 
 class TestQualifyingGroups(ADTestCase):
     """Who may sign in at all.
@@ -647,6 +657,25 @@ class TestWindowsIntegratedAuthentication(TestCase):
         base, _scope, filterstr, _attrs = directory.connection.searches[0]
         assert base == "DC=example,DC=com"
         assert filterstr == "%s=jdoe" % django_settings.AD_LU_ACCOUNT_NAME
+
+    def test_filter_characters_in_the_username_are_escaped_in_the_search(self):
+        """B259: the web server's username is escaped before it reaches the filter."""
+        _, directory = self.attempt("j*)(cn=*")
+        _base, _scope, filterstr, _attrs = directory.connection.searches[0]
+        assert filterstr == r"%s=j\2a\29\28cn=\2a" % django_settings.AD_LU_ACCOUNT_NAME
+
+    def test_a_directory_user_with_no_mail_or_names_gets_an_account(self):
+        """B253: a real directory leaves out attributes a user does not have.
+
+        Service accounts and users without a mailbox are the usual cases. A
+        missing attribute used to be stored as None, and the save raised a
+        NOT NULL error: a server error, and an account with no profile.
+        """
+        bare = FakeUser("svc-scanner", "irrelevant", email=None, surname=None, given_name=None)
+        user, _ = self.attempt("svc-scanner", users=[bare, self.service])
+
+        assert user is not None, "a directory user with no mail was refused"
+        assert (user.email, user.first_name, user.last_name) == ("", "", "")
 
     # --- an existing account does not touch the directory -------------------
 

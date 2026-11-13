@@ -157,6 +157,9 @@ on this machine, as described at the end of this page.
         cd ~/web/qatrackplus
         uv sync --extra postgres --extra ldap --no-dev
 
+    On a MySQL site, use ``--extra mysql`` in place of ``--extra postgres``: the
+    sync removes any database driver it is not told to keep.
+
     ``uv sync`` is exact: it installs what the command names and uninstalls
     everything else. Neither the ``postgres`` nor the ``mysql`` extra carries
     ``python-ldap``, and nothing about Active Directory requires SQL Server, so

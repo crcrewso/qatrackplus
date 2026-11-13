@@ -12,10 +12,12 @@ on:
 permissions:
   contents: read
 
-# One group per repository and branch, so a new push cancels the run it
-# supersedes and two forks' same-named branches don't cancel each other.
+# One group per event, repository and branch, so a new push cancels the run it
+# supersedes and two forks' same-named branches don't cancel each other. The
+# event is in the group because a push to develop and a pull request from
+# develop would otherwise share one group and cancel each other.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:

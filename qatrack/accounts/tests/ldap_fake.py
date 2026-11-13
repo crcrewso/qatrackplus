@@ -62,14 +62,19 @@ class FakeUser:
         Keyed from the settings rather than from literals: a site can point
         AD_LU_MAIL at a different attribute, and a fake that hardcoded "mail"
         would quietly stop answering the lookup the backend actually makes.
+
+        A profile value of ``None`` leaves the attribute out altogether, which is
+        what a real directory does for a user with no mailbox or no surname.
         """
-        return {
-            settings.AD_LU_MAIL: [self.email.encode()],
-            settings.AD_LU_SURNAME: [self.surname.encode()],
-            settings.AD_LU_GIVEN_NAME: [self.given_name.encode()],
-            settings.AD_LU_ACCOUNT_NAME: [self.username.encode()],
-            settings.AD_LU_MEMBER_OF: member_of(*self.groups) if self.groups else [b""],
+        profile = {
+            settings.AD_LU_MAIL: self.email,
+            settings.AD_LU_SURNAME: self.surname,
+            settings.AD_LU_GIVEN_NAME: self.given_name,
+            settings.AD_LU_ACCOUNT_NAME: self.username,
         }
+        attrs = {name: [value.encode()] for name, value in profile.items() if value is not None}
+        attrs[settings.AD_LU_MEMBER_OF] = member_of(*self.groups) if self.groups else [b""]
+        return attrs
 
 
 class FakeConnection:

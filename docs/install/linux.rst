@@ -490,6 +490,9 @@ again once you are done testing.
         cd ~/web/qatrackplus
         uv sync --extra postgres --extra ldap --no-dev
 
+    On a MySQL site, use ``--extra mysql`` in place of ``--extra postgres``: the
+    sync removes any database driver it is not told to keep.
+
     **Once an LDAP backend is configured, without the package nobody can sign
     in at all**, local accounts included, and nothing warns you. Check before restarting:
 

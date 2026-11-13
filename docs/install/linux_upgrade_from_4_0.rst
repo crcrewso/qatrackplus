@@ -101,6 +101,9 @@ Update the Python environment. Use the extra that matches your database:
         cd ~/web/qatrackplus
         uv sync --extra postgres --extra ldap
 
+    On a MySQL site, use ``--extra mysql`` in place of ``--extra postgres``: the
+    sync removes any database driver it is not told to keep.
+
     .. note::
 
         The ``ldap`` extra arrived in **4.0.2**. You have it because this page

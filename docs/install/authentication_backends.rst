@@ -32,7 +32,9 @@ the one that catches people out.** See :ref:`auth_onprem_vs_cloud` below.
       - LDAP / LDAPS
       - Your web server authenticates the user (IIS Windows Integrated
         Authentication) and QATrack+ only needs to *look up* their name and
-        email in the directory. Needs ``python-ldap``.
+        email in the directory. Needs ``python-ldap``. **Read the warning in
+        its section first:** Django's own ``RemoteUserMiddleware`` does not reach
+        it.
     * - :ref:`QATrackAdfsAuthCodeBackend <auth_adfs>`
       - OAuth2 / OIDC
       - You run **AD FS**, or you use **Microsoft 365 / Entra ID**. Users are
@@ -169,9 +171,9 @@ installed first, or the sync fails partway through with a compiler error:
 
     sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev
 
-``build-essential`` and ``python3-dev`` are already part of the
-:ref:`Linux installation <linux_install_40>`; the two ``lib*-dev`` packages are
-not, and are the ones usually missing.
+The :ref:`Linux installation <linux_install_40>` installs all four, so a site
+that followed it has them. An older installation may be missing the two
+``lib*-dev`` packages.
 
 Then add the extra to your own sync command. For a PostgreSQL site following
 the Linux install guide, that is:
@@ -282,17 +284,24 @@ Copy the following lines to your `local_settings.py` file:
     AD_CERT_FILE = None  # AD_CERT_FILE='/path/to/your/cert.txt'
 
     AD_SEARCH_DN = "dc=yourdomain,dc=yourhospital,dc=com"
-    AD_NT4_DOMAIN = "YOURDOMAIN"  # Network domain that AD server is part of
+    AD_NT4_DOMAIN = "yourdomain.yourhospital.com"  # the domain's DNS name, not its short name
 
     AD_SEARCH_FIELDS = ['mail', 'givenName', 'sn', 'sAMAccountName', 'memberOf']
-
-    AD_DEBUG_FILE = "C:/deploy/qatrackplus/logs/ad_log.txt"
-    AD_DEBUG = False # set to True and restart QATrack+ Web Service if you need to debug AD Connection
 
 You will also have to set ``AD_DNS_NAME``, ``AD_SEARCH_DN`` and
 ``AD_NT4_DOMAIN`` to suit your own Active Directory.  The complete set of
 Active Directory settings are described here: :ref:`Active Directory Settings
 <settings_ad>`.
+
+Despite its name, ``AD_NT4_DOMAIN`` **takes the domain's DNS name**
+(``yourdomain.yourhospital.com``), not the short NetBIOS name (``YOURDOMAIN``).
+QATrack+ signs in to the directory as ``username@AD_NT4_DOMAIN``, and Active
+Directory accepts that form only with a DNS domain or one of its sign-in (UPN)
+suffixes. With the short name, every sign-in fails as if the password were
+wrong.
+
+Each sign-in attempt, and the reason one failed, is written to ``auth.log`` in
+QATrack+'s ``logs`` folder, so look there first when a sign-in fails.
 
 With SSL (``ldaps``), set ``AD_CERT_FILE`` when your directory server's
 certificate comes from your organization's own certificate authority (CA): the
@@ -590,6 +599,15 @@ app to emit a groups claim. The claim names differ from on-premises AD FS -
 ``upn`` and ``groups`` rather than ``winaccountname`` and ``group`` - so the
 ``USERNAME_CLAIM`` and ``GROUPS_CLAIM`` above are not interchangeable with the
 AD FS form.
+
+.. warning::
+
+    **Entra ID needs QATrack+ served over HTTPS.** It accepts an ``http``
+    redirect URI only for ``localhost``, and QATrack+ builds the redirect URI
+    from the address the browser used. The :ref:`Windows Server installation
+    <win_install_40>` sets IIS up on port 80 only, so add an HTTPS binding to
+    the site before you start. After the first sign-in attempt, check that
+    the redirect URI Entra reports begins with ``https://``.
 
 **Follow upstream's guide for the tenant side:** `Azure AD / Entra ID
 configuration guide

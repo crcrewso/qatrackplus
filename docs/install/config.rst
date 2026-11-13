@@ -1437,7 +1437,7 @@ General AD Settings
     AD_LU_MEMBER_OF = "memberOf"  # AD Lookup group membership property
 
     AD_SEARCH_DN = ""  # eg "dc=ottawahospital,dc=on,dc=ca"
-    AD_NT4_DOMAIN = ""  # Network domain that AD server is part of
+    AD_NT4_DOMAIN = ""  # the domain's DNS name, eg "ottawahospital.on.ca", not its short name
 
     AD_CERT_FILE = '/path/to/your/cert.txt'
 

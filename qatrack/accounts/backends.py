@@ -1,5 +1,6 @@
 try:
     import ldap
+    import ldap.filter
 except ImportError:
     pass
 
@@ -120,7 +121,7 @@ class ActiveDirectoryGroupMembershipSSLBackend:
         result = con.search_ext_s(
             settings.AD_SEARCH_DN,
             ldap.SCOPE_SUBTREE,
-            "%s=%s" % (settings.AD_LU_ACCOUNT_NAME, username),
+            "%s=%s" % (settings.AD_LU_ACCOUNT_NAME, ldap.filter.escape_filter_chars(username)),
             settings.AD_SEARCH_FIELDS,
         )[0][1]
 
@@ -302,15 +303,17 @@ class WindowsIntegratedAuthenticationBackend(ModelBackend):
             result = l.search_ext_s(
                 settings.AD_SEARCH_DN,
                 ldap.SCOPE_SUBTREE,
-                "%s=%s" % (settings.AD_LU_ACCOUNT_NAME, user),
+                "%s=%s" % (settings.AD_LU_ACCOUNT_NAME, ldap.filter.escape_filter_chars(user.username)),
                 settings.AD_SEARCH_FIELDS,
             )[0][1]
             l.unbind_s()
 
-            # get personal info (decoded, or Django saves the text "b'...'")
-            user.email = _decoded(result.get(settings.AD_LU_MAIL, [None])[0])
-            user.last_name = _decoded(result.get(settings.AD_LU_SURNAME, [None])[0])
-            user.first_name = _decoded(result.get(settings.AD_LU_GIVEN_NAME, [None])[0])
+            # get personal info (decoded, or Django saves the text "b'...'"). A
+            # directory leaves out an attribute the user does not have, and these
+            # columns are NOT NULL, so a missing one is stored as "".
+            user.email = _decoded(result.get(settings.AD_LU_MAIL, [b""])[0])
+            user.last_name = _decoded(result.get(settings.AD_LU_SURNAME, [b""])[0])
+            user.first_name = _decoded(result.get(settings.AD_LU_GIVEN_NAME, [b""])[0])
 
         except Exception:
             return None
@@ -321,6 +324,24 @@ class WindowsIntegratedAuthenticationBackend(ModelBackend):
 
         user.save()
         return user
+
+
+def _adfs_group_names(groups):
+    """A list of AD FS / Entra group names.
+
+    django-auth-adfs passes a list. A claims dict (older callers, and the
+    unit tests) is read for ``GROUPS_CLAIM``. One group sent as a string is
+    one group, not a set of its letters.
+    """
+    from django_auth_adfs.config import settings as adfs_settings
+
+    if isinstance(groups, dict):
+        groups = groups.get(adfs_settings.GROUPS_CLAIM, [])
+    if groups is None:
+        return []
+    if isinstance(groups, str):
+        return [groups]
+    return list(groups)
 
 
 class QATrackAdfsAuthCodeBackend(AdfsAuthCodeBackend):
@@ -342,7 +363,12 @@ class QATrackAdfsAuthCodeBackend(AdfsAuthCodeBackend):
 
         qualified_groups = ActiveDirectoryGroupMap.qualified_ad_group_names()
         if qualified_groups and adfs_settings.GROUPS_CLAIM:
-            if len(set(qualified_groups) & set(claims[adfs_settings.GROUPS_CLAIM])) == 0:
+            # The groups the library worked out just before calling us (see
+            # process_user_groups), else the token's own claim.
+            claim_groups = self.__dict__.pop('_claim_groups', None)
+            if claim_groups is None:
+                claim_groups = _adfs_group_names(claims)
+            if len(set(qualified_groups) & set(claim_groups)) == 0:
                 logger.info(
                     "successfully authenticated: %s but they don't belong to a qualifying group (%s)" %
                     (username, ', '.join(qualified_groups))
@@ -365,7 +391,18 @@ class QATrackAdfsAuthCodeBackend(AdfsAuthCodeBackend):
             return settings.ACCOUNTS_CLEAN_USERNAME(username)
         return username.replace(settings.CLEAN_USERNAME_STRING, "")
 
-    def update_user_groups(self, user, claims):
+    def process_user_groups(self, claims, access_token):
+        """Keep the groups the library worked out, so ``create_user`` can check them.
+
+        django-auth-adfs calls this before ``create_user``. It returns the
+        user's groups as a list, taken from the token, or from Microsoft Graph
+        when Entra ID leaves them out of a token (a user in many groups).
+        """
+        groups = super().process_user_groups(claims, access_token)
+        self._claim_groups = groups
+        return groups
+
+    def update_user_groups(self, user, claim_groups):
         """
         AdfsAuthCodeBackend syncs Django groups and AD FS groups by default.
         That is to say it will remove a user from a group if the group is not
@@ -377,7 +414,9 @@ class QATrackAdfsAuthCodeBackend(AdfsAuthCodeBackend):
 
         Args:
             user (django.contrib.auth.models.User): User model instance
-            claims (dict): Claims from the access token
+            claim_groups (list): The user's group names, as django-auth-adfs
+                passes them. A claims dict is also accepted, and read for
+                ``GROUPS_CLAIM``.
         """
 
         from django_auth_adfs.backend import logger
@@ -385,19 +424,7 @@ class QATrackAdfsAuthCodeBackend(AdfsAuthCodeBackend):
 
         if adfs_settings.GROUPS_CLAIM:
 
-            if adfs_settings.GROUPS_CLAIM in claims:
-                claim_groups = claims[adfs_settings.GROUPS_CLAIM]
-                if not isinstance(claim_groups, list):
-                    claim_groups = [
-                        claim_groups,
-                    ]
-            else:
-                logger.debug(
-                    f"The configured groups claim '{adfs_settings.GROUPS_CLAIM}' was not found in the access token",
-                )
-                claim_groups = []
-
-            claim_groups += [""]
+            claim_groups = _adfs_group_names(claim_groups) + [""]
 
             existing_user_groups = list(user.groups.all())
 
