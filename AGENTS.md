@@ -129,6 +129,11 @@ requirements/   # Pinned pip requirements (dev.txt) — see TODO below
 
 ## Getting started
 
+> **Linux: install the build headers before your first `uv sync`** -
+> `sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev`.
+> `python-ldap` is in the `dev` group and compiles from source on Linux, so
+> without them the sync stops at `fatal error: lber.h`. Windows needs nothing.
+
 ```bash
 # 1. Create a virtual environment and install all dependencies
 uv sync --dev

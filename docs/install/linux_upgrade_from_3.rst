@@ -155,11 +155,63 @@ We will now install all the libraries required for QATrack+ with PostgresSQL
         cd ~/web/qatrackplus
         uv sync --extra mysql
 
+.. dropdown:: For Active Directory / LDAP authentication: Install Requirements
+    :color: warning
+
+    ``python-ldap`` is not installed by default, and a 3.x installation that
+    used Active Directory will not have it after this step - 3.x installed it
+    with ``pip`` into its own virtual environment, and this step builds a new
+    one.
+
+    It is compiled from source on Linux, so install its build headers
+    **first**; without them the sync fails partway through with a compiler
+    error:
+
+    .. code-block:: bash
+
+        sudo apt install libldap2-dev libsasl2-dev
+
+    Then run the sync again with the ``ldap`` extra added to the one you
+    already named:
+
+    .. code-block:: bash
+
+        uv sync --extra postgres --extra ldap
+
+    On a MySQL site, use ``--extra mysql`` in place of ``--extra postgres``: the
+    sync removes any database driver it is not told to keep.
+
+    .. note::
+
+        The ``ldap`` extra arrived in **4.0.2**, and you have it because the
+        step above checks out the ``releases/4.0`` *branch*, which carries the
+        whole 4.0 series. Had you pinned the checkout to the ``v4.0.0`` tag
+        instead, ``uv`` would stop with *"Extra `ldap` is not defined"*; there
+        the routes are the ``mssql`` extra, which has always carried
+        ``python-ldap``, or
+        ``uv pip install python-ldap 'django-auth-ldap<4.9'`` after the sync -
+        and a package installed that way is removed by the next ``uv sync``.
+
+    **Without it, nobody can sign in at all**, local accounts included, and
+    nothing warns you. Check before restarting:
+
+    .. code-block:: bash
+
+        python -c "import ldap; print(ldap.__version__)"
+
+    If that raises ``ModuleNotFoundError``, install it before restarting -
+    :ref:`auth_check_package` explains why.
+
+
 
 Performing the migration
 ------------------------
 
-We can now migrate the tables in our database:
+We can now migrate the tables in our database. ``migrate`` runs QATrack+'s
+system checks before it touches anything, so an **error**-level settings
+problem stops it here rather than halfway through. Warnings are printed and do
+not stop it:
+
 
 .. code-block:: console
 
