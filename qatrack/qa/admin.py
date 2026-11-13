@@ -350,7 +350,8 @@ class UnitTestInfoAdmin(BaseQATrackAdmin):
         if not obj:
             return _("No history available")
 
-        changes = models.UnitTestInfoChange.objects.filter(unit_test_info=obj).order_by('-changed')
+        # -pk breaks ties: a coarse clock (15.6 ms on Windows) can give two changes one timestamp
+        changes = models.UnitTestInfoChange.objects.filter(unit_test_info=obj).order_by('-changed', '-pk')
 
         if not changes:
             return _("No history available")

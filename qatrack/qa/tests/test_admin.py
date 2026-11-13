@@ -1088,7 +1088,7 @@ class TestUnitTestInfoAdmin(TestCase):
         admin.save_model(request, admin.save_form(request, form2, True), form2, True)
 
         # Check that we now have two history records with correct old values
-        changes = qa_models.UnitTestInfoChange.objects.filter(unit_test_info=self.uti_1).order_by('changed')
+        changes = qa_models.UnitTestInfoChange.objects.filter(unit_test_info=self.uti_1).order_by('changed', 'pk')
         self.assertEqual(changes.count(), 2)
 
         # First change should have initial values as old values
@@ -1098,3 +1098,21 @@ class TestUnitTestInfoAdmin(TestCase):
         # Second change should have the values from after the first change as old values
         self.assertEqual(changes[1].reference.value, self.r_2.value)
         self.assertEqual(changes[1].tolerance, self.tol_2)
+
+    def test_history_lists_changes_saved_in_the_same_instant_newest_first(self):
+        """Two changes with the same timestamp still show newest first (a coarse clock can give them one)"""
+        request = self.factory.get(self.url_change)
+        request.user = self.user
+        admin = qa_admin.UnitTestInfoAdmin(qa_models.UnitTestInfo, self.site)
+
+        for comment, ref in (('First change', self.r_2.value), ('Second change', '999')):
+            data = dict(self.data, reference_value=ref, comment=comment)
+            form = admin.get_form(request)(instance=self.uti_1, data=data)
+            self.assertTrue(form.is_valid())
+            admin.save_model(request, admin.save_form(request, form, True), form, True)
+
+        changes = qa_models.UnitTestInfoChange.objects.filter(unit_test_info=self.uti_1)
+        changes.update(changed=changes.first().changed)
+
+        html = admin.history(qa_models.UnitTestInfo.objects.get(pk=self.uti_1.pk))
+        self.assertLess(html.index('Second change'), html.index('First change'))
