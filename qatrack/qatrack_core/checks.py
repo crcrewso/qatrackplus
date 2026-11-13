@@ -685,3 +685,148 @@ def check_cache_tables_exist(app_configs=None, databases=None, **kwargs):
             )
     return problems
 
+
+
+def procedure_uses_pyplot(source):
+    """The names a calculation procedure uses to reach `matplotlib.pyplot`, sorted; empty if none.
+
+    Parsed rather than searched, so a comment or string that mentions pyplot is not reported.
+    Covers pyplot and pylab imports by any spelling, and `matplotlib.pyplot` (or an alias of
+    `matplotlib`) used with no import, since the calculation context provides `matplotlib`.
+    A procedure that does not parse returns nothing.
+    """
+    import ast
+
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return []
+
+    # pylab re-exports pyplot, so it shares the same figure state.
+    pyplot_modules = ('matplotlib.pyplot', 'matplotlib.pylab', 'pylab')
+
+    found = set()
+    matplotlib_aliases = {'matplotlib'}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == 'matplotlib':
+                    matplotlib_aliases.add(alias.asname or 'matplotlib')
+                elif alias.name in pyplot_modules:
+                    found.add(alias.asname or alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == 'matplotlib':
+                for alias in node.names:
+                    if alias.name in ('pyplot', 'pylab'):
+                        found.add(alias.asname or alias.name)
+            elif node.module in pyplot_modules:
+                found.add(node.module)
+
+    # A second pass, so `mpl.pyplot` is found wherever `import matplotlib as mpl` sits.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in ('pyplot', 'pylab'):
+            if isinstance(node.value, ast.Name) and node.value.id in matplotlib_aliases:
+                found.add('matplotlib.' + node.attr)
+
+    return sorted(found)
+
+
+@register(Tags.database)
+def check_calculation_procedures_use_pyplot(app_configs=None, databases=None, **kwargs):
+    """Warn when a calculation procedure draws with pyplot.
+
+    pyplot keeps its figures in module-level state. `CompositePerformer.calculate` runs every
+    composite test of a test list in one request and calls `cleanup_matplotlib` only after the
+    last, so one procedure's plot can carry into the next one's saved image on any deployment;
+    threaded servers add a second route between requests. The cause is deliberately not fixed
+    here, since clearing between procedures changes saved plots.
+
+    A Warning, never an Error, so `migrate` is never blocked. Runs on `migrate` and
+    `check --database`; nothing is reported before the tables exist.
+    """
+    if not databases:
+        return []
+
+    from django.apps import apps
+    from django.db import connections
+    from django.db.utils import DatabaseError
+
+    try:
+        Test = apps.get_model('qa', 'Test')
+    except LookupError:  # pragma: no cover - qa is always installed
+        return []
+
+    offenders = []
+    seen = set()
+
+    for alias in databases:
+        connection = connections[alias]
+
+        # An unreachable or un-migrated database is for other checks to report.
+        try:
+            with connection.cursor() as cursor:
+                tables = set(connection.introspection.table_names(cursor))
+        except (DatabaseError, OSError):
+            continue
+
+        if Test._meta.db_table not in tables:
+            continue
+
+        try:
+            procedures = list(
+                Test.objects.using(alias)
+                .exclude(calculation_procedure=None)
+                .exclude(calculation_procedure='')
+                .values_list('pk', 'name', 'calculation_procedure')
+            )
+        except DatabaseError:
+            continue
+
+        for pk, name, source in procedures:
+            if pk in seen:
+                continue
+            names = procedure_uses_pyplot(source or '')
+            if names:
+                seen.add(pk)
+                offenders.append((name, names))
+
+    if not offenders:
+        return []
+
+    offenders.sort()
+    shown = offenders[:10]
+    listed = ', '.join('"%s" (%s)' % (name, ', '.join(names)) for name, names in shown)
+    if len(offenders) > len(shown):
+        listed += ', and %d more' % (len(offenders) - len(shown))
+
+    return [
+        Warning(
+            "%d calculation procedure(s) draw with matplotlib.pyplot: %s. pyplot "
+            "holds its figures in module-level state, so two procedures plotting "
+            "at the same time, or one after another in the same test list, can "
+            "take each other's figures - and "
+            "QATrack+ clears every figure in the process after a plot, not just "
+            "the one it made. The result is a plot saved against the wrong test, "
+            "or an empty one." % (len(offenders), listed),
+            hint=(
+                "Rewrite them to use UTILS.get_figure(), which returns a figure "
+                "with its own canvas and cannot be taken by another "
+                "calculation:\n\n"
+                "    fig = UTILS.get_figure()\n"
+                "    ax = fig.add_subplot(111)\n"
+                "    ax.plot(xs, ys)\n"
+                "    UTILS.write_file('plot.png', fig)\n\n"
+                "Every deployment can be affected. All the composite tests in "
+                "a test list are calculated in one request, and pyplot is only "
+                "cleared after the last one, so a procedure that draws on the "
+                "current pyplot figure can pick up the plot of the procedure "
+                "that ran before it. On a threaded server - the shipped Windows "
+                "deployment's CherryPy thread pool, or Apache mod_wsgi (15 "
+                "threads by default) - two requests can also take each other's "
+                "figures. gunicorn with sync workers avoids only that second "
+                "case. This is a warning, not an error: nothing here stops you "
+                "migrating."
+            ),
+            id='qatrack.W017',
+        )
+    ]
