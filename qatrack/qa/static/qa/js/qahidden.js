@@ -106,8 +106,7 @@ define(['jquery'], function ($) {
     }
 
     function managed($table) {
-        return $table.children('tbody').children('tr.hidden, tr.' + REVEALED_CLASS)
-            .add(image_boxes());
+        return hidden_rows($table).add(image_boxes());
     }
 
     /* Call with the table and the checkbox that drives it. Returns a function

@@ -1428,11 +1428,12 @@ class TestShowHiddenTests(BaseQATests):
     tests hidden in a subclass's `setUp` breaks every test that class already
     has, which is a fixture this feature needs and nothing else does.
 
-    `test2` is a simple hidden test that feeds the composite, so it is the one
-    revealing could make editable. `testc` is the composite, readonly before
+    `testc` is a hidden composite, the kind the toggle reveals: readonly before
     anything here touches it, and its Skip checkbox is already disabled by the
     page - which is why the assertions below compare against what the page
-    rendered rather than against a fixed expectation.
+    rendered rather than against a fixed expectation. `test2` is a hidden
+    simple test that feeds it, the configuration qatrack.W016 reports: a type
+    somebody enters, so the toggle must leave it hidden.
     """
 
     SNAPSHOT = """
@@ -1526,8 +1527,9 @@ class TestShowHiddenTests(BaseQATests):
             "clicking the menu entry did not put the class on the table, so the handler never "
             "ran. iCheck reports a click as 'ifChanged', not 'change': %r" % after
         )
-        assert all(r['displayed'] for r in after['rows']), (
-            "the class is on the table but the rows are still not displayed: %r" % after
+        shown = {r['id'][:5]: r['displayed'] for r in after['rows']}
+        assert shown == {'testc': True, 'test2': False}, (
+            "expected the composite revealed and the simple test still hidden: %r" % after
         )
 
     def test_revealing_a_test_changes_nothing_it_can_submit(self):
@@ -1541,6 +1543,8 @@ class TestShowHiddenTests(BaseQATests):
         )
 
         for row_id, row in after.items():
+            if not row['displayed']:
+                continue
             for field in row['inputs']:
                 assert field['readonly'], (
                     "%s is editable on a revealed hidden test, so looking at an intermediate "
@@ -1563,15 +1567,14 @@ class TestShowHiddenTests(BaseQATests):
                 "%s's Skip checkbox changed state when the row was revealed" % row_id
             )
 
-        # The comment box lives in a sibling row that carries no `hidden` class,
-        # so it is the easiest one for the lock to miss.
-        slug = 'test2'
-        self.driver.find_element(By.ID, 'comment-toggle-%s' % slug).click()
-        time.sleep(1)
-        box = self.driver.find_element(By.CSS_SELECTOR, '#%s-comment-row textarea' % slug)
-        assert box.get_attribute('readonly'), (
-            "the comment box of a revealed hidden test is editable, and a comment is submitted "
-            "with the test"
+        # A hidden test somebody could type into must stay out of reach entirely,
+        # its comment toggle included.
+        simple = [r for r in after.values() if r['id'].startswith('test2')]
+        assert simple and not any(r['displayed'] for r in simple), (
+            "the toggle revealed test2, a simple test, which leaves it editable: %r" % simple
+        )
+        assert not self.driver.find_element(By.ID, 'comment-toggle-test2').is_displayed(), (
+            "test2's comment toggle is reachable, and a comment is submitted with the test"
         )
 
     def test_turning_it_off_hides_them_and_gives_the_input_back(self):
@@ -1592,8 +1595,8 @@ class TestShowHiddenTests(BaseQATests):
         ]
         assert simple, "test2's row was not among the hidden rows: %r" % after
         assert not any(field['readonly'] for field in simple), (
-            "test2 is still readonly after hiding the rows again, so the feature kept an edit it "
-            "only borrowed: %r" % simple
+            "test2 became readonly, but the toggle never reveals it and should not touch it: %r"
+            % simple
         )
 
     def test_the_page_does_not_print_its_own_template_comment(self):
