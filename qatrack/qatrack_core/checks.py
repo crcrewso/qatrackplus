@@ -1,5 +1,6 @@
 import os
 import re
+import shlex
 import tempfile
 from pathlib import Path
 
@@ -7,31 +8,91 @@ from django.conf import settings
 from django.core.checks import Error, Tags, Warning, register
 
 
+def _running_user_name():
+    """The name of the user this process is running as, for a hint. Never raises.
+
+    `getpass.getuser()` is not a fallback for a failed `pwd` lookup: on Python 3.12
+    it *is* `pwd.getpwuid(os.getuid())[0]`, so it raises the same KeyError. Measured
+    2026-11-02 in the Docker development overlay, where the container runs as the
+    host user's uid and that uid has no passwd entry in the image:
+
+        KeyError: 'getpwuid(): uid not found: 1001'
+
+    which escaped the check, and `migrate` runs the checks, so the container never
+    started. A hint about ownership must not be able to stop a deployment.
+
+    So: the passwd database, then the environment, then the bare uid - which is
+    still useful in a `chown`, since `chown 1001:www-data` works.
+    """
+    try:
+        import pwd
+
+        return pwd.getpwuid(os.geteuid()).pw_name
+    except (ImportError, KeyError, AttributeError, OSError):
+        pass
+
+    for var in ('LOGNAME', 'USER', 'LNAME', 'USERNAME'):
+        name = os.environ.get(var)
+        if name:
+            return name
+
+    try:
+        return str(os.geteuid())
+    except AttributeError:  # no geteuid on Windows
+        return '<qatrack-os-user>'
+
+
 @register()
 def check_media_folder_permissions(app_configs, **kwargs):
     errors = []
+
+    if hasattr(os, 'geteuid') and os.geteuid() == 0:
+        errors.append(
+            Warning(
+                'Django system check is running as root (or with sudo). Directory write permission checks may not report actual permissions for the application user.',
+                hint='Run `python manage.py check` as the local OS user for QATrack+ services.',
+                id='qatrack.W001',
+            )
+        )
+
     media_root = getattr(settings, 'MEDIA_ROOT', None)
-    
+
     # Check if MEDIA_ROOT is configured and if the directory exists
     # This check is very likely unnecessary, since Django appears to recreate the folder on manage.py check, but it is here for completeness.
 
     if not media_root:
-        errors.append(Error("The Media folder is not configured"))
+        errors.append(Error('The Media folder is not configured', id='qatrack.E003'))
         return errors
-        
+
     media_root_path = Path(media_root)
 
     if not media_root_path.exists():
-        errors.append(Error(f"The Media folder '{media_root}' does not exist"))
+        errors.append(Error(f"The Media folder '{media_root}' does not exist", id='qatrack.E004'))
         return errors
-    # End of redundant check    
-    
+    # End of redundant check
+
+    app_user = _running_user_name()
+
+    if app_user == 'root':
+        # Deliberately not `$USER`: a root operator pasting the hint would expand it to
+        # `root` and chown the media tree to root, making the failure worse. W001 tells
+        # them to re-run as the service user; this placeholder cannot be expanded.
+        app_user = '<qatrack-os-user>'
+
+    # Quote the path so the commands survive a MEDIA_ROOT containing spaces.
+    quoted_root = shlex.quote(str(media_root))
+
+    perm_hint = (
+        f'Check folder permissions. You may need to run `sudo chown -R {app_user}:www-data {quoted_root}`, '
+        f'`sudo find {quoted_root} -type d -exec chmod 2775 {{}} +`, and '
+        f'`sudo find {quoted_root} -type f -exec chmod 664 {{}} +`.'
+    )
+
     uploads_dirs = [
         media_root_path,
         media_root_path / 'uploads',
         media_root_path / 'uploads' / 'tmp',
     ]
-    
 
     for directory in uploads_dirs:
         if directory.exists():
@@ -39,7 +100,7 @@ def check_media_folder_permissions(app_configs, **kwargs):
                 errors.append(
                     Error(
                         f"The Django server process does not have write permissions to '{directory}'.",
-                        hint=f"Check folder permissions. You may need to run `sudo chown -R www-data:www-data {media_root}` and `sudo chmod -R 775 {media_root}` (replace www-data with your web server user).",
+                        hint=perm_hint,
                         id='qatrack.E001',
                     )
                 )
@@ -52,7 +113,7 @@ def check_media_folder_permissions(app_configs, **kwargs):
                     errors.append(
                         Error(
                             f"The Django server process could not create a file in '{directory}': {e}",
-                            hint="Check folder permissions and disk space.",
+                            hint='Check folder permissions and disk space.',
                             id='qatrack.E002',
                         )
                     )
@@ -62,7 +123,7 @@ def check_media_folder_permissions(app_configs, **kwargs):
                 errors.append(
                     Error(
                         f"The Django server process does not have write permissions to '{parent}' to create '{directory}'.",
-                        hint=f"Check folder permissions. You may need to run `sudo chown -R www-data:www-data {media_root}`.",
+                        hint=perm_hint,
                         id='qatrack.E001',
                     )
                 )
