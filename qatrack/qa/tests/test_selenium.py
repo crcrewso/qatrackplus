@@ -174,7 +174,8 @@ class BaseQATests(SeleniumTests, TransactionTestCase):
         self.open("/accounts/login/")
         self.send_keys("id_username", self.user.username)
         self.send_keys("id_password", self.password)
-        self.driver.find_element(By.CSS_SELECTOR, 'button').click()
+        # The submit button by type: the login page has another button, Show password.
+        self.driver.find_element(By.CSS_SELECTOR, 'form button[type="submit"]').click()
 
         # The logout link is inside {% if user.is_authenticated %}, so its
         # presence proves both that the POST was handled and that the redirect
