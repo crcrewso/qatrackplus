@@ -27,7 +27,9 @@
     var $modality = $('#id_fault-modality');
     var unitModalities = JSON.parse(document.getElementById('fl-unit-modalities').textContent);
 
-    var parsed = moment($occurred.val(), ['YYYY-MM-DD HH:mm', siteConfig.MOMENT_DATETIME_FMT]);
+    // The form writes the configured format; ISO is still read in case a value
+    // arrives that way.
+    var parsed = moment($occurred.val(), [siteConfig.MOMENT_DATETIME_FMT, 'YYYY-MM-DD HH:mm']);
     var initial = parsed.isValid() ? parsed.toDate() : new Date();
     $occurred.val(moment(initial).format(siteConfig.MOMENT_DATETIME_FMT));
     // flatpickr adds its calendar to the end of the page, where an htmx swap of

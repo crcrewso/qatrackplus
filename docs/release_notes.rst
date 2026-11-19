@@ -15,6 +15,452 @@ Release Notes
 QATrack+ 4.0
 ~~~~~~~~~~~~~
 
+4.0.2
+------
+
+**This release runs database migrations; 4.0.1 did not.** Nothing in them deletes
+data, but take a backup and confirm it opens before you upgrade - see
+:ref:`linux_upgrade_from_4_0_1`, :ref:`win_upgrade_from_4_0_1` or
+:ref:`docker_upgrade_from_4_0_1`.
+
+**Confirming it opens is not a formality in this release.** If you have been
+relying on ``manage.py backup_site`` for your database backup, you may not have
+one - see *Backups taken with backup_site may contain no database* below,
+and check before you upgrade rather than after.
+
+Bug Fixes
+^^^^^^^^^
+
+Ordered by consequence, most serious first.
+
+* **Forms no longer record the wrong date and time.** Where a date field arrives
+  already filled in - the fault form's *Date & Time fault occurred*, a QC session's
+  *Work Completed*, a service event's date - the server wrote that value in one
+  format and the date picker read it back in another. The picker then replaced it
+  with an unrelated date, usually months away and at midnight, before anyone had
+  touched the page.
+
+  Nothing indicated it had happened: the replacement was a well-formed date in the
+  expected format, sitting in a field the user had not edited. A record saved
+  without changing that field carried a time that was simply wrong. Date and time
+  formats are now derived from a single setting, so the value written to a form and
+  the value read back from it cannot disagree (:issues:`#826 <826>`).
+
+* **SQL Server installations have their lost unique constraints restored.** On
+  Microsoft SQL Server, ``mssql-django`` drops a unique index when an unrelated
+  field change retypes a table's primary key, and does not put it back - which the
+  4.0 migrations did to every table. The effect was silent: the database stopped
+  enforcing 16 of the uniqueness rules QATrack+ declares, so duplicates could be
+  created where the application intends one record, including
+  ``TestListInstance.user_key``, whose purpose is to keep API submissions unique.
+  This release puts them back.
+
+  No other database engine was ever affected, and on those engines this step does
+  nothing. If your database already contains duplicate rows, the affected index is
+  reported and skipped rather than failing the upgrade - run ``python manage.py
+  check_unique_constraints`` to list them, and the new ``qatrack.W014`` system check
+  reports any constraint still unenforced (:issues:`#899 <899>`).
+
+* **Users entitled to see every QC collection can see them again.** Seven querysets
+  narrowed ``UnitTestCollection`` by ``visible_to__in=user.groups.all()``, and
+  superuser status never entered the query - so a superuser belonging to no group
+  matched nothing and the QA/QC selection windows came up **empty**. Only some
+  windows went blank rather than all of them, which is what made it look like
+  configuration rather than a defect. A non-superuser holding
+  ``qa.can_review_non_visible_tli`` was in the same position, despite that
+  permission existing for exactly this purpose. The narrowing still narrows: a user
+  in the wrong group still sees nothing (:issues:`#883 <883>`).
+
+* **The QC trees show every collection again.** Both the "Due & Overdue" frequency
+  tree and the category tree collapsed repeated rows by the collection's *name*.
+  The query returns a collection once per test it contains, so some collapsing is
+  needed, but keying it on the name also removed a genuinely different collection
+  whose name happened to match. Two collections called the same thing on one unit
+  showed as one, with nothing to indicate the other existed. They are collapsed by
+  identity now. The fix above is what made this reachable - narrowed to one group,
+  two collections sharing a name rarely met (:issues:`#883 <883>`).
+
+* **A calculation procedure can no longer break a whole QC session by setting an
+  unusual comment.** ``UTILS.set_comment`` passed its value straight into the
+  composite response, so a value JSON cannot serialize - an exception object, say -
+  failed the response for **every** test in the list, not just the one whose
+  procedure did it. The result of a calculation was already checked for this and
+  reported against the single test; the comment was not. Values are now converted to
+  text, a value that is empty or zero sets no comment at all rather than the word
+  ``None``, and a date or time comment is formatted with the same setting as every
+  other date QATrack+ renders (:issues:`#656 <656>`).
+
+* **Test list memberships show the name of each test again.** The admin fetches
+  each name over AJAX from an endpoint mounted beneath ``admin/``, and the admin
+  site ends its own URLs with a catch-all that claimed the request first, so the
+  admin answered its own endpoint with a 404 - for every user, including a
+  superuser. A test list's memberships listed an id and a macro name and no test
+  name, and a group permission could not fix it. The view and change icons beside
+  the field now have a link as well; they were rendered without one and did nothing.
+  A test saved with no name shows its id rather than nothing at all
+  (:issues:`#897 <897>`).
+
+Other Changes
+^^^^^^^^^^^^^
+
+* **Dates are now shown as** ``YYYY-MM-DD`` **by default, in every language.** Two things
+  changed, and an upgrading installation will see both.
+
+  **What you will see:** 4.0 rendered ``31 May 2012 14:30`` into form fields; this
+  renders ``2012-05-31 14:30``. To keep the old display, set the following in
+  ``local_settings.py``:
+
+  .. code-block:: python
+
+      QATRACK_DATETIME_FORMAT = "%d %b %Y %H:%M"
+      QATRACK_DATE_FORMAT = "%d %b %Y"
+
+  **What changed for sites with more than one language:** each language used to carry
+  its own date format, so the same record read differently depending on the interface
+  language the reader had chosen. One format now applies to every language,
+  deliberately - a date in a QC record should not change meaning when someone switches
+  language - and the setting above moves all of them together. ``%b`` writes English
+  month abbreviations in every language; see *Date and Time Format Settings* in the
+  configuration documentation.
+
+  Every date format QATrack+ uses is now derived from those two settings, which is what
+  makes the fix above possible. The JSON API's format is unchanged.
+
+  .. warning::
+
+      **Breaking, for French and Spanish sites:** ``03/05/2026`` **is no longer accepted
+      when typing a date.**
+
+      4.0.1 gave each language its own list of formats it would *accept*, not just
+      display. French accepted ``%d/%m/%Y``, and Spanish had no QATrack+ list at all so
+      it fell through to Django's, which accepts it too. Both are gone: every language
+      now accepts the display format plus
+      ``QATRACK_EXTRA_DATE_INPUT_FORMATS``, which ships as ``%d %b %Y`` only.
+
+      A user typing ``03/05/2026`` gets a validation error rather than a wrong date, so
+      nothing is saved incorrectly - but on a French or Spanish site it is a habit that
+      stops working. To accept it again:
+
+      .. code-block:: python
+
+          QATRACK_EXTRA_DATE_INPUT_FORMATS = ["%d %b %Y", "%d/%m/%Y"]
+          QATRACK_EXTRA_DATETIME_INPUT_FORMATS = ["%d %b %Y %H:%M", "%d/%m/%Y %H:%M"]
+
+      **It is deliberately not shipped as a default, and the reason is worth reading
+      before you add it.** ``%d/%m/%Y`` and ``%m/%d/%Y`` cannot be told apart for the
+      first twelve days of any month: ``03/05/2026`` is 3 May under one and 5 March
+      under the other. Accepting one of them everywhere would silently reinterpret dates
+      typed by someone used to the other, and silently is the whole problem this release
+      is fixing. Add it where you know which convention your users type in.
+
+* **The outstanding migrations have been recorded.** ``makemigrations`` reported 195
+  pending field-state changes across seven apps on a clean checkout - all metadata,
+  almost all of it ``verbose_name`` labels that the localisation work added to
+  fields which had none without recording the resulting state. They are now one
+  migration per app. Every one of those 195 operations is a no-op on SQLite,
+  PostgreSQL and SQL Server, so applying them writes a row to
+  ``django_migrations`` and changes no schema and no data. **That is a statement
+  about the field state, not about the whole release:** four of the same
+  migrations also carry the SQL Server constraint repair described above, which
+  does create indexes where the database has stopped enforcing them. The effect is that ``manage.py makemigrations --check`` is
+  meaningful again, having previously failed on every installation
+  (:issues:`#896 <896>`).
+
+* **The numpy names that numpy 2.0 removed are gone from the codebase**, and a test
+  fails if another is added. ``np.NaN`` in the control chart's Gaussian fit would
+  have raised ``AttributeError`` instead of returning a value, and ``np.float_`` in
+  the JSON encoder was a redundant alias of ``np.float64``. QATrack+ still pins
+  ``numpy<2.0``, so neither was reachable; clearing them now means a future move to
+  numpy 2 is a change of pin rather than a change of pin plus a search for
+  everything that accumulated behind it.
+
+Deployment and Upgrade Notes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Docker hosting is supported on Linux only.** QATrack+'s Docker deployment
+  needs a Linux server with Docker Engine 23.0 or newer and Docker Compose 2.17 or
+  newer. Running it on Windows, including with Docker Desktop, is not supported,
+  and the Windows sections of the Docker guide have been removed. On a Windows
+  server, use the :ref:`Windows Server installation <win_install_40>`, which
+  doesn't use Docker. If your Docker site runs on Windows today, plan a move to a
+  Linux server (see :ref:`docker_upgrade_from_4_0`).
+
+* **The Docker installation guide has been reorganised.** :doc:`install/docker` is
+  now grouped into setting up, configuring, data and backups, running QATrack+ day
+  to day, and development, and its out-of-date parts are fixed: the Django shell
+  is ``docker compose exec django python manage.py shell``, removing a site is
+  explained safely (``docker compose down -v`` deletes the database, uploaded files
+  and generated secret key), and the nightly backup is shown at the time it really
+  runs, which is now 4 AM in QATrack+'s own time zone (see below). Thanks to
+  Vincent Leduc, whose reorganisation of the Docker docs in :issues:`#866 <866>`
+  this draws on.
+
+* **Docker: Docker Compose 2.17 and Docker Engine 23.0 are now the minimum. Check
+  before you pull.** With an older Compose, the commands that build or create
+  containers (``up``, ``build``, ``run`` and others) stop with *Additional property
+  additional_contexts is not allowed*. Running containers keep running, but 4.0.2
+  can't be built or started, and containers removed with ``docker compose down``
+  can't be created again, until Docker is updated. Until then, other commands
+  such as ``logs`` and ``stop`` need ``-p qatrackplus``. See
+  :ref:`docker_upgrade_check_compose`.
+
+* **Finish or discard part-way QC sessions before upgrading.** An autosaved session
+  that straddles an upgrade is not guaranteed to return exactly as it was, and
+  QATrack+ does not promise that it will. Dates in an autosave are held as the text
+  that was on screen, so a release that changes how dates are displayed changes how
+  that text must be read. 4.0.2 converts them where it can, and where a value cannot
+  be read in any format the site now accepts the field comes up empty and must be
+  typed again - deliberately, because an empty field can be seen and corrected and a
+  plausible wrong date cannot. **Nothing already submitted is affected:** saved
+  records store dates as dates, not as text. Autosaves are discarded after
+  ``AUTOSAVE_DAYS_TO_KEEP`` days (30 by default), so this is a transient concern each
+  time you upgrade rather than a lasting one.
+
+* **Docker:** ``deploy/docker/.env`` **is no longer tracked by git. Set your copy aside
+  before you pull.** It holds the database password, so it no longer belongs in the
+  repository. Every Docker site has edited it, so on the first pull to 4.0.2
+  ``git pull`` stops with *Your local changes would be overwritten*. Follow
+  :ref:`the steps in the Docker upgrade guide <docker_upgrade_env_untracked>`: copy
+  ``.env`` aside, pull, and copy it back. Later pulls leave it alone. New
+  installations create it with ``cp .env.example .env``.
+
+* **Docker sites can now set QATrack+'s settings in** ``deploy/docker/.env``.
+  Previously only the database credentials, ``ALLOWED_HOSTS`` and
+  ``CSRF_TRUSTED_ORIGINS`` could be set, and everything else needed a change inside
+  the image. ``deploy/docker/.env.example`` now documents every setting available:
+  email, time zone, HTTPS behind the proxy, sessions, the QC display options,
+  accounts, ADFS, Active Directory / LDAP sign-in (including username cleaning), and
+  the REST API. The Docker image now includes ``python-ldap``, so LDAP sign-in works
+  there too.
+
+  ``localhost`` and ``127.0.0.1`` are always allowed hosts, so the container health
+  check keeps working when ``ALLOWED_HOSTS`` names only the real host. They are
+  never trusted CSRF origins.
+
+* **Docker: the secret key now lives in a volume, or in** ``.env``. When
+  ``SECRET_KEY`` is not set, QATrack+ generates one and keeps it in the
+  ``user-data-volume`` volume, so rebuilds never sign users out. 4.0.0 and 4.0.1
+  kept the key in your QATrack+ folder (``deploy/docker/user-data/secret_key.txt``),
+  so a new one is generated on the first start of 4.0.2, signing every user out once
+  and voiding password-reset links sent before the upgrade. To avoid that, copy the
+  old key into ``.env`` first (see :ref:`docker_upgrade_keep_secret_key`).
+
+* **Docker: QATrack+ says where it keeps the secret key it generated.** When
+  ``SECRET_KEY`` is not set in ``.env``, each start of the ``django`` service
+  logs a short notice naming the key file. The nightly backup does not include
+  it, so the notice and :ref:`docker_secret_key` show how to copy the key into
+  ``.env``, where losing the volume can no longer sign everyone out.
+
+* **Docker: the upgrade keeps your other local changes.** If you changed the port
+  in ``compose.yaml`` or edited ``nginx.conf``, the upgrade guide's ``git stash``
+  steps keep those changes across ``git pull``.
+
+* **Docker: scheduled notifications and reports now run.** Docker installations
+  had no process running QATrack+'s background tasks, so scheduled QC
+  notifications, scheduled reports and the emails they send were never sent. A
+  new ``django-q`` service runs them; it starts with the next
+  ``docker compose up -d``.
+
+* **Docker: HTTPS works.** nginx published port 443 but had no HTTPS
+  configuration. With ``HTTP_OR_HTTPS=https`` in ``.env`` and your certificate
+  and key in ``deploy/docker/user-data/ssl``, nginx now serves QATrack+ over
+  HTTPS, redirects HTTP to it, and tells QATrack+ the request was secure (see
+  :ref:`docker_https`).
+
+* **Docker: a database client can connect to PostgreSQL, if you turn it on.** The
+  database is still not published on the server unless you ask, so an upgrade
+  opens no new port. Listing the new ``compose.db-port.yaml`` in ``COMPOSE_FILE``
+  in ``.env`` publishes it on ``127.0.0.1``, port 5434 (``POSTGRES_HOST_PORT``
+  changes it), for a client or reporting tool on the server, or for one elsewhere
+  through an SSH tunnel. With Docker Engine older than 28.0, computers on the
+  same network switch can reach that port too. See :ref:`docker_postgres_access`.
+  Thanks to Vincent Leduc, whose pull request this is based on
+  (:issues:`#866 <866>`).
+
+* **Docker: Active Directory sign-in over LDAPS works with your own CA.** A
+  directory server whose certificate comes from your organization's own
+  certificate authority needs that CA's certificate, and there was no way to give
+  it to the ``django`` container. Copy it into ``deploy/docker/user-data/ldap`` and
+  set ``AD_CERT_FILE=/etc/qatrack/ldap/ca.pem`` in ``.env`` (see
+  :ref:`docker_ldaps`). A certificate from a public CA still needs no file.
+
+* **QATrack+ warns at startup when it can't use** ``AD_CERT_FILE``. A file that is
+  missing, unreadable or not in PEM format made every LDAPS sign-in fail with
+  *Unable to contact LDAP server*, which looks like a network problem. The
+  ``qatrack.W011`` to ``qatrack.W013`` warnings now say what is wrong with the
+  file. They are warnings only, so the site still starts. This applies to every
+  installation, not only Docker.
+
+* **Docker: nginx answers only the hosts in** ``ALLOWED_HOSTS``. Requests for any
+  other host name are dropped before they reach QATrack+, so they no longer
+  produce *Invalid HTTP_HOST header* errors (and error emails to ``ADMINS``).
+  ``ALLOWED_HOSTS=*`` keeps passing every host on.
+
+* **Docker: uploads larger than 1 MB work.** nginx used its 1 MB default limit,
+  which rejected larger uploaded test results and attachments. The limit is now
+  100 MB, set with ``NGINX_CLIENT_MAX_BODY_SIZE``.
+
+* **Docker: the site no longer answers 502 after an upgrade.** nginx looked up the
+  ``django`` service's address once, when it started. An upgrade that recreated
+  ``django`` could give it a new address, and nginx kept sending requests to the
+  old one until it was restarted. It now looks the address up as requests arrive.
+
+* **Docker: a slow first start no longer leaves the site down.** ``django`` runs
+  every database migration before it reports that it is ready. On slow storage
+  that took longer than Docker allowed, so ``docker compose up`` gave up and never
+  started nginx. ``django`` now has up to 10 minutes.
+
+* **Docker: links in emails and reports point to your site.** Django's site
+  record starts as ``example.com``, and QATrack+ builds the links in its emails and
+  reports from it, so on Docker they pointed to ``http://example.com/...`` unless an
+  administrator changed the record. Now that scheduled emails are sent, QATrack+
+  fills the record in on start: from ``SITE_DOMAIN`` and ``SITE_NAME`` in ``.env``
+  if set (every start), otherwise once from the first host name in
+  ``ALLOWED_HOSTS`` while the record is still ``example.com``. A domain and name
+  you have already set in the admin are kept, unless ``SITE_DOMAIN`` or
+  ``SITE_NAME`` is set in ``.env``: those replace them on every start. So if you
+  manage them in the admin, leave both commented out when you compare your
+  ``.env`` with ``.env.example``. ``SITE_NAME`` sets the name shown at the top of
+  each page.
+
+* **Docker: backups can be restored, and an interrupted backup can't pass for a
+  finished one.** The ``backup`` service now writes each file under a temporary
+  name, reads it back in full, and renames it only once it is complete. It
+  refuses to start while another backup or a restore is running. Backups are
+  now readable only by root on the server, and the first backup after the
+  upgrade does the same to older ones, so copy them with ``sudo``. Two new
+  commands, ``restore-db`` and ``restore-media``, put a backup back after checking
+  it and asking you to confirm (see :ref:`docker_backups`). They unpack the
+  backup beside your current data and only then swap it in, so a restore that
+  fails or is stopped leaves your data as it was; while one runs, the disk needs
+  room for that second copy. The ``backup`` service can still only read the
+  uploaded files; ``restore-media`` runs as its own service, which can write to
+  them, and only when you ask for it. Backups made by QATrack+ 4.0.0 and 4.0.1
+  can be restored. The backup service's PostgreSQL tools are now pinned to
+  version 16, the version that made those backups: PostgreSQL 15's tools cannot
+  read them. The image now installs just those client tools on Alpine, rather
+  than starting from the PostgreSQL server image.
+
+* **Docker: the nightly backup moves to 4 AM local time.** It ran at 2 AM UTC,
+  which is the evening before across the Americas (10 PM in Toronto in summer),
+  and named its files in UTC. It now runs at 4 AM in QATrack+'s own time zone,
+  ``TIME_ZONE`` in ``.env``, and names its files in that local time. If
+  ``TIME_ZONE`` is not set, that is QATrack+'s default, America/Toronto, which
+  QATrack+ already shows dates in: set it if your site is elsewhere.
+  ``docker compose logs backup`` shows the zone in use. 4 AM rather than 2 AM
+  because no time zone changes its clocks for daylight saving time at 4 AM, so the
+  backup runs once every night, all year round (see :ref:`docker_backups`).
+  Backups from before the upgrade keep their UTC names, so for a day or so the
+  names do not sort in the order the backups were made; ``ls -lt`` lists them
+  newest first. The first backup after the upgrade may come up to a day sooner or
+  later than usual. **If a job copies the backups off the server** at a time
+  chosen to follow the old 2 AM UTC backup, move it to after 4 AM local time, or
+  it will copy the previous night's backup.
+
+* **Docker: QATrack+'s data can be kept in folders on the server.** Nothing changes
+  unless you ask for it: the uploaded files, log files and generated secret key stay
+  in their Docker volumes, and the backups in ``deploy/docker/backups``. To keep any
+  of them in a folder you already back up or watch, set ``QATRACK_MEDIA_DIR``,
+  ``QATRACK_LOGS_DIR``, ``QATRACK_USER_DATA_DIR`` or ``QATRACK_BACKUPS_DIR`` in
+  ``.env``. Every service, the nightly backup and ``restore-media`` included, uses
+  the same folder, and the ``init`` service gives the folder to the QATrack+ user
+  each time the site starts. So that it never does this to anyone else's files,
+  ``init`` only uses a folder that is empty (which it marks with a
+  ``.qatrackplus-data`` file) or already marked, that is not inside another of
+  QATrack+'s folders, and that holds neither another of them nor a backup;
+  otherwise the site does not start, nothing is changed, and
+  ``docker compose logs init`` says why. A file with a second name (a hard link)
+  is never handed over. For a site already in use, copy the data
+  across first: :ref:`docker_data_dirs` shows how, step by step. The database stays
+  in its volume. ``init`` also no longer follows symbolic links or crosses into
+  another disk when it re-owns files, so a link can neither change a file outside
+  QATrack+'s folders nor, if it points nowhere, stop the site from starting, and it
+  logs how many files it re-owned. Based on the ``/app_data`` layout proposed
+  in :issues:`#866 <866>`.
+
+* **Docker: container output is capped** at 50 MB per service, so what
+  ``docker compose logs`` keeps can no longer fill the disk. That output belongs to
+  each container and starts again empty when the container is recreated, for
+  example by an upgrade. Every service now has a health check, shown by
+  ``docker compose ps``.
+
+* **QATrack+'s log files now rotate.** ``debug.log``, ``auth.log``, ``migrate.log``
+  and ``django-q2.log`` were set up to rotate but never did, so they grew without
+  limit. Each now starts a new file at 10 MB and keeps a fixed number of old ones.
+  This applies to every installation, not only Docker.
+
+* **Background tasks can run for up to 5 minutes**, up from 1. A scheduled report
+  whose PDF took longer than a minute to make was stopped and never sent. This
+  applies to every installation.
+
+* **Docker: overdue follow-up emails are sent when background tasks first run.**
+  Follow-up emails from *QC Completed* notices were queued but never sent on
+  Docker, and 4.0.2 sends every one still waiting as soon as it starts. To remove
+  them first, see :ref:`docker_upgrade_stale_follow_ups`.
+
+* **The Docker application container no longer runs as root.** QATrack+ now runs as
+  an unprivileged ``qatrack`` user (uid 1000). Calculation procedures for composite
+  and upload tests run inside the application, with its privileges, so on earlier
+  releases they ran as root inside the container. They still run with the
+  application's privileges: they can read its environment, including the database
+  password, and use the database. But they can no longer change QATrack+'s own code
+  or the container's system files.
+
+  Nothing changes in the commands you run. Existing media and static files, written
+  as root by earlier releases, are re-owned automatically the next time you run
+  ``docker compose up -d``; on a large media volume that first start takes longer.
+  A short-lived ``init`` container that does this appears as exited in
+  ``docker compose ps -a``, which is expected.
+
+* **Docker:** ``compose.override.yaml`` **is now** ``compose.dev.yaml`` **and is no longer
+  applied automatically.** The override mounted the whole checkout over the code in
+  the image, so every plain ``docker compose`` command ran the checkout instead of
+  the image, as root. Plain ``docker compose`` now runs the code built into the
+  image. Developers who want their checkout live use
+  ``docker compose -f compose.yaml -f compose.dev.yaml``, with their own ids in
+  ``.env`` (see :ref:`docker_development`).
+
+  QATrack+'s log files are now kept in a ``logs-volume`` volume, shared by the
+  ``django`` and ``django-q`` services, rather than in the checkout's ``logs``
+  folder, and they survive upgrades. Read them with
+  ``docker compose exec django ls logs`` and
+  ``docker compose exec django tail -n 50 logs/debug.log``. With the development
+  overlay they are still written to your checkout's ``logs`` folder.
+
+* **The Docker image installs exactly the dependency versions in** ``uv.lock``, the
+  same versions the test suite runs against. Previously ``pip`` chose versions when
+  the image was built, so two builds of the same release could differ.
+
+* **Docker: add your own Python packages for calculation procedures.** List them in
+  ``deploy/docker/site-requirements/requirements.txt`` and run
+  ``docker compose build``. They are installed at versions that work with
+  QATrack+'s own, and a package that needs a different version of one of them
+  stops the build instead of changing what QATrack+ runs on. Wheel files in the
+  same folder can be installed without internet access. See
+  :ref:`docker_site_packages`.
+
+* **Docker images no longer contain your** ``.env`` **file, local settings or site data.**
+  The ``.dockerignore`` patterns only matched files at the top of the repository, so
+  the image copied in ``deploy/docker/.env`` (which holds the database password), and
+  anything else present in the checkout when it was built: a generated
+  ``deploy/docker/user-data/secret_key.txt``, database dumps under
+  ``deploy/docker/backups/``, uploaded files under ``qatrack/media/uploads/`` and
+  ``qatrack/local_*.py`` settings files. The image now receives only the files it
+  needs to run. If you have copied a QATrack+ image to a registry or another machine,
+  rebuild it with ``docker compose build`` and remove the old one.
+
+* **Database dumps written by the Docker backup service are ignored by git.**
+  ``deploy/docker/backups/`` was not in ``.gitignore``, so ``git status`` listed every
+  nightly dump and ``git add -A`` would have committed them. Environment files
+  (``.env``, ``*.env``, ``.env.*``) are now ignored as well, except the
+  ``.env.example`` templates, including ``deploy/docker/.env`` (see above).
+
+* **Files under** ``deploy/docker`` **always check out with LF line endings**, whatever
+  git's ``core.autocrlf`` setting. A Dockerfile or script with CRLF endings fails
+  inside the container. A checkout made on Windows and copied to a Linux server
+  keeps its current line endings until the files are checked out again; see
+  :ref:`checking out deploy/docker again <docker_line_endings>`.
+
 4.0.1
 ------
 
@@ -23,7 +469,7 @@ Bug Fixes
 
 Ordered by consequence, most serious first.
 
-* **``manage.py backup_site`` says when it has not backed up the database.** On MySQL,
+* ``manage.py backup_site`` **says when it has not backed up the database.** On MySQL,
   and on any engine it does not implement, it skipped the database without a word and
   finished as though it had written one, so a site could hold a set of backups
   containing no database at all. It now names the engine it cannot handle and skips
@@ -127,7 +573,7 @@ Ordered by consequence, most serious first.
 Other Changes
 ^^^^^^^^^^^^^
 
-* **Three ``Makefile`` targets that emptied application data have been removed:**
+* **Three** ``Makefile`` **targets that emptied application data have been removed:**
   ``clearct``, ``flushdb`` and ``__cleardb__``. Each acted on the database named by
   ``local_settings.py``, which in a clinical installation is the live one. Two were
   already broken and would have failed before doing damage; ``clearct`` worked. None
@@ -157,11 +603,11 @@ Deployment and Upgrade Notes
   one that does not will fail rather than dump the wrong database. Check your
   ``.env`` before relying on the next backup.
 
-* **``CSRF_TRUSTED_ORIGINS`` can be set from the environment** for Docker
+* ``CSRF_TRUSTED_ORIGINS`` **can be set from the environment** for Docker
   deployments, falling back to ``ALLOWED_HOSTS`` when it is not given. See the notes
   in ``deploy/docker/.env.example``.
 
-* **The ``installfixtures`` management command has been removed.** It loaded a
+* **The** ``installfixtures`` **management command has been removed.** It loaded a
   fixture set that no longer matched the schema. Use ``manage.py loaddata`` with the
   fixtures you want.
 

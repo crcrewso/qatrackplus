@@ -1,20 +1,23 @@
 import json
+import logging
 import os
 from random import Random
 
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.cache import cache
-from django.utils.formats import get_format
 from django.utils.translation import get_language_info
 
 from qatrack.faults.models import Fault
+from qatrack.formats.utils import get_js_format
 from qatrack.qa.models import TestListInstance
 from qatrack.service_log.models import (
     ReturnToServiceQA,
     ServiceEvent,
     ServiceEventStatus,
 )
+
+logger = logging.getLogger('qatrack')
 
 cache.delete(settings.CACHE_UNREVIEWED_FAULT_COUNT)
 cache.delete(settings.CACHE_UNREVIEWED_COUNT)
@@ -49,12 +52,12 @@ def site(request):
         'PING_INTERVAL_S': settings.PING_INTERVAL_S,
 
         # JavaScript Date Formats
-        'MOMENT_DATE_DATA_FMT': get_format("MOMENT_DATE_DATA_FMT"),
-        'MOMENT_DATE_FMT': get_format("MOMENT_DATE_FMT"),
-        'MOMENT_DATETIME_FMT': get_format("MOMENT_DATETIME_FMT"),
-        'FLATPICKR_DATE_FMT': get_format("FLATPICKR_DATE_FMT"),
-        'FLATPICKR_DATETIME_FMT': get_format("FLATPICKR_DATETIME_FMT"),
-        'DATERANGEPICKER_DATE_FMT': get_format("DATERANGEPICKER_DATE_FMT"),
+        'MOMENT_DATE_DATA_FMT': get_js_format("MOMENT_DATE_DATA_FMT"),
+        'MOMENT_DATE_FMT': get_js_format("MOMENT_DATE_FMT"),
+        'MOMENT_DATETIME_FMT': get_js_format("MOMENT_DATETIME_FMT"),
+        'FLATPICKR_DATE_FMT': get_js_format("FLATPICKR_DATE_FMT"),
+        'FLATPICKR_DATETIME_FMT': get_js_format("FLATPICKR_DATETIME_FMT"),
+        'DATERANGEPICKER_DATE_FMT': get_js_format("DATERANGEPICKER_DATE_FMT"),
     }
     cur_site = get_current_site(request)
     context.update({'SITE_NAME': cur_site.name, 'SITE_URL': cur_site.domain})
@@ -141,13 +144,48 @@ def get_user_count(request, key, manager_method):
     return user_count
 
 
+def as_count(value, what):
+    """A badge count, or 0 if what arrived is not one.
+
+    These values come from the cache, and a cache is exactly where a value of
+    the wrong type arrives from: a key written by an older release, a key set by
+    hand, a key a test left behind. The callers sum them, so one string makes
+    `int + str` raise - and because this runs in a context processor it raises on
+    **every page**, turning a stale cache entry into a site-wide 500.
+
+    So a bad value costs one wrong badge instead of the whole site. It is logged
+    at warning: a badge quietly reading 0 is a thing someone should be able to
+    find the reason for, and silence here would make a wrong count look like a
+    correct one.
+
+    `bool` is rejected along with everything else. `True` is an `int` in Python
+    and would sum as 1, which is a plausible-looking count and therefore worse
+    than an obvious zero.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        logger.warning(
+            "%s came back from the cache as %r (%s), which is not a count; "
+            "treating it as 0. A cached value of the wrong type is usually a key "
+            "written by a different version of QATrack+ or by hand.",
+            what, value, type(value).__name__,
+        )
+        return 0
+    return value
+
+
 def get_sl_notification_total(request, se_unreviewed, rts_incomplete, rts_unreviewed):
     perms = [
-        ('service_log.review_serviceevent', se_unreviewed),
-        ('service_log.perform_returntoserviceqa', rts_incomplete),
-        ('qa.can_review', rts_unreviewed),
+        ('service_log.review_serviceevent', se_unreviewed, 'SE_NEEDING_REVIEW_COUNT'),
+        ('service_log.perform_returntoserviceqa', rts_incomplete, 'SE_RTS_INCOMPLETE_QA_COUNT'),
+        ('qa.can_review', rts_unreviewed, 'SE_RTS_UNREVIEWED_QA_COUNT'),
     ]
-    return sum(count for perm, count in perms if hasattr(request, 'user') and request.user.has_perm(perm))
+    if not hasattr(request, 'user'):
+        return 0
+    return sum(
+        as_count(count, what)
+        for perm, count, what in perms
+        if request.user.has_perm(perm)
+    )
 
 
 def available_languages(request):

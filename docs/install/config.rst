@@ -12,6 +12,13 @@ meet your clinics needs.  The most important settings are explained below.
 These settings should be defined in a `local_settings.py` file in the main
 directory (same directory as `settings.py`)
 
+.. note::
+
+    On a Docker installation, these settings are set as variables in
+    ``deploy/docker/.env`` instead of in ``local_settings.py``. The setting names are
+    the same; ``deploy/docker/.env.example`` lists every one that can be set there
+    and the format each takes. See :ref:`docker_configuration`.
+
 .. _reload-config:
 
 After configuration changes
@@ -138,9 +145,22 @@ set `AUTOCOMMIT = False` for your readonly configuration (see the
 Cache Settings
 ~~~~~~~~~~~~~~
 
-By default QATrack+ stores cached pages and values on disk in the directory
-`qatrack/cache/cache_data/` but this can be changed by copying the Python
-dictionary below into your `local_settings.py` file:
+By default QATrack+ caches in its own database, in a table called
+``qatrack_cache_table``:
+
+.. code-block:: python
+
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'qatrack_cache_table',
+        }
+    }
+
+``migrate`` creates that table, so a standard installation needs nothing here.
+
+You can use a different cache instead by copying a dictionary like one of these
+into your ``local_settings.py``. On disk:
 
 .. code-block:: python
 
@@ -148,12 +168,26 @@ dictionary below into your `local_settings.py` file:
         'default': {
             'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
             'LOCATION': '/path/to/your/desired/cache/data/location/',
-            'TIMEOUT': 24*60*60, # cache timeout of 24hours
+            'TIMEOUT': 24*60*60,  # cache timeout of 24 hours
         }
     }
 
-Generally you shouldn't need to change this unless you have concerns about disk
-usage.
+or in memory, with Redis or memcached, using any backend Django supports. The
+cache holds derived values - page fragments and counts - so moving it loses
+nothing permanent, and QATrack+ repopulates it as the site is used.
+
+Generally you shouldn't need to change this at all.
+
+.. note::
+
+    If you move **to** the database cache later, after your site is already
+    installed, run ``python manage.py createcachetable`` once afterwards.
+    ``migrate`` creates the table only for a database cache that is configured
+    when it runs, so a site that was on a file or memory cache at install time
+    does not have one yet. ``python manage.py check --database default`` reports
+    a missing cache table as ``qatrack.W015``; plain ``manage.py check`` will not,
+    because the check has to ask the database what tables it has and so runs only
+    when a connection is in play.
 
 Time Zone Settings
 ~~~~~~~~~~~~~~~~~~
@@ -172,6 +206,188 @@ where 'America/Toronto' is replaced with your local timezone (e.g. `TIME_ZONE =
 timezones on Wikipedia
 <http://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_.
 
+.. _time_zone_rules:
+
+Keeping the time zone rules current
+...................................
+
+The name in ``TIME_ZONE`` tells QATrack+ *where* you are. *When* your clocks
+change - or whether they still do - comes from a database of time zone rules,
+and governments change those rules more often than you might expect. In 2026
+British Columbia, Alberta, Manitoba and the Northwest Territories all stopped
+changing their clocks. The zone names stay the same (``America/Vancouver``,
+``America/Edmonton``, ``America/Winnipeg``, and ``America/Inuvik`` or
+``America/Yellowknife`` in the Northwest Territories); only the rules behind
+them change.
+
+A server with out-of-date rules shows times an hour off for part of the year
+and gives no warning, so it is worth knowing where your copy comes from:
+
+* **Linux:** from the operating system's ``tzdata`` package. Your normal
+  system updates keep it current - but refresh the package indexes first, or
+  ``apt`` upgrades from a list that may predate the new rules and leaves the
+  old ones installed:
+
+  .. code-block:: console
+
+      sudo apt update && sudo apt upgrade     # Debian/Ubuntu
+      sudo dnf upgrade                        # Fedora/RHEL, which refreshes its own
+
+  If a change-control process will not let you upgrade the whole machine to
+  correct a clock, that package alone is enough:
+
+  .. code-block:: console
+
+      sudo apt update && sudo apt install --only-upgrade tzdata   # Debian/Ubuntu
+      sudo dnf upgrade tzdata                                     # Fedora/RHEL
+
+  Restart QATrack+ afterwards, for the reason in the note below.
+
+  QATrack+ also installs a ``tzdata`` *Python* package, and on Linux **it is
+  not the one in use**: Python reads the operating system's copy first. So
+  finding a current ``tzdata`` in the virtual environment tells you nothing
+  about the rules your site is applying - check the system package.
+* **Windows:** from the ``tzdata`` Python package in QATrack+'s virtual
+  environment, not from Windows itself. Each QATrack+ release pins the copy it
+  was tested with, and the ``uv sync`` in your upgrade guide installs it.
+
+  Two cases where that is not the whole story. The first is the ``pip``
+  fallback in :doc:`the Windows guide <win>`, where what happens depends on
+  whether the release moved the minimum version QATrack+ asks for:
+
+  * **If it did**, your existing copy no longer satisfies it, and the upgrade's
+    own install replaces it for you - nothing extra to run. 4.1 is such a
+    release, because it is where ``tzdata>=2026.6`` first appears.
+
+    .. code-block:: console
+
+        >>  pip install ".[win,mssql]"
+
+  * **If it did not**, that same command leaves a copy that already satisfies
+    the floor exactly where it is, however old the rules in it are, and this is
+    how you move it:
+
+    .. code-block:: console
+
+        >>  pip install --upgrade tzdata
+
+  That is ``pip`` doing what it is meant to do rather than a quirk: a
+  requirement already met is left alone, and one that is not is resolved.
+  Measured against this release's floor - an environment holding 2026.4 answers
+  ``Would install tzdata-2026.6``; one already holding 2026.6 answers
+  ``Requirement already satisfied``.
+
+  The second is that on either path, if the rules for your zone change before
+  the next QATrack+ release, see *Getting new rules before the next release*
+  below.
+* **Docker:** from the ``tzdata`` **package** pinned in ``uv.lock``, the same
+  one Windows uses - not from the image's operating system copy. The image sets
+  ``PYTHONTZPATH=``, which empties the search path Python would otherwise
+  consult first, so the pinned and tested version is the one that decides.
+
+  This is why an ordinary Docker upgrade asks nothing of you about time zones:
+  the rules arrive with the release, as any other dependency does. Before this,
+  they came from whatever the image happened to install when it was built, which
+  made Docker the one platform where they were neither pinned nor tested.
+
+  Containers that are already running keep the image they started with, so the
+  new rules reach your site when the image is rebuilt and the containers are
+  recreated - which is what :ref:`the update steps <docker_updating>` already
+  tell you to do. Rebuilding recreates both ``django`` and ``django-q``, and the
+  second matters: scheduled notices and reports come from it.
+
+  The ``django`` image still installs the operating system's ``tzdata`` for its
+  own tooling - ``date``, the postgres client - but nothing in QATrack+ reads
+  it.
+
+  **The backup container is a separate matter.** The ``backup`` service is a
+  different image, and
+  it does read its own operating-system copy, selected by ``TZ`` (which
+  ``compose.yaml`` sets from your ``TIME_ZONE``). That copy is not pinned in
+  ``uv.lock``; it is whatever was current when that image was built. It decides
+  what hour the nightly backup runs at and the timestamps in the backup file
+  names, so a stale copy there shifts your backup window by an hour rather than
+  changing anything QATrack+ records. Rebuilding the stack refreshes it.
+
+.. note::
+
+    **Whichever platform you are on, restart QATrack+ after updating the
+    rules.** Python caches time-zone data per process: asking for a zone twice
+    returns the same object, so a process that started before the update keeps
+    the rules it loaded and goes on being wrong.
+
+    On Linux and Windows that means restarting the web server and the Django Q
+    cluster. The cluster is the easier of the two to forget, and it is the
+    process that sends scheduled notices and reports, so leaving it running
+    means those keep the old offsets.
+
+    **Docker needs nothing separate.** Its rules are in the image - the ``django``
+    image sets ``PYTHONTZPATH=`` so ``zoneinfo`` reads the pinned package rather
+    than the operating system's copy - so they change only when the image is
+    rebuilt, and the ``docker compose up -d`` that follows a build recreates both
+    services with the new rules already in them. The case a restart would be for,
+    rules changing underneath a container that keeps running, cannot arise there.
+
+
+Getting new rules before the next release
+.........................................
+
+Governments do not time their announcements to QATrack+ releases. If the rules
+for your zone change and you cannot wait, each platform has a route:
+
+* **Linux** needs nothing from QATrack+ - upgrade the system package, above.
+* **Windows** with the ``pip`` fallback: ``pip install --upgrade tzdata``.
+* **Windows** with ``uv``, and **Docker**, both take their rules from
+  ``uv.lock``, so the lockfile is what has to move:
+
+  .. code-block:: console
+
+      uv lock --upgrade-package tzdata
+
+  On Windows, follow it with **the same sync command you installed with**. The
+  Windows guide's is ``uv sync --exact --extra win --extra mssql``:
+
+  .. code-block:: console
+
+      uv sync --exact --extra win --extra mssql
+
+  **Not the bare command.** ``uv sync`` is exact by default - only ``--inexact`` turns
+  that off - so running it without the extras you installed with *uninstalls*
+  them: on a Windows site that is CherryPy, pywin32, mssql-django and the LDAP
+  packages, which is a working site turned into a broken one by a command given
+  for a clock correction. Dry-run on a Linux checkout with one extra added:
+  plain ``uv sync --frozen --dry-run`` answers ``Would uninstall 2 packages``.
+
+  On Docker, rebuild and recreate as :ref:`the update steps <docker_updating>`
+  describe.
+
+  **Docker needs uv on the host for this, and only for this.** A Docker
+  installation is not otherwise asked for it: the image builds with a copy of
+  its own, and nothing else in the deployment uses one. Install it as the other
+  guides do - :doc:`the Linux guide <linux>` has the same step in context:
+
+  .. code-block:: console
+
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+
+  The copy you install is **not** the one the image builds with. The image pins
+  its own, and nothing compares the two. They need to agree about one thing: if
+  the uv on your host rewrites ``uv.lock`` in a form the image's cannot read,
+  the next ``docker compose build`` stops inside its own ``uv sync``, a long way
+  from the command that caused it. If that happens, undo the lockfile change -
+  ``git checkout -- uv.lock`` - and ask on the
+  :mailinglist:`QATrack+ Google Group <>` before trying again.
+
+  ``uv lock`` edits a tracked file, so expect ``git pull`` to report a conflict
+  there at the next upgrade, and resolve it in favour of the release.
+
+**On Docker, the site-requirements folder is not a route for this**, although it
+is the obvious place to look. A newer ``tzdata`` listed in
+``deploy/docker/site-requirements/requirements.txt`` does not work: A site's own packages are installed under
+constraints generated from QATrack+'s own environment, which pins ``tzdata``, so
+naming a newer one there fails the build rather than changing the rules. That
+constraint is deliberate - it is what stops a site's extra package quietly
+changing the versions QATrack+ runs on.
 
 Organization Logo
 ~~~~~~~~~~~~~~~~~
@@ -217,6 +433,87 @@ To change the alt text:
 - Add translations to your locale files if using multiple languages
 
 **Note:** The logo functionality is designed to be easily customizable without requiring code changes to the core application.
+Date and Time Format Settings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default QATrack+ displays dates as ``YYYY-MM-DD HH:MM`` in every language,
+and the date pickers write back the same format they display.
+
+**"In every language" is the change, and it is deliberate.** Before this release each
+language carried its own date format, so the same record read differently depending on
+which interface language the reader had chosen. One format now applies to all of them,
+because a date in a QC record should not change meaning when someone switches
+language. If you need a different format, set it below and every language follows it.
+
+Every format QATrack+ uses is derived from the settings below: what is
+displayed, what the date pickers produce, what the forms accept, and the help
+text under each date field. Set the format once and the rest follows, so the
+value written into a form and the value read back out of it cannot disagree.
+
+In your *local_settings.py* file:
+
+.. code-block:: python
+
+    QATRACK_DATETIME_FORMAT = "%Y/%m/%d %H:%M"   # 2012/05/31 14:30
+    QATRACK_DATE_FORMAT = "%Y/%m/%d"             # 2012/05/31
+    QATRACK_TIME_FORMAT = "%H:%M"
+
+These use Python `strptime` syntax (``%Y`` year, ``%m`` month, ``%d`` day,
+``%H`` hour, ``%M`` minute). A format with a month name is also unambiguous:
+
+.. code-block:: python
+
+    QATRACK_DATETIME_FORMAT = "%d %b %Y %H:%M"   # 31 May 2012 14:30
+    QATRACK_DATE_FORMAT = "%d %b %Y"             # 31 May 2012
+
+``%b`` writes **English** month abbreviations whatever the interface language -
+*May*, not *mai*. Python takes those names from the C library's locale rather than
+from the language a user has selected, and QATrack+ does not change that locale, so
+what is displayed and what is accepted stay the same string in every language. If
+your deployment sets ``LC_TIME`` in the environment the service runs under, that
+stops being true and the two can disagree; use a numeric format there.
+
+Accepting other formats on input
+................................
+
+What people may *type* is separate from what QATrack+ displays. The format above
+is always accepted; these add to the list of formats understood on the way in,
+and change nothing anybody sees:
+
+.. code-block:: python
+
+    QATRACK_EXTRA_DATETIME_INPUT_FORMATS = [
+        "%d %b %Y %H:%M",     # 31 May 2012 14:30
+        "%d/%m/%Y %H:%M",     # 31/05/2012 14:30
+    ]
+    QATRACK_EXTRA_DATE_INPUT_FORMATS = [
+        "%Y/%m/%d",           # 2012/05/31
+        "%d %b %Y",           # 31 May 2012
+    ]
+
+This is the setting to use if your staff are used to entering dates a particular
+way, since it lets them do so without changing the format on any record anyone
+else reads.
+
+On all-numeric day and month orders
+...................................
+
+``03/05/2026`` is the 3rd of May to most of the world and March 5th in the
+United States, and nothing in the string says which. In a QC record that date is
+when a machine was or was not verified, read later by colleagues trained in a
+different convention and by people who were not there.
+
+Neither order is blocked -- it is your deployment -- but configuring one raises
+``qatrack.W004`` at startup, and configuring both raises a stronger warning,
+because at that point the same text typed by two people means two different
+days. The defaults are ISO for this reason, and the alternatives suggested above
+(year-first, or a month name) cannot be read two ways.
+
+.. note::
+
+    The JSON API is deliberately unaffected by these settings. Its date format
+    is fixed, so changing how your site displays dates cannot break an
+    integration that parses the API.
 
 
 Icon Settings
@@ -594,6 +891,25 @@ indefinitely.
 
     SESSION_COOKIE_AGE = 14 * 24 * 60 * 60
     SESSION_SAVE_EVERY_REQUEST = True
+
+
+Language Settings
+~~~~~~~~~~~~~~~~~
+
+``LANGUAGE_CODE`` sets the default language for your site, and
+``LANGUAGE_COOKIE_AGE`` controls how long (in seconds) a user's own language
+choice is remembered in their browser. QATrack+ defaults to one year, so a
+user who switches language is not silently reset back to the site default a
+fortnight later:
+
+.. code-block:: python
+
+    LANGUAGE_CODE = 'en'
+    LANGUAGE_COOKIE_AGE = 360 * 24 * 60 * 60  # 1 year
+
+Set ``LANGUAGE_COOKIE_AGE = None`` to make the language choice last only for
+the browser session. For adding or configuring the available languages
+themselves, see :doc:`/tutorials/internationalization/index`.
 
 
 .. _config_email:
@@ -1314,6 +1630,16 @@ General AD Settings
     AD_CLEAN_USERNAME = None  # define a function called AD_CLEAN_USERNAME in local_settings.py if you
                                 # wish to clean usernames before sending to ldap server e.g.
                                 # def AD_CLEAN_USERNAME(username): return username.lower()
+
+``AD_CERT_FILE`` is the certificate of the certificate authority (CA) that issued
+your directory server's certificate, for SSL (``ldaps``) connections. When it is
+your organization's own CA, set it to the path of the CA's certificate in PEM
+format (the root, plus any intermediates), in a file the user QATrack+ runs as
+can read. A public CA is usually trusted without it (on Docker, always), as long
+as the server's LDAP library is set up to use the system's CA store. ``AD_DNS_NAME``
+must then be a name on the directory server's certificate. If the file is
+missing, unreadable or not PEM, QATrack+ shows a warning when it starts. On
+Docker, see :ref:`docker_ldaps`.
 
 Non-SSL AD Connection Settings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

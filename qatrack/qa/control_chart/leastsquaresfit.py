@@ -5,8 +5,6 @@ import numpy as np
 import scipy.stats
 from scipy.optimize import curve_fit
 
-np.seterr("ignore")
-
 
 def gauss_fit(data, freq, bins, binwidth):
     """
@@ -45,7 +43,9 @@ def gauss_pdf(x, norm, mu, sigma):
     """
 
     if any(np.isnan([norm, mu, sigma])) or any(np.isnan(x)):
-        return np.NaN
+        # np.nan, not np.NaN: numpy 2.0 removed the capitalised alias, and this
+        # line would have raised AttributeError instead of returning a value.
+        return np.nan
 
     GaussPdf = norm * scipy.stats.norm.pdf(x, mu, sigma)
     return GaussPdf

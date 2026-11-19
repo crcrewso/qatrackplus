@@ -11,7 +11,8 @@ upgrade is a code update, a dependency sync and a restart:
 3. ``uv sync`` with your database's extra
 4. ``python manage.py check``
 5. ``python manage.py migrate`` and ``python manage.py collectstatic``
-6. Start the services again
+6. Fix the ownership of the ``logs`` and ``qatrack/media`` folders (once)
+7. Start the services again
 
 You never name a version. The installation guide checks out the ``releases/4.0``
 *branch* rather than a version tag, so the branch carries each patch as it is released
@@ -32,12 +33,21 @@ patches is in the next section.
 Running the upgrade
 -------------------
 
-Stop the background services first, so no task runs mid-upgrade:
+Stop the services first, so nothing runs mid-upgrade:
 
 .. code-block:: bash
 
-    sudo supervisorctl stop django-q2
     sudo service nginx stop
+    sudo supervisorctl stop gunicorn django-q2
+
+.. warning::
+
+    ``gunicorn`` matters as much as ``django-q2`` here, and earlier versions of
+    this page did not mention it. Supervisor runs it as its own program, so
+    stopping nginx does not stop it: it keeps its Python already imported while
+    you replace the dependencies and the templates underneath it. What you get
+    is old code serving new templates and new static files, which fails in ways
+    that look nothing like an upgrade problem.
 
 Fetch the new version. If you installed from the ``releases/4.0`` branch — which is
 what the installation guide uses — this is a ``pull``, and you do not name a version at
@@ -89,11 +99,37 @@ optional: this release changes JavaScript and templates.
     python manage.py migrate
     python manage.py collectstatic
 
-Restart:
+Next, fix the ownership of your ``logs`` and ``qatrack/media`` folders. The 4.0.0
+installation guide gave these folders to ``www-data``, but Gunicorn and Django-Q2 run
+as the local OS user for QATrack+ services. On an installation set up that way,
+uploading an attachment to a Service Event or Test List can fail with a permission
+error (`#836 <https://github.com/qatrackplus/qatrackplus/issues/836>`__). These
+commands give the folders to your user, keep ``www-data`` as the group so Nginx can
+still serve uploaded files, and make new folders inherit that group. You only need to
+do this once, and it is safe to run again on an installation that is already correct:
 
 .. code-block:: bash
 
+    cd ~/web/qatrackplus
+    sudo chown -R $USER:www-data logs qatrack/media
+    sudo find logs qatrack/media -type d -exec chmod 2775 {} +
+    sudo find logs qatrack/media -type f -exec chmod 664 {} +
+
+Run these as the same user that runs QATrack+ (the one named in your Supervisor
+configuration), not from a ``root`` shell: ``$USER`` would then be ``root``.
+
+Restart - the application servers first, so nginx has something to proxy to
+the moment it comes back:
+
+.. code-block:: bash
+
+    sudo supervisorctl start gunicorn django-q2
     sudo service nginx start
-    sudo supervisorctl start django-q2
+
+Confirm both are running before you call the upgrade done:
+
+.. code-block:: bash
+
+    sudo supervisorctl status
 
 .. include:: _upgrade_4_0_after.rst

@@ -5,13 +5,29 @@ venv/
 src/
 
 # Local Settings, administrator controlled
-    # developers may have multiple local settings files, but they should not be committed to the repo 
+# developers may have multiple local settings files, but they should not be committed to the repo 
 qatrack/local_*.py 
+# The Makefile's test targets move a developer's settings aside as .bak while
+# they run. `local_*.py` does not match that, and the file can hold database
+# credentials, so it is covered explicitly.
+qatrack/local_*.py.bak
 logs/
 db/
 tmp/
 deploy/docker/user-data
+deploy/docker/backups/
+# A site's own Python packages for the Docker image; only the README is tracked.
+deploy/docker/site-requirements/*
+!deploy/docker/site-requirements/README.md
 deployLocal.py
+
+# Environment files hold passwords and site settings and must never be committed.
+# Only the documented templates are tracked.
+.env
+.env.*
+*.env
+!.env.example
+!*.env.example
 
 # Local resources
 /qatrack*.conf
@@ -87,7 +103,6 @@ qatrack-dump-*.json
 # were simply missed.
 django-q2.conf
 gunicorn.conf
-
 # Selenium failure artefacts. The suite writes a PNG here for each failing GUI
 # test, named after the test, so the directory fills up on any red run and its
 # contents are worthless to anyone else. Two of them reached `develop` in #847

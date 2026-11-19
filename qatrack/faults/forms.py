@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.utils.formats import get_format
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as _l
 
@@ -75,6 +76,15 @@ class FaultForm(BetterModelForm):
 
         super().__init__(*args, **kwargs)
 
+        # Format hint and parsing come from the configured date format,
+        # resolved here rather than on the model so that changing it stays a
+        # settings change and not a migration.
+        self.fields['occurred'].widget.format = get_format('DATETIME_INPUT_FORMATS')[0]
+        self.fields['occurred'].input_formats = get_format('DATETIME_INPUT_FORMATS')
+        self.fields['occurred'].widget.attrs['title'] = get_format('DATETIME_HELP')
+        self.fields['occurred'].help_text = '%s %s' % (
+            self.fields['occurred'].help_text, get_format('DATETIME_HELP'))
+
         if not include_related_ses:
             self.fields.pop('related_service_events')
 
@@ -131,10 +141,6 @@ class FaultForm(BetterModelForm):
             self.fields['comment'].widget.attrs['class'] += 'autosize'
             self.fields['comment'].widget.attrs['cols'] = 8
             self.fields['comment'].widget.attrs['rows'] = 3
-
-        if 'occurred' in self.fields:
-            self.fields['occurred'].localize = False
-            self.fields['occurred'].widget.format = '%Y-%m-%d %H:%M'
 
     # Whether new fault type codes may be created through this form. Views that
     # know the user set this from their permissions; see the fault details page.

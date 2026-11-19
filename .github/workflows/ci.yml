@@ -29,11 +29,12 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
       - name: Setup Database configuration
         run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
       - name: Run pre-commit
-        run: uvx pre-commit run --all-files
+        run: uvx pre-commit@4.6.0 run --all-files
 
   requirements:
     name: Requirements Test
@@ -47,21 +48,62 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
       - name: Sync dependencies
-        run: uv sync --all-extras
+        run: uv sync --all-extras --locked
       - name: Check dependencies
         run: uv pip check
 
   linux-tests:
-    name: Linux Tests
-    runs-on: ubuntu-latest
+    # The install guide promises specific Ubuntu releases, so test those and not
+    # only whatever ubuntu-latest happens to be. The difference is not academic:
+    # the media-permission checks reason about the invoking user, www-data and
+    # directory modes, and that is exactly the kind of behaviour that moves
+    # between releases.
+    #
+    # The engine matrix runs on ubuntu-24.04, named explicitly: it is the release
+    # the install guide recommends, and `ubuntu-latest` is an alias GitHub
+    # repoints to a newer release when one ships. Leaving the engines on the alias
+    # means the only run covering postgres and mysql changes operating system
+    # without anyone deciding to, while the version actually promised to
+    # administrators gets the thinnest coverage.
+    #
+    # The other rows run sqlite only, because what they are there to vary is the
+    # OS: 22.04 because the guide says it is tested, and `ubuntu-latest` as a
+    # look-ahead, so whatever GitHub repoints it to is exercised here before it
+    # becomes the release people install on.
+    name: Linux Tests (${{ matrix.os }}, ${{ matrix.db }})
+    runs-on: ${{ matrix.os }}
     needs: [lint, requirements]
+    # ubuntu-latest is a moving alias, so on its own it is a canary rather
+    # than a promise: it tells us early when the next image breaks something,
+    # but it does not assert that QATrack+ works on any platform a deployer
+    # was told to use. docs/install/linux.rst commits to 24.04 LTS and says
+    # 22.04 is also tested, and neither was being checked deliberately -
+    # 22.04 not at all.
+    #
+    # So: keep the floating matrix as the early warning, and pin one job per
+    # documented version. The memory database is the one to duplicate - no
+    # service containers, fastest of the four, and it still exercises Python
+    # and the system libraries across the whole suite, which is where a
+    # change of base image actually shows up.
+    #
+    # 22.04 leaves standard support in April 2027 and 24.04 in April 2029;
+    # drop each entry when its version leaves the install guide.
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04]
         python-version: ["3.12"]
-        db: [sqlite, postgres, mysql]
+        db: [memory, sqlite, postgres, mysql]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.12"
+            db: sqlite
+          - os: ubuntu-22.04
+            python-version: "3.12"
+            db: sqlite
     
     services:
       postgres:
@@ -98,28 +140,69 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
           python-version: ${{ matrix.python-version }}
 
+      - name: Install dependencies (Memory SQLite)
+        if: matrix.db == 'memory'
+        run: uv sync --locked
+
       - name: Install dependencies (SQLite)
         if: matrix.db == 'sqlite'
-        run: uv sync
+        run: uv sync --locked
 
       - name: Install dependencies (Postgres)
         if: matrix.db == 'postgres'
         run: |
           sudo apt-get update && sudo apt-get install -y libpq-dev
-          uv sync --extra postgres
+          uv sync --extra postgres --locked
 
       - name: Install dependencies (MySQL)
         if: matrix.db == 'mysql'
         run: |
           sudo apt-get update && sudo apt-get install -y libmysqlclient-dev
-          uv sync --extra mysql
+          uv sync --extra mysql --locked
+
+      - name: Activate virtual environment
+        # Puts .venv/bin on PATH for every later step in this job, so they
+        # can call `pytest`/`python` directly instead of prefixing each
+        # with `uv run` (which re-checks the venv against the lockfile
+        # every time - redundant right after `uv sync` just ran above).
+        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      # No "Setup Database configuration (Memory SQLite)" step here on
+      # purpose: settings.py falls back to a disposable in-memory SQLite
+      # database when qatrack/local_settings.py is absent under pytest
+      # (see qatrack/settings.py) - faster than a real file-based sqlite
+      # db, and doubles as real-world coverage of that fallback itself,
+      # on a genuinely different environment than any local dev machine.
+      # The separate "sqlite" matrix entry below was described here as covering
+      # the real, file-based sqlite3 backend. **It does not.** That row writes a
+      # local_test_settings.py importing DATABASES from
+      # deploy/sqlite/local_settings.py, which sets no TEST name, so Django 4.2
+      # gives it an in-memory test database too - confirmed by nsmela as
+      # `file:memorydb_default?mode=memory&cache=shared`. The vendor guard
+      # cannot catch it either, because it reports the non-test database name.
+      #
+      # So nothing in CI currently exercises file I/O or on-disk locking, which
+      # is where the GUI suite's "database is locked" failures live. Giving this
+      # row a file-backed test database is deliberately not done here: it needs
+      # the live-server request serialisation to survive, and that is tracked
+      # with the per-engine test database work. Reported by nsmela, 2026-10-08.
 
       - name: Setup Database configuration (SQLite)
         if: matrix.db == 'sqlite'
-        run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+        run: |
+          cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+          # local_test_settings.py too, not just local_settings.py:
+          # test_settings.py replaces DATABASES with in-memory SQLite whenever
+          # that file is missing, so without it this row silently tests nothing.
+          # Importing only DATABASES leaves every test-specific setting to
+          # test_settings.py, where they already are - copying a
+          # deploy/dev/local_test_settings.*.py template instead would bring its
+          # DEBUG = True along and override them.
+          echo 'from qatrack.local_settings import DATABASES  # noqa: F401' > qatrack/local_test_settings.py
 
       - name: Setup Database configuration (Postgres)
         if: matrix.db == 'postgres'
@@ -127,6 +210,7 @@ jobs:
           cp deploy/postgres/local_settings.py qatrack/local_settings.py
           sed -i "s/'HOST': ''/'HOST': '127.0.0.1'/g" qatrack/local_settings.py
           # User qatrack is already created with full privileges by the service container
+          echo 'from qatrack.local_settings import DATABASES  # noqa: F401' > qatrack/local_test_settings.py
 
       - name: Setup Database configuration (MySQL)
         if: matrix.db == 'mysql'
@@ -136,9 +220,20 @@ jobs:
           # Setup mysql users and privileges for MySQL 8 compat
           docker exec -i ${{ job.services.mysql.id }} mysql -u root -proot -e "CREATE USER 'qatrack'@'%' IDENTIFIED WITH mysql_native_password BY 'qatrackpass'; CREATE USER 'qatrack_reports'@'%' IDENTIFIED WITH mysql_native_password BY 'qatrackpass'; CREATE DATABASE qatrackplus CHARACTER SET utf8mb4; GRANT ALL ON qatrackplus.* TO 'qatrack'@'%'; GRANT ALL ON test_qatrackplus.* TO 'qatrack'@'%'; GRANT SELECT ON qatrackplus.* TO 'qatrack_reports'@'%'; FLUSH PRIVILEGES;"
           docker exec -i ${{ job.services.mysql.id }} sh -c "mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root -proot mysql"
+          echo 'from qatrack.local_settings import DATABASES  # noqa: F401' > qatrack/local_test_settings.py
 
+      # Declared, not inferred: conftest.py aborts the session unless the
+      # connection it actually got matches. Without this, a row that loses its
+      # database configuration reports a pass - which is how the Postgres, MySQL
+      # and SQL Server rows came to run on in-memory SQLite.
       - name: Run Tests
-        run: uv run pytest -x -m "not selenium"
+        env:
+          QATRACK_EXPECTED_DB_VENDOR: >-
+            ${{ matrix.db == 'postgres' && 'postgresql'
+             || matrix.db == 'mysql'    && 'mysql'
+             || matrix.db == 'mssql'    && 'microsoft'
+             || 'sqlite' }}
+        run: pytest -x
 
   windows-tests:
     name: Windows Tests
@@ -157,20 +252,25 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
         with:
+          version: "0.12.5"
           enable-cache: true
           python-version: "3.12"
           
       - name: Install dependencies (SQLite)
         if: matrix.db == 'sqlite'
-        run: uv sync --extra win
+        run: uv sync --extra win --locked
         
       - name: Install dependencies (MSSQL)
         if: matrix.db == 'mssql'
-        run: uv sync --extra win --extra mssql
+        run: uv sync --extra win --extra mssql --locked
         
       - name: Setup Database configuration (SQLite)
         if: matrix.db == 'sqlite'
-        run: copy deploy\sqlite\local_settings.py qatrack\local_settings.py
+        run: |
+          copy deploy\sqlite\local_settings.py qatrack\local_settings.py
+          # See the Linux rows: without local_test_settings.py, test_settings.py
+          # swaps DATABASES for in-memory SQLite and this row tests nothing.
+          'from qatrack.local_settings import DATABASES  # noqa: F401' | Out-File -FilePath qatrack\local_test_settings.py -Encoding utf8
         
       - name: Setup Database configuration (MSSQL)
         if: matrix.db == 'mssql'
@@ -207,56 +307,95 @@ jobs:
               f.write('DEBUG = False\n')
               f.write('DATABASES = { "default": ' + repr(db_settings) + ' }\n')
               f.write('DATABASES["readonly"] = DATABASES["default"]\n')
+          # And local_test_settings.py, or test_settings.py discards all of the
+          # above for in-memory SQLite and the row tests nothing.
+          with open('qatrack/local_test_settings.py', 'w', encoding='utf8') as f:
+              f.write('from qatrack.local_settings import DATABASES  # noqa: F401\n')
           "@
           $code | Out-File -FilePath generate_settings.py -Encoding utf8
           python generate_settings.py
+      # As on Linux: the row declares which database it is for, and
+      # conftest.py refuses the session if that is not what it got.
       - name: Run Tests
-        run: uv run pytest -x -m "not selenium"
+        env:
+          QATRACK_EXPECTED_DB_VENDOR: >-
+            ${{ matrix.db == 'mssql' && 'microsoft' || 'sqlite' }}
+        run: uv run pytest -x
 
   docker-check:
     name: Docker Build & Run Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [lint, requirements]
-    
+    env:
+      # A site's own package, which QATrack+ itself does not install. pint shares
+      # dependencies with QATrack+ (platformdirs, typing-extensions), so it also
+      # checks that a site package reuses QATrack+'s locked versions of those.
+      SITE_REQUIREMENT: pint==0.24.4
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
+      - name: Set up uv
+        # Only to read QATrack+'s locked versions (uv export); the images
+        # bring their own.
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
+      - name: Check build context and line endings
+        run: bash .github/scripts/check-docker-build-context.sh
+
       - name: Set up Docker Compose
         run: sudo apt-get update && sudo apt-get install docker-compose -y
+
+      - name: Plain docker compose uses only compose.yaml
+        # The docs tell sites to run plain `docker compose`. An automatically
+        # applied compose.override.yaml would change what that runs: the old one
+        # mounted the checkout over the image's code.
+        working-directory: deploy/docker
+        run: test ! -e compose.override.yaml
 
       - name: Build Docker Images
         working-directory: deploy/docker
         run: |
           cp .env.example .env
-          docker compose -f compose.yaml build
+          # A real host name, so nginx's host filtering is exercised.
+          sed -i 's/^ALLOWED_HOSTS=.*/ALLOWED_HOSTS=qatrack.test/' .env
+          echo "$SITE_REQUIREMENT" > site-requirements/requirements.txt
+          docker compose build
 
       - name: Fix script permissions
         run: chmod +x deploy/docker/django/entrypoint.sh
 
       - name: Start Docker Containers
         working-directory: deploy/docker
-        run: docker compose -f compose.yaml up -d
+        run: docker compose up -d --wait --wait-timeout 300
 
       - name: Check Running Containers
-        run: |
-          docker ps -a
-          # Optionally sleep for a few seconds to ensure containers don't immediately crash
-          sleep 10
-          
+        run: docker ps -a
+
       - name: Check Container Logs for Errors (Optional)
+        if: always()
         working-directory: deploy/docker
-        run: docker compose -f compose.yaml logs
+        run: docker compose logs
 
       - name: Verify Application is Up (Optional health check)
-        # Check if the Django app container remains 'Up' and didn't exit or become unhealthy
+        # Check that no container exited or became unhealthy. The one-shot init
+        # service is expected to exit, and must have exited 0.
+        working-directory: deploy/docker
         run: |
-          if [ $(docker ps -q -f status=exited | wc -l) -gt 0 ]; then
+          init_id=$(docker compose ps -aq init)
+          init_code=$(docker inspect -f '{{.State.ExitCode}}' "$init_id")
+          if [ "$init_code" != 0 ]; then
+            echo "The init service exited with $init_code"
+            docker compose logs init
+            exit 1
+          fi
+          if [ $(docker ps -q -f status=exited | grep -v "^${init_id:0:12}" | wc -l) -gt 0 ]; then
             echo "One or more containers exited unexpectedly!"
             docker ps -a
             exit 1
@@ -267,33 +406,1327 @@ jobs:
             exit 1
           fi
 
-      - name: Verify backup produces a valid dump
+      - name: Verify the application runs unprivileged
+        working-directory: deploy/docker
+        run: |
+          uid=$(docker compose exec -T django stat -c %u /proc/1)
+          echo "django server process uid: $uid"
+          [ "$uid" = 1000 ]
+          # Nothing the app needs (Matplotlib's cache, for one) may be unwritable.
+          if docker compose logs django 2>&1 | grep -E "Permission denied|mkdir -p failed"; then
+            echo "::error::django logged a permission error"
+            exit 1
+          fi
+
+      - name: Verify PostgreSQL is published only when asked, and only on 127.0.0.1
+        # compose.db-port.yaml publishes the database for direct access
+        # (docs/install/docker.rst, "Connecting to the database directly").
         working-directory: deploy/docker
         run: |
           set -euo pipefail
-          docker compose -f compose.yaml exec -T backup sh -eu -c '
-            rm -f /backups/db_*.dump /backups/media_*.tar.gz 2>/dev/null || true
+          # The running site, from plain compose.yaml: nothing on the host.
+          bindings=$(docker inspect -f '{{json .HostConfig.PortBindings}}' "$(docker compose ps -q postgres)")
+          echo "postgres port bindings without compose.db-port.yaml: $bindings"
+          [ "$bindings" = "{}" ] || { echo "FAIL: postgres is published on the host"; exit 1; }
+          # Turned on, in a separate project so the running site is not touched.
+          # Set for these commands only, so .env and later steps are unchanged.
+          db_port() {
+            COMPOSE_FILE=compose.yaml:compose.db-port.yaml POSTGRES_HOST_PORT=15432 \
+              docker compose -p qatrack-db-port "$@"
+          }
+          trap 'db_port down -v' EXIT
+          db_port up -d --wait --wait-timeout 120 postgres
+          bindings=$(docker inspect -f '{{json .HostConfig.PortBindings}}' "$(db_port ps -q postgres)")
+          echo "postgres port bindings with compose.db-port.yaml: $bindings"
+          [ "$bindings" = '{"5432/tcp":[{"HostIp":"127.0.0.1","HostPort":"15432"}]}' ] ||
+            { echo "FAIL: expected 127.0.0.1:15432 only"; exit 1; }
+          # A client on the server needs the password from .env, and signs in with it.
+          # The $POSTGRES_ variables are expanded in the client container, from .env.
+          psql_on_host() { docker run --rm --network host --env-file .env postgres:15-alpine sh -c "$1"; }
+          # shellcheck disable=SC2016
+          if psql_on_host 'psql -w -h 127.0.0.1 -p 15432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1"'; then
+            echo "FAIL: signed in without a password"; exit 1
+          fi
+          # shellcheck disable=SC2016
+          db=$(psql_on_host 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -p 15432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT current_database()"')
+          echo "signed in through 127.0.0.1:15432 to: $db"
+          [ "$db" = qatrackplus ]
+          # The runner's network address does not answer.
+          address=$(hostname -I | awk '{print $1}')
+          if timeout 5 bash -c "exec 3<>/dev/tcp/$address/15432" 2>/dev/null; then
+            echo "FAIL: postgres answers on $address:15432"; exit 1
+          fi
+          echo "PASS: published only on 127.0.0.1, and only with compose.db-port.yaml"
 
-            # Run the backup exactly as the nightly cron job does.
-            bash /backup.sh
+      - name: Verify background tasks run (django-q)
+        working-directory: deploy/docker
+        run: |
+          # Queue a task from the app and wait for the django-q service to run it.
+          docker compose exec -T django python manage.py shell -c "
+          from django_q.tasks import async_task, result
+          task = async_task('math.floor', 2.5)
+          value = result(task, wait=60000)
+          print('django-q ran task', task, '->', value)
+          assert value == 2, value
+          "
 
-            dump=$(ls -1t /backups/db_*.dump 2>/dev/null | head -1 || true)
-            [ -n "$dump" ] || { echo "FAIL: no db dump produced"; exit 1; }
+      - name: Verify the site's own Python packages are installed
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          want="${SITE_REQUIREMENT#*==}"
+          for service in django django-q; do
+            got=$(docker compose exec -T "$service" python -c "import pint; print(pint.__version__)")
+            echo "$service: pint $got"
+            [ "$got" = "$want" ] || { echo "FAIL: $service has pint $got, expected $want"; exit 1; }
+          done
+          # Installing it changed none of QATrack+'s own versions: every package
+          # QATrack+ locks for this image (the extras the Dockerfile installs) is
+          # in the image at exactly its locked version. Packages only in the
+          # image, the site's own and their new dependencies, are allowed.
+          uv export --project ../.. --frozen --no-dev --no-emit-project --no-hashes \
+            --extra docker --extra postgres --extra ldap \
+            --format requirements-txt > "$RUNNER_TEMP/locked.txt"
+          compare=$(cat <<'EOF'
+          import importlib.metadata as md
+          import re
+          import sys
 
-            size=$(stat -c %s "$dump")
-            echo "dump=$dump size=$size"
-            [ "$size" -gt 0 ] || { echo "FAIL: db dump is 0 bytes (auth failed)"; exit 1; }
+          from packaging.requirements import Requirement
+          from packaging.version import Version
 
-            # Prove it is a real pg_dump archive, not just non-empty.
-            pg_restore --list "$dump" >/dev/null || { echo "FAIL: not a valid archive"; exit 1; }
 
-            # Media archive must also be produced.
-            ls -1 /backups/media_*.tar.gz >/dev/null || { echo "FAIL: media archive missing"; exit 1; }
+          def norm(name):
+              return re.sub(r'[-_.]+', '-', name).lower()
 
-            echo "PASS: valid db dump + media archive produced"
-          '
+
+          installed = {}
+          for dist in md.distributions():
+              if dist.metadata['Name']:
+                  installed[norm(dist.metadata['Name'])] = dist.version
+
+          locked, problems = set(), []
+          for line in sys.stdin:
+              line = line.strip()
+              if not line or line.startswith(('#', '-')):
+                  continue
+              req = Requirement(line)
+              # Skip what the lock installs only elsewhere, e.g. on Windows.
+              if req.marker is not None and not req.marker.evaluate():
+                  continue
+              name = norm(req.name)
+              locked.add(name)
+              pins = [s.version for s in req.specifier if s.operator == '==']
+              want = pins[0] if len(pins) == 1 else (req.url or str(req.specifier))
+              have = installed.get(name)
+              if have is None:
+                  problems.append(f'{name}: locked {want}, not in the image')
+              elif req.url is None and (len(pins) != 1 or Version(pins[0]) != Version(have)):
+                  problems.append(f'{name}: locked {want}, the image has {have}')
+
+          if not locked:
+              sys.exit('FAIL: read no packages from the lock')
+          print(f'{len(locked)} locked packages checked')
+          print('Only in the image:', ', '.join(sorted(set(installed) - locked)) or 'none')
+          if problems:
+              print("FAIL: the image does not have QATrack+'s locked versions:")
+              print('\n'.join(f'  {p}' for p in sorted(problems)))
+              sys.exit(1)
+          print('PASS: every locked package has its locked version')
+          EOF
+          )
+          docker compose exec -T django python -I -c "$compare" < "$RUNNER_TEMP/locked.txt"
+
+      - name: Verify the site record links emails to this site
+        # Django's site record starts as example.com, and QATrack+ builds email
+        # and report links from it.
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          site() {
+            docker compose exec -T django python manage.py shell -c \
+              "from django.contrib.sites.models import Site; from qatrack.qatrack_core.utils import site_base_url; s = Site.objects.get_current(); print(s.domain, s.name, site_base_url(s), sep='|')"
+          }
+          # Unset in .env: filled in from the first host in ALLOWED_HOSTS.
+          got=$(site)
+          echo "from ALLOWED_HOSTS: $got"
+          [ "$got" = "qatrack.test|QATrack+|http://qatrack.test" ]
+          # Set in .env: applied on the next start.
+          printf 'SITE_DOMAIN=qatrack.test:8080\nSITE_NAME=CI Clinic QA\n' >> .env
+          docker compose up -d --wait --wait-timeout 300
+          got=$(site)
+          echo "from .env: $got"
+          [ "$got" = "qatrack.test:8080|CI Clinic QA|http://qatrack.test:8080" ]
+          sed -i '/^SITE_DOMAIN=/d; /^SITE_NAME=/d' .env
+
+      - name: Verify nginx answers only ALLOWED_HOSTS, accepts large uploads, and logs are capped
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: qatrack.test' http://127.0.0.1/accounts/login/)
+          echo "qatrack.test: $code"
+          [ "$code" = 200 ]
+          # Any other host is closed without an answer (curl: empty reply, exit 52).
+          rc=0
+          curl -s -o /dev/null -H 'Host: other.test' http://127.0.0.1/ || rc=$?
+          echo "other.test: curl exit $rc"
+          [ "$rc" = 52 ]
+          # A 5 MB upload reaches QATrack+ (403, no CSRF token) instead of nginx's 413.
+          code=$(head -c 5000000 /dev/zero | curl -s -o /dev/null -w '%{http_code}' -H 'Host: qatrack.test' \
+            -H 'Content-Type: application/octet-stream' --data-binary @- http://127.0.0.1/accounts/login/)
+          echo "5 MB upload: $code"
+          [ "$code" = 403 ]
+          curl -fsS -o /dev/null -H 'Host: qatrack.test' http://127.0.0.1/static/qatrack_core/css/site.css
+          for id in $(docker compose ps -aq); do
+            size=$(docker inspect -f '{{index .HostConfig.LogConfig.Config "max-size"}}' "$id")
+            echo "$(docker inspect -f '{{.Name}}' "$id"): max-size=$size"
+            [ "$size" = 10m ]
+          done
+
+      - name: Verify LDAP support and that the secret key survives recreation
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          dc="docker compose"
+          $dc exec -T django python -c "import ldap; print('python-ldap', ldap.__version__)"
+          # .env.example sets no SECRET_KEY, so one was generated into the
+          # user-data volume. Recreating the container must keep it.
+          key_file=deploy/docker/user-data/secret_key.txt
+          before=$($dc exec -T django sha256sum "$key_file")
+          # QATrack+'s log files are in logs-volume, so they survive too.
+          $dc exec -T django python manage.py shell -c "import logging; logging.getLogger('qatrack').warning('ci-log-marker')"
+          $dc up -d --force-recreate --wait --wait-timeout 300 django
+          after=$($dc exec -T django sha256sum "$key_file")
+          [ "$before" = "$after" ] || { echo "FAIL: secret key changed when django was recreated"; exit 1; }
+          echo "PASS: secret key kept across recreation"
+          # The entrypoint says where the generated key is kept, once per start,
+          # and never prints the key itself.
+          logs=$($dc logs django 2>&1)
+          notices=$(grep -c 'NOTICE: SECRET_KEY is not set' <<<"$logs" || true)
+          [ "$notices" = 1 ] || { echo "FAIL: expected one secret key notice, got $notices"; exit 1; }
+          key=$($dc exec -T django cat "$key_file")
+          if grep -qF -- "$key" <<<"$logs"; then echo "FAIL: the secret key was printed in the log"; exit 1; fi
+          echo "PASS: secret key notice logged once, without the key"
+          $dc exec -T django grep -q ci-log-marker logs/debug.log || { echo "FAIL: log files lost when django was recreated"; exit 1; }
+          $dc exec -T django-q grep -q ci-log-marker logs/debug.log || { echo "FAIL: django-q does not share the log files"; exit 1; }
+          echo "PASS: log files kept across recreation and shared with django-q"
+
+      - name: Verify LDAPS sign-in with a site CA
+        # A directory server whose certificate comes from the site's own CA, as
+        # most hospital Active Directory servers have, set up the way
+        # docs/install/docker.rst says: the CA in user-data/ldap and
+        # AD_CERT_FILE in .env. Later steps recreate django and django-q from
+        # the cleaned .env, so nothing here carries over.
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          dc="docker compose"
+          name=ldap.qatrack.test
+          tls="$RUNNER_TEMP/ldaps"
+          mkdir -p "$tls"
+          # A throwaway CA, and a certificate it signs for the test server's name
+          # on the compose network.
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=QATrack CI test CA" \
+            -keyout "$tls/ca.key" -out "$tls/ca.pem" 2>/dev/null
+          openssl req -newkey rsa:2048 -nodes -subj "/CN=$name" \
+            -keyout "$tls/server.key" -out "$tls/server.csr" 2>/dev/null
+          printf 'subjectAltName=DNS:%s\n' "$name" > "$tls/server.ext"
+          openssl x509 -req -days 1 -in "$tls/server.csr" -CA "$tls/ca.pem" -CAkey "$tls/ca.key" \
+            -CAcreateserial -extfile "$tls/server.ext" -out "$tls/server.pem" 2>/dev/null
+          printf 'TLSCACertificateFile /tls/ca.pem\nTLSCertificateFile /tls/server.pem\nTLSCertificateKeyFile /tls/server.key\n' \
+            > "$tls/slapd.conf"
+          # slapd with no database: an anonymous bind needs none, and the TLS
+          # handshake, where the certificate is checked, comes first. It comes
+          # from Debian's mirrors, so a brief mirror hiccup is retried rather
+          # than failing the job.
+          trap 'docker rm -f ci-slapd >/dev/null 2>&1 || true' EXIT
+          docker run -d --name ci-slapd --network qatrackplus_default --network-alias "$name" \
+            -v "$tls:/tls:ro" debian:bookworm-slim sh -c '
+              for attempt in 1 2 3; do
+                apt-get -o Acquire::Retries=3 update -qq &&
+                  DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install -qq -y \
+                    --no-install-recommends slapd >/dev/null &&
+                  break
+                [ "$attempt" = 3 ] && exit 1
+                sleep 10
+              done
+              exec slapd -d 0 -f /tls/slapd.conf -h ldaps:///'
+          # Docker created user-data/ldap, owned by root, when django first
+          # started: copy the CA in with sudo, as the docs say.
+          sudo install -D -m 644 "$tls/ca.pem" user-data/ldap/ca.pem
+          printf 'AD_LDAP_PROTOCOL=ldaps\nAD_LDAP_PORT=636\nAD_DNS_NAME=%s\nAD_CERT_FILE=/etc/qatrack/ldap/ca.pem\n' \
+            "$name" >> .env
+          $dc up -d --wait --wait-timeout 300 django django-q
+          ready=0
+          for _ in $(seq 90); do
+            if $dc exec -T django python -c "import socket; socket.create_connection(('$name', 636), 2)" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            [ "$(docker inspect -f '{{.State.Running}}' ci-slapd)" = true ] || break
+            sleep 2
+          done
+          [ "$ready" = 1 ] || { echo "FAIL: slapd did not start"; docker logs ci-slapd; exit 1; }
+          # What sign-in does: the backend applies AD_CERT_FILE, then binds to
+          # AD_LDAP_URL. An anonymous bind exercises the same TLS check.
+          bind=$(cat <<'EOF'
+          import ldap
+          from django.conf import settings
+          from qatrack.accounts.backends import ActiveDirectoryGroupMembershipSSLBackend
+          ActiveDirectoryGroupMembershipSSLBackend()
+          print(settings.AD_LDAP_URL, repr(settings.AD_CERT_FILE))
+          try:
+              ldap.initialize(settings.AD_LDAP_URL).simple_bind_s('', '')
+              print('bind: OK')
+          except ldap.SERVER_DOWN as e:
+              print('bind: SERVER_DOWN', e.args[0].get('info', ''))
+          EOF
+          )
+          got=$($dc exec -T django python manage.py shell -c "$bind")
+          echo "with AD_CERT_FILE: $got"
+          [ "$(tail -n1 <<<"$got")" = "bind: OK" ] || { echo "FAIL: LDAPS bind with the site CA"; exit 1; }
+          # Negative control: without the CA file the certificate is not
+          # trusted, so the success above is AD_CERT_FILE's doing.
+          got=$($dc exec -T -e AD_CERT_FILE= django python manage.py shell -c "$bind")
+          echo "without AD_CERT_FILE: $got"
+          [ "$(tail -n1 <<<"$got" | cut -d' ' -f1-2)" = "bind: SERVER_DOWN" ] || { echo "FAIL: expected SERVER_DOWN"; exit 1; }
+          echo "PASS: LDAPS works with the site CA, and fails without it"
+          # Without AD_CERT_FILE, libldap trusts the system CA store through
+          # /etc/ldap/ldap.conf (libldap-common), so a public CA needs no file.
+          $dc exec -T django grep -Eq '^TLS_CACERT[[:space:]]+/etc/ssl/certs/ca-certificates.crt$' /etc/ldap/ldap.conf \
+            || { echo "FAIL: /etc/ldap/ldap.conf does not point at the system CA store"; exit 1; }
+          echo "PASS: /etc/ldap/ldap.conf points at the system CA store"
+          # The startup check stays quiet for a good file and warns, without
+          # failing, for a missing one.
+          if $dc exec -T django python manage.py check 2>&1 | grep -E 'qatrack\.W01[123]'; then
+            echo "FAIL: warning for a good AD_CERT_FILE"; exit 1
+          fi
+          out=$($dc exec -T -e AD_CERT_FILE=/etc/qatrack/ldap/missing.pem django python manage.py check 2>&1)
+          grep -q 'qatrack.W011' <<<"$out" || { echo "FAIL: no warning for a missing AD_CERT_FILE"; echo "$out"; exit 1; }
+          echo "PASS: a missing AD_CERT_FILE is a startup warning"
+          # django-q reads AD_CERT_FILE from .env too, and qcluster runs the same
+          # check when it starts, so it mounts the folder as well. Without it,
+          # every start would warn that a good file is missing.
+          [ "$($dc exec -T django-q printenv AD_CERT_FILE)" = /etc/qatrack/ldap/ca.pem ] \
+            || { echo "FAIL: django-q was not started with AD_CERT_FILE"; exit 1; }
+          if $dc logs django-q 2>&1 | grep -E 'qatrack\.W01[123]'; then
+            echo "FAIL: django-q warned at startup about a good AD_CERT_FILE"; exit 1
+          fi
+          out=$($dc exec -T django-q python manage.py check 2>&1)
+          if grep -E 'qatrack\.W01[123]' <<<"$out"; then
+            echo "FAIL: django-q warns about a good AD_CERT_FILE"; exit 1
+          fi
+          echo "PASS: django-q sees the CA file, and does not warn about it"
+          sed -i '/^AD_LDAP_PROTOCOL=/d; /^AD_LDAP_PORT=/d; /^AD_DNS_NAME=/d; /^AD_CERT_FILE=/d' .env
+          sudo rm -f user-data/ldap/ca.pem
+
+      - name: Verify nginx follows django to a new address
+        # An upgrade recreates django, which can give it a new address on the
+        # Docker network. nginx must not keep sending requests to the old one.
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          ip() {
+            docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(docker compose ps -q django)"
+          }
+          before=$(ip)
+          docker compose rm -sf django
+          # Hold django's old address, so the new container gets another one.
+          docker run -d --rm --name ip-holder --network qatrackplus_default postgres:15-alpine sleep 600
+          docker compose up -d --no-deps --wait --wait-timeout 300 django
+          after=$(ip)
+          echo "django moved from $before to $after"
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: qatrack.test' http://127.0.0.1/accounts/login/)
+          echo "through nginx: $code"
+          docker rm -f ip-holder
+          [ "$before" != "$after" ]
+          [ "$code" = 200 ]
+
+      - name: Verify HTTPS
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          # Docker created user-data/ssl, owned by root, when nginx first started:
+          # copy the certificate in with sudo, as the docs say.
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=qatrack.test \
+            -keyout "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/cert.pem" 2>/dev/null
+          sudo mkdir -p user-data/ssl
+          sudo cp "$RUNNER_TEMP/cert.pem" "$RUNNER_TEMP/key.pem" user-data/ssl/
+          echo "HTTP_OR_HTTPS=https" >> .env
+          docker compose up -d --wait --wait-timeout 300
+          r="--resolve qatrack.test:443:127.0.0.1"
+          location=$(curl -s -o /dev/null -w '%{redirect_url}' -H 'Host: qatrack.test' http://127.0.0.1/accounts/login/)
+          echo "HTTP redirects to: $location"
+          [ "$location" = "https://qatrack.test/accounts/login/" ]
+          # Signing in over HTTPS passes the CSRF check: QATrack+ sees the request
+          # as secure (X-Forwarded-Proto), so its secure cookies and origin match.
+          # Wrong credentials redisplay the form (200); a CSRF failure is 403.
+          jar=$(mktemp)
+          curl -fsSk $r -c "$jar" -o /dev/null https://qatrack.test/accounts/login/
+          token=$(awk '$6 == "csrftoken" {print $7}' "$jar")
+          [ -n "$token" ]
+          code=$(curl -sSk $r -b "$jar" -o /dev/null -w '%{http_code}' \
+            -H 'Origin: https://qatrack.test' -H 'Referer: https://qatrack.test/accounts/login/' \
+            --data-urlencode "csrfmiddlewaretoken=$token" --data-urlencode username=nobody --data-urlencode password=wrong \
+            https://qatrack.test/accounts/login/)
+          echo "sign-in POST over HTTPS: $code"
+          [ "$code" = 200 ]
+          # An IP address sends no host name in the handshake, so the catch-all
+          # server must complete it; nginx then routes by Host. 127.0.0.1 is
+          # always served.
+          code=$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1/accounts/login/)
+          echo "https://127.0.0.1: $code"
+          [ "$code" = 200 ]
+          # Other host names complete the handshake, then are closed without an
+          # answer. curl versions differ on the exit code for this (52 or 56), so
+          # check only that no HTTP response came back.
+          rc=0
+          code=$(curl -sk --resolve other.test:443:127.0.0.1 -o /dev/null -w '%{http_code}' https://other.test/) || rc=$?
+          echo "other.test over HTTPS: HTTP $code, curl exit $rc"
+          [ "$code" = 000 ] && [ "$rc" != 0 ]
+
+      - name: Verify backup and restore
+        # Back up, then change the data and restore it the way the docs say,
+        # checking on the way that a refused or cancelled restore changes nothing.
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          dc="docker compose"
+          lock=/backups/.qatrackplus-backup-restore.lock
+          # The ci-* users in the database, and ci-* uploaded files, read without
+          # django, which is stopped for the restores.
+          users() {
+            echo "SELECT string_agg(username, ',' ORDER BY username) FROM auth_user WHERE username LIKE 'ci-%';" |
+              $dc exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA'
+          }
+          uploads() { $dc exec -T backup sh -c 'ls /media/uploads | grep "^ci-" | tr "\n" " "'; }
+          # Run a command that must fail with the given message; stdin passes through.
+          expect_refusal() {
+            local message=$1 out
+            shift
+            if out=$("$@" 2>&1); then echo "$out"; echo "FAIL: this should have been refused: $*"; exit 1; fi
+            echo "$out"
+            grep -qF "$message" <<<"$out" || { echo "FAIL: expected \"$message\" from: $*"; exit 1; }
+          }
+
+          # The tools must read the 4.0 backups, which pg_dump 16 made.
+          $dc exec -T backup pg_dump --version | grep -E ' 16\.[0-9]+'
+
+          # The long-running backup service can never change the uploaded files,
+          # and `up` does not start restore-media, which can.
+          expect_refusal "Read-only file system" $dc exec -T backup touch /media/ci-write-check
+          [ -z "$($dc ps -aq restore-media)" ] || { echo "FAIL: up started restore-media"; exit 1; }
+
+          $dc exec -T -e DJANGO_SUPERUSER_PASSWORD=ci-password-123 django \
+            python manage.py createsuperuser --noinput --username ci-restored --email restored@example.com
+          $dc exec -T django sh -c 'mkdir -p qatrack/media/uploads && echo "restore me" > qatrack/media/uploads/ci-restored.txt'
+
+          # A management command must work through `exec`, not only inside the
+          # server's own process tree. The image sets USE_DOCKER so it does even
+          # when .env omits it; without that, this stack serves happily while
+          # every documented `docker compose exec django python manage.py ...`
+          # fails with "No module named 'qatrack.local_settings'".
+          $dc exec -T django env | grep -q '^USE_DOCKER=' \
+            || { echo "FAIL: USE_DOCKER is not in the container's own environment"; exit 1; }
+          $dc exec -T django python manage.py check --database default
+
+          # Back up a site that has been used, not one with a single user in it.
+          # A restore that carries one row and a restore that carries a QC
+          # history exercise different amounts of this, and the second is what a
+          # site is actually trusting the backup with.
+          $dc exec -T django python manage.py generate_sample_data --days 30
+          $dc exec -T django python manage.py shell \
+            < "$GITHUB_WORKSPACE/.github/scripts/row-counts.py" > /tmp/ci-counts-before.txt
+          cat /tmp/ci-counts-before.txt
+          tis=$(sed -n 's/^testinstances=//p' /tmp/ci-counts-before.txt)
+          [ "${tis:-0}" -gt 100 ] || { echo "FAIL: only ${tis:-0} test instances generated"; exit 1; }
+
+          # The command the nightly cron job runs, under the loosest umask docker
+          # exec can start it with (000), beside backups left by an earlier
+          # release that anyone on the server can read.
+          $dc exec -T backup sh -c 'umask 000 && echo old > /backups/db_ci_old.dump && echo old > /backups/media_ci_old.tar.gz'
+          $dc exec -T backup sh -c 'umask 000 && exec backup'
+          # Every backup, old or new, and the lock file, is root's alone on the
+          # host: the runner's own user cannot read them.
+          only_root_reads() {
+            local f
+            for f in "$@"; do
+              [ "$(stat -c %a:%u "backups/$f")" = 600:0 ] || { echo "FAIL: $f is $(stat -c %a:%U "backups/$f")"; exit 1; }
+              if cat "backups/$f" >/dev/null 2>&1; then echo "FAIL: the runner can read $f"; exit 1; fi
+            done
+          }
+          only_root_reads db_ci_old.dump media_ci_old.tar.gz .qatrackplus-backup-restore.lock
+          $dc exec -T backup rm /backups/db_ci_old.dump /backups/media_ci_old.tar.gz
+          dump=$($dc exec -T backup sh -c 'cd /backups && ls -1t db_*.dump | head -1')
+          media=$($dc exec -T backup sh -c 'cd /backups && ls -1t media_*.tar.gz | head -1')
+          echo "backups: $dump $media"
+          only_root_reads "$dump" "$media"
+
+          # While something holds the lock, a backup or restore is refused. The
+          # holder signals once it has the lock, and lets go when told to.
+          $dc exec -d backup flock "$lock" sh -c \
+            'touch /tmp/ci-lock-held; until [ -e /tmp/ci-lock-release ]; do sleep 1; done'
+          for _ in $(seq 30); do $dc exec -T backup test -e /tmp/ci-lock-held && break; sleep 1; done
+          $dc exec -T backup test -e /tmp/ci-lock-held
+          expect_refusal "already running" $dc exec -T backup backup
+          echo qatrackplus | expect_refusal "already running" $dc run --rm -T --no-deps backup restore-db "$dump"
+          echo RESTORE | expect_refusal "already running" $dc run --rm -T restore-media "$media"
+          $dc exec -T backup touch /tmp/ci-lock-release
+          for _ in $(seq 30); do $dc exec -T backup flock --nonblock "$lock" true && break; sleep 1; done
+          $dc exec -T backup flock --nonblock "$lock" true
+
+          # After the backup: one user and file lost, another of each added.
+          $dc exec -T django python manage.py shell -c \
+            "from django.contrib.auth.models import User; User.objects.filter(username='ci-restored').delete()"
+          $dc exec -T django rm qatrack/media/uploads/ci-restored.txt
+          $dc exec -T -e DJANGO_SUPERUSER_PASSWORD=ci-password-123 django \
+            python manage.py createsuperuser --noinput --username ci-later --email later@example.com
+          $dc exec -T django sh -c 'echo "added later" > qatrack/media/uploads/ci-later.txt'
+          $dc stop django django-q
+          [ "$(users)" = "ci-later" ]
+          [ "$(uploads)" = "ci-later.txt " ]
+
+          # A wrong confirmation, a backup cut short, or restore-media run in the
+          # backup service, where the uploaded files are read-only: each is
+          # refused, and nothing changes.
+          echo nope | expect_refusal "cancelled; nothing was changed" \
+            $dc run --rm -T --no-deps backup restore-db "$dump"
+          echo nope | expect_refusal "cancelled; nothing was changed" $dc run --rm -T restore-media "$media"
+          $dc exec -T backup sh -c \
+            'head -c $(( $(stat -c %s "$1") / 2 )) "$1" > /backups/db_ci_truncated.dump' sh "/backups/$dump"
+          echo qatrackplus | expect_refusal "could not read from input file" \
+            $dc run --rm -T --no-deps backup restore-db db_ci_truncated.dump
+          $dc exec -T backup rm /backups/db_ci_truncated.dump
+          echo RESTORE | expect_refusal "not mounted writable" \
+            $dc run --rm -T --no-deps backup restore-media "$media"
+          [ "$(users)" = "ci-later" ]
+          [ "$(uploads)" = "ci-later.txt " ]
+
+          echo qatrackplus | $dc run --rm -T --no-deps backup restore-db "$dump"
+          echo RESTORE | $dc run --rm -T restore-media "$media"
+          [ "$(users)" = "ci-restored" ]
+          [ "$(uploads)" = "ci-restored.txt " ]
+          # Nothing left behind: no working databases, no staging folder.
+          leftovers=$(echo "SELECT datname FROM pg_database WHERE datname IN ('qatrackplus_restoring', 'qatrackplus_before_restore');" |
+            $dc exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d postgres -tA')
+          [ -z "$leftovers" ] || { echo "FAIL: left over: $leftovers"; exit 1; }
+          [ -z "$($dc exec -T backup find /media -maxdepth 1 -name '.restore.*')" ]
+          # The restores used the stack's own media volume; none was made beside it.
+          volumes=$(docker volume ls -q | grep media || true)
+          [ "$volumes" = "qatrackplus_media-volume" ] || { echo "FAIL: media volumes: $volumes"; exit 1; }
+
+          $dc up -d --wait --wait-timeout 300
+          $dc exec -T django python manage.py shell -c \
+            "import sys; from django.contrib.auth.models import User; sys.exit(not User.objects.filter(username='ci-restored').exists())"
+          [ "$($dc exec -T django cat qatrack/media/uploads/ci-restored.txt)" = "restore me" ]
+          [ "$($dc exec -T django stat -c %u qatrack/media/uploads/ci-restored.txt)" = 1000 ]
+          # Every generated row came back too, not just the user and the file.
+          $dc exec -T django python manage.py shell \
+            < "$GITHUB_WORKSPACE/.github/scripts/row-counts.py" > /tmp/ci-counts-after.txt
+          diff -u /tmp/ci-counts-before.txt /tmp/ci-counts-after.txt \
+            || { echo "FAIL: the restore did not reproduce the row counts above"; exit 1; }
+
+          echo "PASS: backup restored the user, the uploaded file and every generated row"
+
+      - name: Verify backups follow TIME_ZONE
+        # The nightly 4 AM and the backups' file names are in TIME_ZONE from .env,
+        # or QATrack+'s default zone (America/Toronto) when it is unset.
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          dc="docker compose"
+          # The backup's file name, cut to the minute: db_YYYYMMDD_HHMMSS.dump -> YYYYMMDD_HHMM.
+          minute_of() { local name=${1#db_}; echo "${name:0:13}"; }
+
+          # Unset in CI's .env: the running service uses the default zone.
+          [ "$($dc exec -T backup printenv TZ)" = America/Toronto ]
+          abbreviation=$($dc exec -T backup date +%Z)
+          [[ "$abbreviation" =~ ^E[SD]T$ ]] || { echo "FAIL: the backup service's zone is $abbreviation"; exit 1; }
+          $dc logs backup | grep -F "Backups run every night at 4 AM, America/Toronto time"
+          # The schedule itself, which that message describes.
+          $dc exec -T backup cat /etc/crontabs/root | grep -E '^0 4 \* \* \* /usr/local/bin/backup '
+
+          # Backups named in UTC by an earlier release: one an hour old, whose
+          # name sorts after one named in Toronto time now, and one 8 days old.
+          # The newest backup is still the one ls -1t (newest modified first)
+          # lists first, and the old one is still deleted.
+          recent=$(date -u -d '1 hour ago' +%s)
+          expired=$(date -u -d '8 days ago' +%s)
+          for t in "$recent" "$expired"; do
+            sudo sh -c 'echo old > "$1" && touch -d "@$2" "$1"' sh "backups/db_$(date -u -d "@$t" +%Y%m%d_%H%M%S).dump" "$t"
+          done
+          before=$(TZ=America/Toronto date +%Y%m%d_%H%M)
+          $dc exec -T backup backup
+          after=$(TZ=America/Toronto date +%Y%m%d_%H%M)
+          dump=$($dc exec -T backup sh -c 'cd /backups && ls -1t db_*.dump | head -1')
+          echo "newest: $dump; in Toronto it was $before"
+          [ "$(minute_of "$dump")" = "$before" ] || [ "$(minute_of "$dump")" = "$after" ] ||
+            { echo "FAIL: $dump is not named in Toronto time"; exit 1; }
+          $dc exec -T backup test -f "/backups/db_$(date -u -d "@$recent" +%Y%m%d_%H%M%S).dump"
+          if $dc exec -T backup test -e "/backups/db_$(date -u -d "@$expired" +%Y%m%d_%H%M%S).dump"; then
+            echo "FAIL: the 8-day-old backup was kept"; exit 1
+          fi
+          $dc exec -T backup rm "/backups/db_$(date -u -d "@$recent" +%Y%m%d_%H%M%S).dump"
+
+          # Set in .env: a zone with no daylight saving and a half-hour offset,
+          # so its time can't be mistaken for UTC's or the default's.
+          echo "TIME_ZONE=Asia/Kolkata" >> .env
+          before=$(TZ=Asia/Kolkata date +%Y%m%d_%H%M)
+          out=$($dc run --rm -T --no-deps backup sh -c 'echo "zone: $TZ $(date +%Z)" && backup')
+          after=$(TZ=Asia/Kolkata date +%Y%m%d_%H%M)
+          echo "$out"
+          grep -qx "zone: Asia/Kolkata IST" <<<"$out"
+          # The name this backup reports, not the newest by ls -t: BusyBox compares
+          # whole seconds, so the Toronto backup made a moment ago can tie and win.
+          dump=$(sed -n 's|^Database saved to /backups/||p' <<<"$out")
+          echo "this backup: $dump; in Kolkata it was $before"
+          [ "$(minute_of "$dump")" = "$before" ] || [ "$(minute_of "$dump")" = "$after" ] ||
+            { echo "FAIL: $dump is not named in Asia/Kolkata time"; exit 1; }
+
+          # A zone the container does not know: it says so instead of quietly using UTC.
+          sed -i 's|^TIME_ZONE=.*|TIME_ZONE=Mars/Olympus_Mons|' .env
+          out=$($dc run --rm -T --no-deps backup timeout 3 start-cron 2>&1 || true)
+          echo "$out"
+          grep -qF '"Mars/Olympus_Mons" is not a time zone this container knows' <<<"$out"
+
+          sed -i '/^TIME_ZONE=/d' .env
+          echo "PASS: backups run and are named in TIME_ZONE, or America/Toronto when it is unset"
+
+      - name: Verify the data can be kept in folders on the server
+        # Unset, the QATRACK_*_DIR settings keep the named volumes, which every
+        # step above used. Then move the data into folders on the server the way
+        # docs/install/docker.rst says, and check that every service follows,
+        # that init gives the folders to the app user without following links,
+        # and that nginx, backups and restores work from them. Last, check that
+        # init refuses, changing nothing, a folder that is not QATrack+'s and a
+        # folder inside another.
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          dc="docker compose"
+          data="$RUNNER_TEMP/qatrack-data"
+          media=/usr/src/qatrackplus/qatrack/media
+          # "volume NAME" or "bind SOURCE": what is mounted at $2 in service $1.
+          mount_of() {
+            docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$2\"}}{{.Type}} {{if eq .Type \"volume\"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}" \
+              "$($dc ps -aq "$1")"
+          }
+          expect_mount() {
+            local got
+            got=$(mount_of "$1" "$2")
+            [ "$got" = "$3" ] || { echo "FAIL: $1 has $got at $2, expected $3"; exit 1; }
+          }
+          for s in django django-q nginx init; do expect_mount $s $media "volume qatrackplus_media-volume"; done
+          expect_mount backup /media "volume qatrackplus_media-volume"
+          expect_mount backup /backups "bind $PWD/backups"
+          expect_mount django /usr/src/qatrackplus/logs "volume qatrackplus_logs-volume"
+          expect_mount django /usr/src/qatrackplus/deploy/docker/user-data "volume qatrackplus_user-data-volume"
+          key=$($dc exec -T django cat deploy/docker/user-data/secret_key.txt | sha256sum)
+
+          # The documented move: stop, copy each volume into a folder inside a
+          # parent only root can open, marking it as QATrack+'s, set the
+          # variables, start.
+          $dc stop
+          sudo mkdir -p "$data"
+          sudo chmod 700 "$data"
+          for v in media user-data; do
+            docker run --rm -v "qatrackplus_${v}-volume:/from:ro" -v "$data/$v:/to" alpine:3.22 \
+              sh -c "cp -a /from/. /to/ && touch /to/.qatrackplus-data"
+          done
+          count() { docker run --rm -v "$1:/d:ro" alpine:3.22 sh -c "find /d -type f ! -name .qatrackplus-data | wc -l"; }
+          [ "$(count qatrackplus_media-volume)" = "$(count "$data/media")" ]
+          sudo mkdir "$data/backups"
+          sudo cp -a backups/. "$data/backups/"
+          # Root-owned entries init must hand over: a file, and a link to nowhere
+          # (chown without -h would follow it, fail, and stop the site starting).
+          # The logs folder does not exist yet; Docker creates it, owned by root,
+          # and init marks it as QATrack+'s, since it is empty.
+          sudo touch "$data/media/ci-root-owned.txt"
+          sudo ln -s /nowhere "$data/media/ci-dangling-link"
+          printf '\nQATRACK_MEDIA_DIR=%s\nQATRACK_USER_DATA_DIR=%s\nQATRACK_LOGS_DIR=%s\nQATRACK_BACKUPS_DIR=%s\n' \
+            "$data/media" "$data/user-data" "$data/logs" "$data/backups" >> .env
+          $dc up -d --wait --wait-timeout 300
+
+          [ "$(docker inspect -f '{{.State.ExitCode}}' "$($dc ps -aq init)")" = 0 ]
+          for s in django django-q nginx init; do expect_mount $s $media "bind $data/media"; done
+          expect_mount backup /media "bind $data/media"
+          expect_mount backup /backups "bind $data/backups"
+          for s in django django-q init; do
+            expect_mount $s /usr/src/qatrackplus/logs "bind $data/logs"
+            expect_mount $s /usr/src/qatrackplus/deploy/docker/user-data "bind $data/user-data"
+          done
+          sudo ls -lan "$data" "$data/media"
+          owners=$(sudo stat -c %u:%g "$data/media" "$data/logs" "$data/user-data" \
+            "$data/media/ci-root-owned.txt" "$data/media/ci-dangling-link" | sort -u)
+          [ "$owners" = 1000:1000 ] || { echo "FAIL: owners $owners"; exit 1; }
+          for v in media user-data logs; do sudo test -f "$data/$v/.qatrackplus-data"; done
+          grep -qF "Re-owned to 1000:1000 in QATRACK_MEDIA_DIR=$data/media: " <<<"$($dc logs init 2>&1)"
+          # Left alone: the parent folder, and the backups (root's only).
+          [ "$(sudo stat -c %u:%a "$data")" = 0:700 ]
+          [ "$(sudo stat -c %u "$data/backups")" = 0 ]
+
+          # The same data, and the same key: nobody is signed out.
+          [ "$(sudo cat "$data/media/uploads/ci-restored.txt")" = "restore me" ]
+          [ "$($dc exec -T django cat deploy/docker/user-data/secret_key.txt | sha256sum)" = "$key" ]
+          grep -qF "in the folder $data/user-data on the server" <<<"$($dc logs django 2>&1)"
+          # New uploads and log files land in the folders, owned by the app user.
+          $dc exec -T django sh -c 'echo "on the server" > qatrack/media/uploads/ci-host-folder.txt'
+          [ "$(sudo stat -c %u:%g "$data/media/uploads/ci-host-folder.txt")" = 1000:1000 ]
+          [ -n "$(sudo find "$data/logs" -name '*.log' -user 1000)" ]
+          got=$(curl -fsSk --resolve qatrack.test:443:127.0.0.1 https://qatrack.test/media/uploads/ci-host-folder.txt)
+          [ "$got" = "on the server" ] || { echo "FAIL: nginx served: $got"; exit 1; }
+          # The marker is in the media folder, but it is not an uploaded file.
+          got=$(curl -sk -o /dev/null -w '%{http_code}' --resolve qatrack.test:443:127.0.0.1 https://qatrack.test/media/.qatrackplus-data)
+          [ "$got" = 404 ] || { echo "FAIL: nginx answered $got for the marker"; exit 1; }
+          # Nor is restore-media's working folder, which holds a whole unpacked
+          # backup while a restore runs, however the path is written. Uploads
+          # are still served.
+          sudo mkdir -m 755 "$data/media/.restore.ci1234"
+          echo "unpacked" | sudo tee "$data/media/.restore.ci1234/f.txt" >/dev/null
+          sudo chmod 644 "$data/media/.restore.ci1234/f.txt"
+          for path in .restore.ci1234/f.txt %2Erestore.ci1234/f.txt %2erestore.ci1234%2Ff.txt \
+            /.restore.ci1234/f.txt uploads/../.restore.ci1234/f.txt .restore.ci1234/ \
+            .qatrackplus-data/ %2Eqatrackplus-data //.qatrackplus-data; do
+            got=$(curl -sk --path-as-is -o /dev/null -w '%{http_code}' --resolve qatrack.test:443:127.0.0.1 "https://qatrack.test/media/$path")
+            [ "$got" = 404 ] || { echo "FAIL: nginx answered $got for /media/$path"; exit 1; }
+          done
+          got=$(curl -sk -o /dev/null -w '%{http_code}' --resolve qatrack.test:443:127.0.0.1 https://qatrack.test/media/uploads/ci-host-folder.txt)
+          [ "$got" = 200 ] || { echo "FAIL: nginx answered $got for an upload"; exit 1; }
+          sudo rm -r "$data/media/.restore.ci1234"
+
+          # Back up and restore the uploaded files in the folders.
+          $dc exec -T backup backup
+          new=$($dc exec -T backup sh -c 'cd /backups && ls -1t media_*.tar.gz | head -1')
+          [ "$(sudo stat -c %u:%a "$data/backups/$new")" = 0:600 ]
+          grep -qx media/uploads/ci-host-folder.txt <<<"$(sudo tar -tzf "$data/backups/$new")"
+          $dc exec -T django rm qatrack/media/uploads/ci-host-folder.txt
+          $dc stop django django-q
+          echo RESTORE | $dc run --rm -T restore-media "$new"
+          [ "$(sudo cat "$data/media/uploads/ci-host-folder.txt")" = "on the server" ]
+          [ -z "$(sudo find "$data/media" -maxdepth 1 -name '.restore.*')" ]
+          # The marker belongs to the folder, and a restore keeps it.
+          sudo test -f "$data/media/.qatrackplus-data"
+          $dc up -d --wait --wait-timeout 300
+
+          # init refuses, and changes nothing, when a setting names a folder that
+          # is not empty and not marked as QATrack+'s, or one inside another. Only
+          # init is run: the site keeps running throughout.
+          # What is not the app user's (the running site may add its own files).
+          owners_of() { sudo find "$@" \( ! -user 1000 -o ! -group 1000 \) -printf '%p %U:%G\n' | sort; }
+          refused() {
+            if out=$($dc run --rm -T init 2>&1); then echo "FAIL: init accepted $1"; exit 1; fi
+            echo "$out"
+          }
+          sudo touch "$data/media/ci-root-owned-later.txt"
+          shared="$RUNNER_TEMP/ci-shared"
+          sudo mkdir "$shared"
+          sudo touch "$shared/someone-elses.txt" "$shared/root-only.txt"
+          sudo chown 1234:1234 "$shared/someone-elses.txt"
+          sudo chmod 600 "$shared/root-only.txt"
+          before=$(owners_of "$data" "$shared")
+          grep -qF "$data/media/ci-root-owned-later.txt 0:0" <<<"$before"
+          sed -i "s|^QATRACK_LOGS_DIR=.*|QATRACK_LOGS_DIR=$shared|" .env
+          refused "a folder that is not QATrack+'s"
+          grep -qxF "QATRACK_LOGS_DIR=$shared" <<<"$out"
+          grep -qF "is not empty, and has no .qatrackplus-data file" <<<"$out"
+          [ "$(owners_of "$data" "$shared")" = "$before" ] || { echo "FAIL: init changed owners"; exit 1; }
+          sudo test ! -e "$shared/.qatrackplus-data"
+          # The parent folder as the media folder: nginx would serve the logs and
+          # secret key inside it, and init would hand over the backups.
+          sed -i "s|^QATRACK_LOGS_DIR=.*|QATRACK_LOGS_DIR=$data/logs|" .env
+          sed -i "s|^QATRACK_MEDIA_DIR=.*|QATRACK_MEDIA_DIR=$data|" .env
+          sudo touch "$data/.qatrackplus-data"
+          before=$(owners_of "$data")
+          grep -qF "$data/backups/$new 0:0" <<<"$before"
+          refused "a folder holding the others"
+          for inner in LOGS_DIR=$data/logs USER_DATA_DIR=$data/user-data BACKUPS_DIR=$data/backups; do
+            grep -qF "QATRACK_$inner is inside QATRACK_MEDIA_DIR=$data." <<<"$out"
+          done
+          [ "$(owners_of "$data")" = "$before" ] || { echo "FAIL: init changed owners"; exit 1; }
+          [ "$(sudo stat -c %u:%a "$data/backups/$new")" = 0:600 ]
+          # A parent folder, marked by mistake, holding an old database dump that
+          # is not in the backups folder: marking does not make it QATrack+'s.
+          sudo mkdir "$shared/old"
+          sudo install -m 600 /dev/null "$shared/old/db_20240101_020000.dump"
+          sudo touch "$shared/.qatrackplus-data"
+          sed -i "s|^QATRACK_MEDIA_DIR=.*|QATRACK_MEDIA_DIR=$shared|" .env
+          before=$(owners_of "$shared")
+          refused "a marked folder holding a backup"
+          grep -qxF "    $shared/old/db_20240101_020000.dump" <<<"$out"
+          if grep -qF "sudo touch" <<<"$out"; then echo "FAIL: suggested marking it"; exit 1; fi
+          [ "$(owners_of "$shared")" = "$before" ] || { echo "FAIL: init changed owners"; exit 1; }
+          [ "$(sudo stat -c %u:%g:%a "$shared/old/db_20240101_020000.dump")" = 0:0:600 ]
+          # Back as the site uses it, with a file from outside linked into the
+          # media folder: init leaves it as it is, and says so.
+          sed -i "s|^QATRACK_MEDIA_DIR=.*|QATRACK_MEDIA_DIR=$data/media|" .env
+          sudo rm -rf "$data/.qatrackplus-data" "$data/media/ci-root-owned-later.txt" "$shared"
+          sudo install -m 664 /dev/null "$RUNNER_TEMP/ci-elsewhere.txt"
+          sudo ln "$RUNNER_TEMP/ci-elsewhere.txt" "$data/media/ci-hard-link.txt"
+          # And an upload from before 2016 that kept its own name, which happens
+          # to be a backup's: uploads are not checked for backup names.
+          sudo mkdir -p "$data/media/uploads/tli/1"
+          sudo touch "$data/media/uploads/tli/1/db_20150101_120000.dump"
+          out=$($dc run --rm -T init 2>&1)
+          grep -qF "Warning: not re-owned to 1000:1000 in QATRACK_MEDIA_DIR=$data/media:" <<<"$out"
+          grep -qxF "    $data/media/ci-hard-link.txt" <<<"$out"
+          [ "$(sudo stat -c %u:%g "$RUNNER_TEMP/ci-elsewhere.txt")" = 0:0 ]
+          sudo rm -r "$data/media/ci-hard-link.txt" "$RUNNER_TEMP/ci-elsewhere.txt" "$data/media/uploads/tli"
+          echo "PASS: data kept in folders on the server, owned by the app user, backed up and restored; unsafe folders refused"
+
+      - name: Verify a site package that conflicts with QATrack+ stops the build
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          echo "Django==4.1" > site-requirements/requirements.txt
+          rc=0
+          docker compose build django > "$RUNNER_TEMP/conflict.log" 2>&1 || rc=$?
+          tail -n 20 "$RUNNER_TEMP/conflict.log"
+          [ "$rc" != 0 ] || { echo "FAIL: the build accepted Django==4.1"; exit 1; }
+          grep -q "No solution found" "$RUNNER_TEMP/conflict.log"
+          # The running site is untouched.
+          docker compose exec -T django python -c "import django, pint; print('still running Django', django.__version__, 'and pint', pint.__version__)"
+
+      - name: Summary
+        # What this job proved, on the run page rather than 2,000 lines down in a
+        # log. `always()` so a failed run still shows how far it got.
+        if: always()
+        working-directory: deploy/docker
+        run: |
+          {
+            echo "## Docker build and run check"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Engine / Compose | \`$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo unknown)\` / \`$(docker compose version --short 2>/dev/null || echo unknown)\` |"
+            echo "| Services | $(docker compose ps --services 2>/dev/null | tr '\n' ' ' || echo 'not running') |"
+            echo "| Unhealthy at the end | $(docker ps -q -f health=unhealthy 2>/dev/null | wc -l) |"
+            echo
+            if [ -f /tmp/ci-counts-before.txt ] && [ -f /tmp/ci-counts-after.txt ]; then
+              echo "### Backup and restore, on a site with a QC history"
+              echo
+              echo "| rows | before the backup | after the restore |"
+              echo "|---|---:|---:|"
+              paste -d' ' /tmp/ci-counts-before.txt /tmp/ci-counts-after.txt | while read -r b a; do
+                echo "| ${b%%=*} | ${b#*=} | ${a#*=} |"
+              done
+              echo
+            fi
+            echo "### Also checked"
+            echo
+            echo "- runs unprivileged, PostgreSQL published only on request and only on 127.0.0.1"
+            echo "- background tasks, site Python packages, and a conflicting package stopping the build"
+            echo "- nginx answers only \`ALLOWED_HOSTS\`, caps logs, follows django to a new address, serves HTTPS"
+            echo "- LDAP and LDAPS sign-in, and the secret key surviving a container recreation"
+            echo "- restores refused while the site runs, on a wrong confirmation, and on a truncated dump"
+            echo "- backups readable only by root, and named in the site's own time zone"
+            echo "- QATrack+'s data kept in folders on the server"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Tear Down
         if: always()
         working-directory: deploy/docker
-        run: docker compose -f compose.yaml down -v
+        run: docker compose down -v
+  docker-upgrade:
+    name: Docker Upgrade from 4.0.1
+    runs-on: ubuntu-24.04
+    needs: [lint, requirements]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Check out the 4.0.1 release alongside
+        run: |
+          git fetch --no-tags --depth 1 https://github.com/qatrackplus/qatrackplus.git refs/tags/v4.0.1:refs/tags/v4.0.1
+          git worktree add ../base v4.0.1
+
+      - name: Documented git steps keep a site's .env and local edits (docker_upgrade_from_4_0.rst)
+        # 4.0.1 tracks deploy/docker/.env and every site has edited it; some have
+        # also changed the port in compose.yaml or the nginx configuration. Follow
+        # the documented commands, with `git checkout` of this commit standing in
+        # for `git pull`.
+        run: |
+          set -euo pipefail
+          site=$(mktemp -d)/qatrackplus
+          git worktree add -q --detach "$site" v4.0.1
+          cd "$site"
+          echo "POSTGRES_PASSWORD=site-secret" >> deploy/docker/.env
+          sed -i 's/"80:80"/"8080:80"/' deploy/docker/compose.yaml
+          echo "# site edit" >> deploy/docker/nginx/nginx.conf
+          sed -i 's/listen 80;/listen 80; # site edit/' deploy/docker/nginx/conf.d/default.conf
+          # Without the steps, git refuses, as the docs say.
+          if git checkout -q "$GITHUB_SHA" 2>/dev/null; then
+            echo "FAIL: expected git to refuse while .env has local edits"; exit 1
+          fi
+          # The docs' answer to "Please tell me who you are"; runners have no
+          # git identity either.
+          git config user.name "QATrack+ administrator"
+          git config user.email "admin@example.com"
+          cp deploy/docker/.env ../qatrack.env.backup
+          git checkout -- deploy/docker/.env
+          git stash push -m qatrack-4.0.2-upgrade
+          git checkout -q "$GITHUB_SHA"
+          # This release removed nginx/conf.d/default.conf, so the site's edit to
+          # it conflicts, as the docs say. Then follow their steps.
+          if git stash list | grep -q qatrack-4.0.2-upgrade && git stash pop; then
+            echo "FAIL: expected a conflict on nginx/conf.d/default.conf"; exit 1
+          fi
+          git show 'stash@{0}:deploy/docker/nginx/conf.d/default.conf' > ../old-nginx-default.conf
+          git rm -q deploy/docker/nginx/conf.d/default.conf
+          git reset -q
+          git status
+          # The docs say to drop the stash only once no conflict is left.
+          ! git grep -q '^<<<<<<<' -- deploy || { echo "FAIL: conflict markers left"; exit 1; }
+          git stash drop
+          cp ../qatrack.env.backup deploy/docker/.env
+          grep -qx "POSTGRES_PASSWORD=site-secret" deploy/docker/.env
+          grep -q '"8080:80"' deploy/docker/compose.yaml
+          grep -qx "# site edit" deploy/docker/nginx/nginx.conf
+          grep -q "site edit" ../old-nginx-default.conf
+          [ -z "$(git ls-files deploy/docker/.env)" ] || { echo "FAIL: .env still tracked"; exit 1; }
+          [ -z "$(git stash list)" ] || { echo "FAIL: stash left behind"; exit 1; }
+          git status --short
+          expected=$(printf ' M deploy/docker/compose.yaml\n M deploy/docker/nginx/nginx.conf')
+          [ "$(git status --porcelain)" = "$expected" ] || { echo "FAIL: unexpected working tree"; exit 1; }
+          echo "PASS: site .env, port and nginx edits kept, .env untracked and ignored"
+
+      - name: Start a 4.0.1 site
+        working-directory: ../base/deploy/docker
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait --wait-timeout 300
+
+      - name: Record 4.0.1 state and add data
+        # 4.0.1 runs the server as root, so the files it writes to the shared
+        # volumes are root-owned. This is what an upgrading site starts from.
+        working-directory: ../base/deploy/docker
+        run: |
+          set -euo pipefail
+          uid=$(docker compose exec -T django stat -c %u /proc/1)
+          echo "4.0.1 django server process uid: $uid"
+          [ "$uid" = 0 ]
+          docker compose exec -T -e DJANGO_SUPERUSER_PASSWORD=ci-password-123 django \
+            python manage.py createsuperuser --noinput --username ci --email ci@example.com
+          docker compose exec -T django sh -c \
+            'mkdir -p qatrack/media/uploads && echo "written by 4.0.1" > qatrack/media/uploads/ci-upgrade.txt'
+          # A site that has been in use, not an empty one - and generated by
+          # 4.0.1's own code, so the rows the upgrade carries were written by the
+          # release being upgraded from. An empty database says nothing about
+          # migrations that touch QA data.
+          docker compose exec -T django python manage.py generate_sample_data --days 30
+          docker compose exec -T django python manage.py shell \
+            < "$GITHUB_WORKSPACE/.github/scripts/row-counts.py" \
+            > "$GITHUB_WORKSPACE/../counts-401.txt"
+          cat "$GITHUB_WORKSPACE/../counts-401.txt"
+          # Generation has to have produced something, or comparing counts after
+          # the upgrade would pass by comparing nothing to nothing.
+          tis=$(sed -n 's/^testinstances=//p' "$GITHUB_WORKSPACE/../counts-401.txt")
+          [ "${tis:-0}" -gt 100 ] || { echo "FAIL: 4.0.1 generated only ${tis:-0} test instances"; exit 1; }
+          [ "$(docker compose exec -T django stat -c %u qatrack/static/admin)" = 0 ]
+          [ "$(docker compose exec -T django stat -c %u qatrack/media/uploads/ci-upgrade.txt)" = 0 ]
+          # 4.0.1 keeps its secret key in the checkout (compose.override.yaml
+          # mounts it); the upgrade guide carries it over.
+          test -s user-data/secret_key.txt
+          # A backup made by 4.0.1's own backup service, restored after the upgrade.
+          docker compose exec -T backup bash /backup.sh
+          ls -l backups
+          docker compose down
+
+      - name: Upgrade to this branch on the same volumes
+        working-directory: deploy/docker
+        run: |
+          cp .env.example .env
+          # The upgrade guide's optional step: keep 4.0.1's secret key.
+          printf '\nSECRET_KEY=%s\n' "$(cat "$GITHUB_WORKSPACE/../base/deploy/docker/user-data/secret_key.txt")" >> .env
+          docker compose up -d --build --wait --wait-timeout 300
+
+      - name: Container logs
+        if: always()
+        working-directory: deploy/docker
+        run: docker compose logs
+
+      - name: Verify the upgraded site
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          dc="docker compose"
+          [ "$(docker inspect -f '{{.State.ExitCode}}' "$($dc ps -aq init)")" = 0 ]
+          [ $(docker ps -q -f health=unhealthy | wc -l) -eq 0 ]
+
+          uid=$($dc exec -T django stat -c %u /proc/1)
+          echo "upgraded django server process uid: $uid"
+          [ "$uid" = 1000 ]
+
+          # Data from 4.0.1 survived and is now owned by the app user.
+          [ "$($dc exec -T django cat qatrack/media/uploads/ci-upgrade.txt)" = "written by 4.0.1" ]
+          [ "$($dc exec -T django stat -c %u qatrack/media/uploads/ci-upgrade.txt)" = 1000 ]
+          [ "$($dc exec -T django stat -c %u qatrack/static/admin)" = 1000 ]
+          $dc exec -T django python manage.py shell -c \
+            "import sys; from django.contrib.auth.models import User; sys.exit(not User.objects.filter(username='ci').exists())"
+
+          # Every row 4.0.1 generated is still there, and there are no new ones.
+          # The 4.0.2 migrations record field state and repair uniqueness, so they
+          # must not add, drop or merge a single record.
+          $dc exec -T django python manage.py shell \
+            < "$GITHUB_WORKSPACE/.github/scripts/row-counts.py" \
+            > "$GITHUB_WORKSPACE/../counts-402.txt"
+          cat "$GITHUB_WORKSPACE/../counts-402.txt"
+          diff -u "$GITHUB_WORKSPACE/../counts-401.txt" "$GITHUB_WORKSPACE/../counts-402.txt" \
+            || { echo "FAIL: the upgrade changed the row counts above"; exit 1; }
+
+          # QATrack+ uses the key 4.0.1 generated, so nobody is signed out.
+          old=$(sha256sum < "$GITHUB_WORKSPACE/../base/deploy/docker/user-data/secret_key.txt")
+          new=$($dc exec -T django python manage.py shell -c \
+            "from django.conf import settings; print(settings.SECRET_KEY, end='')" | sha256sum)
+          [ "$old" = "$new" ] || { echo "FAIL: the 4.0.1 secret key was not carried over"; exit 1; }
+          # With SECRET_KEY in .env there is no key file to warn about.
+          logs=$($dc logs django 2>&1)
+          if grep -q 'NOTICE: SECRET_KEY' <<<"$logs"; then echo "FAIL: secret key notice despite SECRET_KEY"; exit 1; fi
+
+          # The commands users already run keep working, and write as the app user.
+          $dc exec -T django touch qatrack/media/uploads/after-upgrade.txt
+          [ "$($dc exec -T django stat -c %u qatrack/media/uploads/after-upgrade.txt)" = 1000 ]
+          echo "PASS: 4.0.1 site upgraded; data intact and owned by the app user"
+
+      - name: Restore the 4.0.1 backup with this release's tools
+        # Sites' existing backups were made by 4.0.1's backup image (pg_dump 16);
+        # this release's restore-db and restore-media must read them.
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          dc="docker compose"
+          old="$GITHUB_WORKSPACE/../base/deploy/docker/backups"
+          sudo mkdir -p backups
+          sudo cp "$old"/db_*.dump "$old"/media_*.tar.gz backups/
+          # Picked from 4.0.1's own folder: 4.0.1 named backups in UTC and this
+          # release names them in local time, so by name alone a backup made
+          # since the upgrade could sort on either side of 4.0.1's.
+          dump=$(cd "$old" && ls -1t db_*.dump | head -1)
+          media=$(cd "$old" && ls -1t media_*.tar.gz | head -1)
+          $dc exec -T django python manage.py shell -c \
+            "from django.contrib.auth.models import User; User.objects.filter(username='ci').delete()"
+          $dc exec -T django rm qatrack/media/uploads/ci-upgrade.txt
+          $dc stop django django-q
+          echo qatrackplus | $dc run --rm -T --no-deps backup restore-db "$dump"
+          echo RESTORE | $dc run --rm -T restore-media "$media"
+          $dc up -d --wait --wait-timeout 300
+          $dc exec -T django python manage.py shell -c \
+            "import sys; from django.contrib.auth.models import User; sys.exit(not User.objects.filter(username='ci').exists())"
+          [ "$($dc exec -T django cat qatrack/media/uploads/ci-upgrade.txt)" = "written by 4.0.1" ]
+          [ "$($dc exec -T django stat -c %u qatrack/media/uploads/ci-upgrade.txt)" = 1000 ]
+          echo "PASS: a 4.0.1 backup restored with this release's tools"
+
+          # Backups made before the upgrade (copied in above, readable by anyone)
+          # are made readable by root only by the next backup.
+          [ "$(stat -c %a "backups/$dump")" != 600 ]
+          $dc exec -T backup backup
+          for f in "backups/$dump" "backups/$media"; do
+            [ "$(stat -c %a:%u "$f")" = 600:0 ] || { echo "FAIL: $f is $(stat -c %a:%U "$f")"; exit 1; }
+          done
+          echo "PASS: backups from before the upgrade are now readable by root only"
+
+      - name: Summary
+        if: always()
+        working-directory: deploy/docker
+        run: |
+          {
+            echo "## Upgrade from 4.0.1, on a site with data in it"
+            echo
+            if [ -f "$GITHUB_WORKSPACE/../counts-401.txt" ] && [ -f "$GITHUB_WORKSPACE/../counts-402.txt" ]; then
+              echo "| rows | on 4.0.1 | after the upgrade |"
+              echo "|---|---:|---:|"
+              paste -d' ' "$GITHUB_WORKSPACE/../counts-401.txt" "$GITHUB_WORKSPACE/../counts-402.txt" \
+                | while read -r b a; do echo "| ${b%%=*} | ${b#*=} | ${a#*=} |"; done
+              echo
+              echo "A migration that records field state and repairs uniqueness must not add,"
+              echo "drop or merge a row, so these two columns have to match exactly."
+              echo
+            else
+              echo "_Row counts were not recorded - the run did not reach that point._"
+              echo
+            fi
+            echo "### Also checked"
+            echo
+            echo "- the documented \`git stash\` steps keep a site's \`.env\`, port change and nginx edits"
+            echo "- git refuses while \`.env\` has local edits, and the stash conflicts on the removed \`default.conf\`"
+            echo "- 4.0.1 wrote its files as root; after the upgrade they belong to the app user"
+            echo "- the secret key 4.0.1 generated is carried over, so nobody is signed out"
+            echo "- a backup made by 4.0.1's own tools restores with this release's \`restore-db\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tear Down
+        if: always()
+        working-directory: deploy/docker
+        run: docker compose down -v
+
+  docker-dev:
+    name: Docker Development Overlay
+    runs-on: ubuntu-24.04
+    needs: [lint, requirements]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Start the stack from the checkout as the runner's own user
+        # The runner's uid is not 1000, like many developers'. The app has to
+        # write into the mounted checkout (logs/, site.css) as that user.
+        working-directory: deploy/docker
+        run: |
+          cp .env.example .env
+          printf '\nQATRACK_UID=%s\nQATRACK_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
+          echo "runner uid=$(id -u) gid=$(id -g)"
+          docker compose -f compose.yaml -f compose.dev.yaml up -d --build --wait --wait-timeout 300
+
+      - name: Container logs
+        if: always()
+        working-directory: deploy/docker
+        run: docker compose -f compose.yaml -f compose.dev.yaml logs
+
+      - name: Verify the app runs as the developer and writes into the checkout
+        working-directory: deploy/docker
+        run: |
+          set -euo pipefail
+          dc="docker compose -f compose.yaml -f compose.dev.yaml"
+          [ "$(docker inspect -f '{{.State.ExitCode}}' "$($dc ps -aq init)")" = 0 ]
+          uid=$($dc exec -T django stat -c %u /proc/1)
+          echo "django server process uid: $uid"
+          [ "$uid" = "$(id -u)" ]
+          css="$GITHUB_WORKSPACE/qatrack/qatrack_core/static/qatrack_core/css/site.css"
+          [ "$(stat -c %u "$css")" = "$(id -u)" ]
+          ls -ln "$GITHUB_WORKSPACE/logs"
+          [ -n "$(find "$GITHUB_WORKSPACE/logs" -type f -user "$(id -u)")" ]
+          $dc exec -T django touch qatrack/media/uploads-dev-check.txt
+          # Nothing the app needs (Matplotlib's cache, for one) may be unwritable.
+          if $dc logs django 2>&1 | grep -E "Permission denied|mkdir -p failed"; then
+            echo "::error::django logged a permission error"
+            exit 1
+          fi
+          echo "PASS: dev overlay runs as uid $(id -u) and writes into the checkout"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Development overlay"
+            echo
+            echo "Starts the stack from the checkout with \`compose.dev.yaml\`, as a developer does,"
+            echo "and checks the app runs as the runner's own user and writes into the working tree"
+            echo "rather than into a volume."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tear Down
+        if: always()
+        working-directory: deploy/docker
+        run: docker compose -f compose.yaml -f compose.dev.yaml down -v
+
+  selenium-tests:
+    name: Selenium Tests
+    runs-on: ubuntu-latest
+    needs: [lint, requirements]
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, chromium]
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Activate virtual environment
+        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      # No local_settings.py here either: same in-memory SQLite fallback as
+      # the Linux Tests (memory) job. Chrome/Chromium and Firefox, with
+      # matching drivers, come pre-installed on GitHub's ubuntu-latest
+      # runner - no browser/driver install step needed. Runs the Selenium
+      # suite only (bypasses the skip-by-default via -m selenium), against
+      # one browser per matrix entry, headless (this branch's default).
+      #
+      # --tb=line holds a failure to one line. A full traceback for a browser
+      # test is mostly Selenium's own frames, and the screenshot is better
+      # evidence than any of it.
+      #
+      # WHY continue-on-error, and WHAT TURNS IT OFF.
+      #
+      # The GUI suite has unquantified flakiness: tests that fail in a full run
+      # pass in isolation, including ones untouched by the change under review.
+      # Blocking every PR on that would make the check meaningless in the other
+      # direction - people would start ignoring a red tick.
+      #
+      # But a green tick that hides five failing tests is its own problem, and
+      # it is the one this raised in review. So the failures are surfaced as
+      # GitHub *annotations* by the report step below - they appear on the PR
+      # itself, not only in the job summary - while still not failing the build.
+      #
+      # REMOVE `continue-on-error` when the flake rate is measured and the suite
+      # passes 10 consecutive full runs per browser on the same commit. Until
+      # someone has that number, "CI is green" means nothing for this suite and
+      # the annotation is the only honest signal.
+      - name: Run Selenium Tests
+        id: selenium
+        continue-on-error: true
+        shell: bash
+        env:
+          SELENIUM_BROWSER: ${{ matrix.browser }}
+        run: |
+          set -o pipefail
+          pytest -m selenium --tb=line -rfE 2>&1 | tee selenium.log
+
+      # always(), not failure(). The step above is continue-on-error, so the
+      # job never reports failure and failure() would never fire - which
+      # would quietly stop uploading the screenshots this exists for.
+      #
+      # conftest.py writes one per failing Selenium test and nothing when they
+      # pass, so a green run still uploads no artifact.
+      - name: Upload failure screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: selenium-screenshots-linux-${{ matrix.browser }}
+          path: selenium-screenshots/
+          if-no-files-found: ignore
+
+      # The job reports success either way, so this is the only place the
+      # result is stated plainly. Names the failing tests and nothing else -
+      # the log has the detail and the artifact has the pictures.
+      - name: Report Selenium outcome
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Selenium — Linux / ${{ matrix.browser }}"
+            if [ "${{ steps.selenium.outcome }}" = "success" ]; then
+              echo "All GUI tests passed."
+            else
+              echo "**Failures below did not fail the build.** Screenshots are attached as an artifact."
+              echo
+              echo '```'
+              grep -E '^(FAILED|ERROR)' selenium.log || echo "no FAILED lines - the run did not finish; see the log"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # An annotation as well as the summary. A continue-on-error step makes
+          # the check green, so without this the only trace of a failure is a
+          # page nobody opens on a passing PR.
+          if [ "${{ steps.selenium.outcome }}" != "success" ]; then
+            n=$(grep -cE '^(FAILED|ERROR)' selenium.log || true)
+            echo "::warning title=Selenium GUI failures (did not fail the build)::${n:-unknown} test(s) failed on ${{ matrix.browser }} - see the job summary and the screenshot artifact"
+          fi
+
+  selenium-tests-windows:
+    name: Selenium Tests (Windows)
+    runs-on: windows-latest
+    needs: [lint, requirements]
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium]
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --extra win --locked
+
+      # No local_settings.py here either: same in-memory SQLite fallback as
+      # the Linux jobs. Chrome/Chromium (and Firefox and Edge) come
+      # pre-installed on GitHub's windows-latest runner - no browser/driver
+      # install step needed. Runs the Selenium suite only (bypasses the
+      # skip-by-default via -m selenium), headless (this branch's
+      # default).
+      #
+      # A GUI failure does not fail the build. The suite has residual timing
+      # flakiness that is still being worked through, and a red X that is
+      # usually noise teaches people to stop reading it. The outcome is still
+      # reported, in the summary step below, so it stays visible without
+      # gating anything.
+      #
+      # --tb=line holds a failure to one line. A full traceback for a browser
+      # test is mostly Selenium's own frames, and the screenshot is better
+      # evidence than any of it.
+      # WHY continue-on-error: the same reasoning as the Linux Selenium job above,
+      # including what has to be true before it is removed. Kept in one place so the
+      # two jobs cannot drift apart on it.
+      - name: Run Selenium Tests
+        id: selenium
+        continue-on-error: true
+        shell: bash
+        env:
+          SELENIUM_BROWSER: ${{ matrix.browser }}
+        run: |
+          set -o pipefail
+          uv run pytest -m selenium --tb=line -rfE 2>&1 | tee selenium.log
+
+      # always(), not failure(). The step above is continue-on-error, so the
+      # job never reports failure and failure() would never fire - which
+      # would quietly stop uploading the screenshots this exists for.
+      #
+      # conftest.py writes one per failing Selenium test and nothing when they
+      # pass, so a green run still uploads no artifact.
+      - name: Upload failure screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: selenium-screenshots-windows-${{ matrix.browser }}
+          path: selenium-screenshots/
+          if-no-files-found: ignore
+
+      # The job reports success either way, so this is the only place the
+      # result is stated plainly. Names the failing tests and nothing else -
+      # the log has the detail and the artifact has the pictures.
+      - name: Report Selenium outcome
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Selenium — Windows / ${{ matrix.browser }}"
+            if [ "${{ steps.selenium.outcome }}" = "success" ]; then
+              echo "All GUI tests passed."
+            else
+              echo "**Failures below did not fail the build.** Screenshots are attached as an artifact."
+              echo
+              echo '```'
+              grep -E '^(FAILED|ERROR)' selenium.log || echo "no FAILED lines - the run did not finish; see the log"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # An annotation as well as the summary. A continue-on-error step makes
+          # the check green, so without this the only trace of a failure is a
+          # page nobody opens on a passing PR.
+          if [ "${{ steps.selenium.outcome }}" != "success" ]; then
+            n=$(grep -cE '^(FAILED|ERROR)' selenium.log || true)
+            echo "::warning title=Selenium GUI failures (did not fail the build)::${n:-unknown} test(s) failed on ${{ matrix.browser }} - see the job summary and the screenshot artifact"
+          fi

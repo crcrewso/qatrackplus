@@ -94,6 +94,59 @@ Next, activate your new virtual environment:
 
 Your command prompt should now be prefixed with ``(qatrackplus)`` or ``(.venv)``.
 
+.. dropdown:: Can't install ``uv``? Use ``pip`` instead
+
+   A small number of sites can't install ``uv`` -- for example, due to a
+   restricted PowerShell execution policy that blocks the installer script
+   above, or no outbound internet access to ``astral.sh``. If that's you,
+   QATrack+ and its Windows/SQL Server dependencies can be installed with
+   plain ``pip``, which reads the project and its extras straight from
+   ``pyproject.toml``:
+
+   .. code-block:: console
+
+      >>  python -m venv .venv
+      >>  .\.venv\Scripts\Activate.ps1
+      >>  pip install ".[win,mssql]"
+
+   Two differences from the ``uv`` instructions above are worth knowing
+   before you start:
+
+   * **You need Python 3.12 installed yourself, and on your** ``PATH``. The
+     ``uv`` path does not -- ``uv venv --python 3.12`` downloads and manages
+     an interpreter for you -- so this is an extra prerequisite rather than
+     a substitution. Check it with ``python --version`` before creating the
+     virtual environment.
+   * **If you use Active Directory**, the ``python_ldap`` wheel step in
+     :ref:`auth_backends` is written as ``uv pip install``. Use plain
+     ``pip install C:\path\to\python_ldap-...whl`` instead, with the
+     virtual environment activated.
+
+   This is a minimally-supported fallback path. It resolves dependency
+   versions at install time rather than from ``uv.lock``, so two sites
+   installing a week apart can end up with different versions of the same
+   dependency, and ``uv`` remains the recommended and tested method for
+   everyone else. If you can use ``uv``, use it.
+
+   One consequence worth knowing: on Windows, the rules for when your time
+   zone's clocks change come from the ``tzdata`` package in this virtual
+   environment (see :ref:`time_zone_rules`). Running ``pip install
+   ".[win,mssql]"`` again on an upgrade brings in new rules **only when that
+   release raised the minimum version QATrack+ asks for** - 4.1 did, so this
+   one does it for you. When a release leaves the minimum where it is, your
+   existing copy still satisfies it and ``pip`` leaves it alone however old its
+   rules are, so update it yourself:
+
+   .. code-block:: console
+
+      >>  pip install --upgrade tzdata
+
+   Then restart QATrack+, or it carries on using the rules it already loaded:
+   Python caches time-zone data per process. Restart the `QATrack+ Web
+   Service` from the Windows Services dialog, and the `QATrack+ Django Q
+   Cluster` task from Task Scheduler - the second produces scheduled notices
+   and reports, so leaving it running means those keep the old offsets.
+
 .. dropdown:: Side note: ```C:\deploy```
 
    This folder is a convenient convention for storing the QATrack+ source code, virtual environment, and any other files related to your QATrack+ installation.  You can use a different folder if you prefer, but you will need to adjust the instructions accordingly.
@@ -255,12 +308,25 @@ Now run the following commands to set up your database and load the default conf
 
    >>  python manage.py migrate
    >>  python manage.py createsuperuser
-   >>  python manage.py createcachetable
    >>  python manage.py collectstatic
    >>  Get-ChildItem .\fixtures\defaults\*\*json | foreach {python manage.py loaddata $_.FullName}
 
 If you want to enable internationalization, then you need to compile the
-messages catalogs for the languages you need:
+messages catalogs for the languages you need.
+
+.. note::
+
+    ``compilemessages`` runs GNU gettext's ``msgfmt``, which Windows does not
+    include and Python does not provide. Without it the command stops with
+    ``CommandError: Can't find msgfmt. Make sure you have GNU gettext tools
+    0.15 or newer installed.``, no catalogue is compiled, and QATrack+ then
+    serves every string in English with nothing else to say that anything
+    failed.
+
+    Install the GNU gettext binaries for Windows and make sure the folder
+    holding ``msgfmt.exe`` is on ``PATH`` for the session you run
+    ``compilemessages`` in. If you only need English, you can skip this step
+    and the command altogether.
 
 .. code-block:: powershell
 
@@ -347,6 +413,19 @@ Setting up the site and URL rewrite rules
 Once you have Application Request Routing installed and proxies enabled, in
 the left panel of IIS under Sites, select the default Web Site and click Stop
 on the right hand side.
+
+.. warning::
+
+    **Stopping it is not enough: it starts itself again at the next reboot.**
+    The default site and QATrack+'s site are both bound to port 80, so whichever
+    is running owns it, and *Stop* does not change the setting IIS reads when
+    Windows boots. Measured on a fresh install, 2026-10-29: after one restart
+    the default site was running, QATrack+'s was stopped, and the address
+    answered with Windows' own *"IIS Windows Server"* page.
+
+    With the site still selected, click **Advanced Settings** in the right-hand
+    panel and set **Start Automatically** to **False**. Then it stays stopped.
+    (``deploy\win\iis_install.ps1`` does this for you if you used the script.)
 
 .. figure:: images/stop_default.png
    :alt: Stop default website
@@ -443,8 +522,28 @@ Group...` button and in the `Enter the object name to select` box put
    QCluster Task
 
 On the `Triggers` tab, click
-`New...` and in the `Begin the task:` dropdown select `At startup` and then
-click `OK`.
+`New...` and in the `Begin the task:` dropdown select `At startup`. Under
+`Advanced settings`, tick `Delay task for:` and choose `5 minutes`, then click
+`OK`.
+
+.. warning::
+
+    **Do not skip the delay when SQL Server runs on the same machine.** SQL
+    Server Express installs as *Automatic (Delayed Start)*, so it is still
+    starting for a minute or two after Windows has booted - and a Django Q
+    cluster that starts first never connects. The task stays *Running* and the
+    process stays alive, so nothing looks wrong, while ``manage.py qinfo``
+    reports **0 clusters and 0 workers** and scheduled notices and reports stop
+    silently until somebody restarts the task by hand.
+
+    Measured twice on Windows Server: 2026-10-18, and again on 2026-10-29 on a
+    fresh 4.0.2 install, where the cluster's process started at boot, SQL Server
+    reached *Running* two minutes later, and ``qinfo`` still read 0/0 ninety
+    seconds after that. Restarting the task gave 1 cluster and 2 workers within
+    thirty seconds.
+
+    The web service does not need this: Django connects per request, so
+    CherryPy recovers on its own once the database answers.
 
 .. figure:: images/win/qcluster_trigger.png
    :alt: QCluster Trigger
@@ -455,6 +554,13 @@ Now go to the `Actions` tab and click `New...`.  In the `Program/script:` box
 enter `C:\\deploy\\qatrackplus\\.venv\\Scripts\\python.exe`. In the `Add arguments
 (optional)`: field enter `manage.py qcluster`, and in the `Start in
 (optional):` field put `C:\\deploy\\qatrackplus`  (no trailing slash!).
+
+.. warning::
+
+    On the `Settings` tab, **untick** `Stop the task if it runs longer than:`.
+    Task Scheduler sets that to three days by default, so a cluster left alone
+    stops after three days and nothing restarts it - the same silent failure as
+    the one above, on a slower clock.
 
 .. figure:: images/win/django_q_action-cropped.png
    :alt: QCluster Action
@@ -479,6 +585,40 @@ If the line between `Host` and `ORM default` is blank then there is a problem
 with the Windows Task you created.
 
 .. _finally:
+
+.. include:: _site_record.rst
+
+Restart the server, and check it came back
+------------------------------------------
+
+**Do this before you hand the site over.** Everything on this page has been set
+up to survive a restart - a Windows service, a scheduled task, an IIS site - and
+until the server has restarted once, none of that is tested. Two of the three
+have failed this check on a correctly installed site, so it is worth ten minutes
+now rather than at the first Windows Update.
+
+Restart Windows, wait for it to settle - give SQL Server a few minutes, since it
+starts late - and then check all three:
+
+.. code-block:: console
+
+    >>  Get-Service "QATrack+ Web Service" | Select-Object Status, StartType
+    >>  Get-Website | Select-Object Name, State, @{n='AutoStart';e={ (Get-ItemProperty "IIS:\Sites\$($_.Name)" -Name serverAutoStart).Value }}
+    >>  cd C:\deploy\qatrackplus
+    >>  .\.venv\Scripts\python.exe manage.py qinfo
+
+What you are looking for:
+
+* the web service **Running**, with start type **Automatic**;
+* **QATrack Static** started, and *Default Web Site* both **Stopped** and
+  **AutoStart False** - if the default site is running, it has taken port 80 and
+  QATrack+ is unreachable;
+* ``qinfo`` reporting **1 cluster** with workers. If it reports 0 clusters while
+  the task shows as running, the cluster started before SQL Server did: restart
+  the task and add the startup delay described in `Setting up Django Q`_.
+
+Then open the site in a browser and sign in. A service that is running is not
+the same thing as a site that answers.
 
 What Next
 ---------

@@ -20,12 +20,111 @@ patches is in the next section.
 
 .. note::
 
+    **Docker hosting is supported on Linux only.** If your Docker site runs on a
+    Windows computer (with Docker Desktop, for example), that is no longer tested
+    or supported. Plan to move it to a Linux server: make a backup, set up
+    QATrack+ on the new server, and restore it there, as
+    :ref:`docker_backups` describes. Bring your ``.env`` with you, with your
+    secret key copied into it (see :ref:`docker_upgrade_keep_secret_key`), so
+    nobody is signed out by the move.
+
+.. note::
+
     The service and scheduled task names stopped carrying version numbers in 4.0.0
     precisely so that patch upgrades would not require renaming anything. If you
     upgraded to 4.0.0 from v3.x, your service is called *QATrack+ Web Service* and your
     scheduled task *QATrack+ Django Q Cluster*.
 
 .. include:: _upgrade_4_0_before.rst
+
+.. _docker_upgrade_check_compose:
+
+Before you pull: check your Docker Compose version
+--------------------------------------------------
+
+From 4.0.2, QATrack+ needs **Docker Compose 2.17 or newer** and **Docker Engine
+23.0 or newer** (see :ref:`docker_minimum_versions` for why). Check both *before*
+``git pull``:
+
+.. code-block:: bash
+
+    docker compose version
+    docker version --format '{{.Server.Version}}'
+
+With an older Compose, once you have pulled, every command that builds or creates
+containers stops: ``up``, ``build``, ``run`` (so ``restore-media`` too), ``create``
+and ``pull``, as well as ``config``. The error looks like this:
+
+.. code-block:: text
+
+    services.django.build Additional property additional_contexts is not allowed
+
+Your current containers aren't affected: they keep running. But every other
+``docker compose`` command stops with the same error, ``ps``, ``logs``,
+``exec``, ``stop``, ``start``, ``restart`` and ``down`` included, unless you add
+``-p qatrackplus`` (for example, ``docker compose -p qatrackplus logs django``).
+You can't build or start 4.0.2 until Docker is updated, and if you run
+``docker compose down`` in the meantime, ``up`` can't create the containers
+again, so your site stays down until then.
+
+If either version is too old, update Docker first (on Ubuntu, through Docker's ``apt``
+repository, which updates the Engine and the ``docker-compose-plugin`` package
+together), then carry on with the upgrade. If you have already pulled and see that
+error, updating Docker is the fix too: nothing else needs undoing.
+
+.. _docker_upgrade_env_untracked:
+
+.. include:: _docker_env_untracked.rst
+.. _docker_upgrade_keep_secret_key:
+
+Keep your users signed in (optional)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+From 4.0.2, QATrack+ keeps its secret key in a Docker volume, or takes it from
+``SECRET_KEY`` in ``.env``. 4.0.0 and 4.0.1 kept it in your QATrack+ folder, at
+``deploy/docker/user-data/secret_key.txt``. If you start 4.0.2 without carrying it
+over, QATrack+ makes a new key: every user is signed out once, and password-reset
+links sent before the upgrade stop working.
+
+To keep the key, copy it into ``.env`` before you start 4.0.2 for the first time:
+
+.. code-block:: bash
+
+    cd ~/web/qatrackplus
+    printf '\nSECRET_KEY=%s\n' "$(cat deploy/docker/user-data/secret_key.txt)" >> deploy/docker/.env
+
+If that file does not exist, there is no key to carry over; skip this step.
+QATrack+ then generates a key and keeps it in a Docker volume that the nightly
+backup does not include: :ref:`docker_secret_key` shows how to copy it into
+``.env`` too. The key signs your users' sessions: keep ``.env`` as private as
+your database password.
+
+.. _docker_upgrade_stale_follow_ups:
+
+Clear follow-up emails that were never sent (optional)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Docker installations before 4.0.2 did not run QATrack+'s background tasks, so
+the follow-up emails of *QC Completed* notices set to *Follow up* were queued but
+never sent. 4.0.2 runs background tasks, and the first time it starts it sends
+every follow-up still waiting, all at once, however old. Only sites that set up
+follow-up notices are affected.
+
+While your current QATrack+ is still running, and before ``docker compose up -d``
+starts 4.0.2, see how many are waiting:
+
+.. code-block:: bash
+
+    cd ~/web/qatrackplus/deploy/docker
+    docker compose exec -T django python manage.py shell -c "from django.utils import timezone; from django_q.models import Schedule; print(Schedule.objects.filter(name__startswith='follow-up-for-tli-', schedule_type=Schedule.ONCE, next_run__lt=timezone.now()).exclude(repeats=0).count(), 'overdue follow-up emails')"
+
+To remove them instead of sending them:
+
+.. code-block:: bash
+
+    docker compose exec -T django python manage.py shell -c "from django.utils import timezone; from django_q.models import Schedule; print(Schedule.objects.filter(name__startswith='follow-up-for-tli-', schedule_type=Schedule.ONCE, next_run__lt=timezone.now()).exclude(repeats=0).delete()[0], 'overdue follow-up emails removed')"
+
+Follow-ups that are not due yet are kept, and are sent on time.
 
 Running the upgrade
 -------------------

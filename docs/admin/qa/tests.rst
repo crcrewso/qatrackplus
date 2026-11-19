@@ -264,7 +264,7 @@ the value of this tests macro name. Two examples are shown below, first,
 a one liner to calculate a temperature-pressure correction factor:
 
 *Note that in QATrack+ versions prior to 0.2.7 the last line of code had
-to be a line that set a\ ``result`` variable to the final calculated
+to be a line that set a* ``result`` *variable to the final calculated
 result. This is no longer the recommended way to use composite tests
 although it is still supported for backwards compatability.*
 
@@ -377,7 +377,7 @@ When your script (calculation procedure) is executed, it has access to
 
     - **UTILS.get_comment(** *macro_name* **)** gets the user set comment for the input
 
-    - **UTILS.set_comment(** "*your comment here*" **)** sets the comment for the current test
+    - **UTILS.set_comment(** "*your comment here*" **)** sets the comment for the current test. Any value is accepted: dates and times use the site's display format, and an empty or false value such as ``None`` or ``0`` sets no comment
 
     - **UTILS.set_skip(** *macro_name* **, True|False )** set skip status of a
       test. Please note that if a user alters the skip state of the same test
@@ -512,6 +512,52 @@ Since v0.3.0, QATrack+ uses Python 3 which no longer uses integer division
 by default.  The calculationn `a = 1/2` will result in `a = 0.5` rather than `a
 = 0` like in Python 2.x. If you need integer division, make sure you use the
 `//` operator like `a = 1//2 # a == 0`.
+
+.. _qa_numpy_errors:
+
+NumPy warnings, NaN and infinity
+--------------------------------
+
+Calculation procedures run with NumPy's normal error handling, exactly as your
+code would from the command line. A division by zero inside a NumPy array
+gives ``inf`` or ``nan`` for that element and a warning in the server log; it
+does not stop your procedure. This matters for image analysis, where dividing
+one image by another (pylinac's DRGS and DRMLC analyses do this) is bound to
+divide by zero somewhere outside the field.
+
+Earlier versions of QATrack+ turned these NumPy warnings into errors on some
+servers, so a procedure could fail with a message like
+``FloatingPointError: divide by zero encountered in divide`` even though the
+same code worked from the command line. If you are still on one of those
+versions, wrap the calculation that triggers it in ``numpy.errstate``:
+
+.. code-block:: python
+
+    import numpy
+
+    with numpy.errstate(divide='ignore', invalid='ignore'):
+        drgs.analyze()
+
+A few things have not changed:
+
+* Plain Python arithmetic is not affected: ``1/0`` still stops a procedure with
+  ``ZeroDivisionError``.
+
+* A Composite test whose final result is NaN or infinity (positive or negative,
+  whether a Python float or any NumPy float type) is rejected with an error
+  like ``my_test has a result of 'nan'``, and the value is never saved. A
+  ``nan`` or ``inf`` partway through your calculation is fine, as long as the
+  result you set is a real number.
+
+If you would rather your procedure stop as soon as NumPy hits a problem, you
+can ask for that explicitly around the code you want checked:
+
+.. code-block:: python
+
+    import numpy
+
+    with numpy.errstate(all='raise'):
+        ratio = dose / reference_dose
 
 
 .. _qa_string_comp_json:

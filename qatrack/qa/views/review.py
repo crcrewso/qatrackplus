@@ -192,7 +192,14 @@ def review_test_list_instance(test_list_instance, test_instances, status_pks, re
     review_user is the user who performed the review
     """
 
-    review_time = timezone.make_aware(timezone.datetime.now(), timezone.get_current_timezone())
+    # Not make_aware(datetime.now(), ...): `datetime.now()` is the machine's
+    # wall clock, and Django only points that at TIME_ZONE where `time.tzset`
+    # exists - not on Windows, by Django's own choice ("breaks Windows"). So on
+    # a Windows site whose machine zone differs from TIME_ZONE that produced a
+    # correct-looking local time labelled with the wrong zone, and a review
+    # stamped hours out. It also silently picked the first of a repeated hour
+    # when the clocks went back.
+    review_time = timezone.now()
 
     initially_requires_reviewed = not test_list_instance.all_reviewed
     test_list_instance.reviewed = review_time
@@ -279,6 +286,13 @@ class UTCYourReview(PermissionRequiredMixin, UTCList):
     permission_required = "qa.can_view_completed"
     raise_exception = True
 
+    # "Review *Your* Test List Data" means the user's own groups, so it keeps
+    # narrowing even for a user who is exempt elsewhere. Without this, the
+    # exemption would make this page identical to UTCReview above and the
+    # distinction the menu draws would stop being true. Inherited by
+    # UTCFrequencyReview, UTCUnitReview and YourInactiveReview.
+    honour_visibility_exemption = False
+
     action = "review"
     action_display = _l("Review")
 
@@ -333,6 +347,10 @@ class UTCUnitReview(UTCYourReview):
 
 class ChooseUnitForReview(ChooseUnit):
     """Allow user to choose a :model:`units.Unit` to review :model:`qa.TestListInstance`s for"""
+
+    # As UTCYourReview: this chooser feeds the "your" review views, so the
+    # units it offers must match what those views will actually show.
+    honour_visibility_exemption = False
 
     active_only = True
     template_name = 'units/unittype_choose_for_review.html'
