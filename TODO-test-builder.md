@@ -380,3 +380,12 @@ Remove this file before the branch is merged.
   - Settings show and hide with the type (same rules as the old
     `test_admin.js`, now removed); a setting with an error always stays shown.
   - Used In lists the test lists and each machine's reference and tolerance.
+- [x] **Test change form: settings from the old type don't block the save**
+  - Changing a test's type left its hidden settings posted: choices, a
+    constant value or wrap values on the wrong type made the save fail, and a
+    leftover "Flag the test list" on a non-Boolean test flagged the list for
+    results of 1 or 0 (`check_tli_flag` doesn't look at the type).
+    `TestForm.clean` now clears them (`TEST_TYPE_ONLY_FIELDS`), the page says
+    which ones it cleared, and the history lists them.
+  - Not done: tests already saved with a stale `flag_when`, and the signal
+    itself still ignores the type.

@@ -2497,6 +2497,20 @@ TEST_FORMAT_SAMPLES = (123.4567, 0.00123456)
 # Test checkboxes drawn as on/off switches on the change form
 TEST_SWITCH_FIELDS = ("chart_visibility", "skip_without_comment", "require_comment", "hidden", "display_image")
 
+# Settings that only apply to some test types, with the change form's label for each.
+# The form hides them for other types, so a value left from an earlier type is cleared
+# on save (TestForm.clean) rather than kept out of sight: the model refuses Choices, a
+# Constant value or Wrap values on the wrong type, and a leftover Flag setting would
+# flag the test list whenever a result happened to be 1 or 0 (signals.check_tli_flag
+# doesn't look at the test type).
+TEST_TYPE_ONLY_FIELDS = (
+    ("choices", (models.MULTIPLE_CHOICE,), _l("Choices")),
+    ("constant_value", (models.CONSTANT,), _l("Constant value")),
+    ("wrap_low", (models.WRAPAROUND,), _l("Wrap low")),
+    ("wrap_high", (models.WRAPAROUND,), _l("Wrap high")),
+    ("flag_when", (models.BOOLEAN,), _l("Flag the test list")),
+)
+
 
 def _apply_test_format(value, fmt):
     """`value` formatted with `fmt` by the same steps as format_qc_value (old style,
@@ -2565,6 +2579,20 @@ class TestForm(forms.ModelForm):
         cleaned_data = super().clean()
 
         test_type = cleaned_data.get("type")
+
+        # Clear settings left from another type (see TEST_TYPE_ONLY_FIELDS), so a value
+        # hidden on the form can't block the save or act on results. Their own input
+        # errors (say, text in a hidden Wrap low) don't count either.
+        self.cleared_fields = []
+        if test_type:
+            for name, types, label in TEST_TYPE_ONLY_FIELDS:
+                if test_type in types or name not in self.fields:
+                    continue
+                had_error = self._errors.pop(name, None) is not None
+                if had_error or cleaned_data.get(name) not in (None, ""):
+                    self.cleared_fields.append(name)
+                cleaned_data[name] = None
+
         user_changing_type = self.instance.type != test_type
         # A new (unsaved) test can't have been performed yet.
         has_history = (
@@ -2770,7 +2798,35 @@ class TestAdmin(SaveUserMixin, SaveInlineAttachmentUserMixin, BaseQATrackAdmin):
             )
         return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
+    @staticmethod
+    def _cleared_labels(form):
+        labels = {name: label for name, _types, label in TEST_TYPE_ONLY_FIELDS}
+        return [str(labels[name]) for name in getattr(form, "cleared_fields", [])]
+
+    def construct_change_message(self, request, form, formsets, add=False):
+        """Also list the settings TestForm cleared for the new type: their posted values
+        didn't change, so Django wouldn't name them in the history."""
+        message = super().construct_change_message(request, form, formsets, add)
+        cleared = [
+            label for name, label in zip(getattr(form, "cleared_fields", []), self._cleared_labels(form))
+            if name not in form.changed_data
+        ]
+        if cleared and not add:
+            for entry in message:
+                if "changed" in entry:
+                    entry["changed"]["fields"].extend(cleared)
+                    break
+            else:
+                message.insert(0, {"changed": {"fields": cleared}})
+        return message
+
     def save_model(self, request, obj, form, change):
+        cleared = self._cleared_labels(form)
+        if cleared:
+            messages.add_message(request, messages.INFO, _(
+                "Cleared %(fields)s: these settings don't apply to %(test_type)s tests."
+            ) % {"fields": ", ".join(cleared), "test_type": obj.get_type_display()})
+
         if 'calculation_procedure' in form.changed_data:
             cp = obj.calculation_procedure or ""
             if "pyplot" in cp or "pylab" in cp:
