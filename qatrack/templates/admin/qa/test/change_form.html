@@ -1,21 +1,335 @@
 {% extends "admin/change_form.html" %}
-{% load i18n qa_tags %}
-{% block after_field_sets %}{{ block.super }}
-<h3>{% trans "Member of the following TestLists:" %}</h3>
-<ul>
-    {% for test_list in original.testlist_set.all %}
+{% load i18n admin_urls qa_tags %}
 
-        <li><a href="{%url 'admin:qa_testlist_change' test_list.pk%}">{{ test_list.name }}</a></li>
-    {% endfor %}
-</ul>
-<h3>{% trans "Assigned to the following Units:" %}</h3>
-{% trans "Not set" as not_set %}
-<ul>
-    {% for uti in original.unittestinfo_set.all %}
-        {% with ref=uti.reference|reference_display:original|default:not_set tol=uti.tolerance.plain_display|default:not_set %}
-        <li><a href="{% url 'admin:qa_unittestinfo_change' uti.pk %}">{% blocktrans with unit=uti.unit %}{{ unit }} with Ref={{ ref }} &amp; Tolerance = {{ tol }}{% endblocktrans %}</a></li>
-        {% endwith %}
-    {% endfor %}
-</ul>
+{#
+  Test change form: cards in the Test List page's style (Details, Type & Behaviour,
+  Calculation procedure, Attachments, Used In) with one save button group in the title row.
+  Styles and JS: admin/qa/test/test_assets.html. Context from TestAdmin.render_change_form.
+  View-only users get Django's read-only fieldsets instead of the cards.
+#}
 
+{% block title %}{% if add %}{% trans "Add Test" %}{% else %}{{ original.name }} | {% trans "Edit Test" %}{% endif %} | {% trans 'QATrack+ Admin Site' %}{% endblock %}
+{% block pretitle %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block content_subtitle %}{% endblock %}
+{% block object-tools %}{% endblock %}
+
+{% block form_top %}
+{% include "admin/qa/test/test_assets.html" %}
+
+<div class="tl-header-bar">
+  <div class="tl-header-left">
+    <h1 class="tl-header-title">
+      {% if add %}{% trans "Add Test" %}{% else %}{% trans "Edit Test" %}{% if original.pk %}
+        <span class="tl-header-id"><span class="tl-header-id-sep" aria-hidden="true">&middot;</span> {% trans "ID" %} {{ original.pk }}</span>{% endif %}{% endif %}
+    </h1>
+    {% if original.pk %}
+      <span class="tl-header-counts" id="tst-header-counts">
+        {% blocktrans count counter=tst_used_lists|length %}In {{ counter }} test list{% plural %}In {{ counter }} test lists{% endblocktrans %}
+        &middot;
+        {% blocktrans count counter=tst_used_utis|length %}{{ counter }} machine{% plural %}{{ counter }} machines{% endblocktrans %}
+      </span>
+    {% endif %}
+  </div>
+  <div class="tl-header-actions">
+    {% if change and original.pk %}
+      <a href="{% url opts|admin_urlname:'history' original.pk|admin_urlquote %}" class="tl-top-btn tl-top-btn-secondary" id="tst-history-btn">
+        <i class="fa fa-history" aria-hidden="true"></i> {% trans "History" %}
+      </a>
+      {% if has_delete_permission %}
+        <a href="{% url opts|admin_urlname:'delete' original.pk|admin_urlquote %}" class="tl-top-btn tl-top-btn-delete" id="tst-delete-btn">
+          <i class="fa fa-trash-o" aria-hidden="true"></i> {% trans "Delete" %}
+        </a>
+      {% endif %}
+    {% endif %}
+    <a href="{% url opts|admin_urlname:'changelist' %}" class="tl-top-btn tl-top-btn-secondary" id="tst-cancel-btn">{% trans "Cancel" %}</a>
+    {% if change and has_change_permission %}
+      {% if save_as and has_add_permission %}
+        {# Django's "Save as new": a copy with these values; the original is left as it was saved. #}
+        <button type="submit" name="_saveasnew" class="tl-top-btn tl-top-btn-secondary" id="tst-saveas-btn"
+                title="{% trans "Save these values as a new test and leave this one unchanged" %}">
+          <i class="fa fa-files-o" aria-hidden="true"></i> {% trans "Save as New" %}
+        </button>
+      {% endif %}
+    {% endif %}
+    {% if add and has_add_permission or change and has_change_permission %}
+      <button type="submit" name="_continue" class="tl-top-btn tl-top-btn-secondary">{% trans "Save and Continue Editing" %}</button>
+      <button type="submit" name="_save" class="tl-top-btn tl-top-btn-save">
+        <i class="fa fa-floppy-o" aria-hidden="true"></i> {% trans "Save" %}
+      </button>
+    {% endif %}
+  </div>
+</div>
 {% endblock %}
+
+{% block field_sets %}
+{% if change and not has_change_permission %}
+  {{ block.super }}
+{% else %}
+{% with f=adminform.form %}
+{# ---- Details ---- #}
+<div class="tl-details-card tst-card" id="tst-details-card">
+  <div class="tl-card-header">
+    <i class="fa fa-info-circle" aria-hidden="true"></i>
+    <h2 class="tl-card-title">{% trans "Details" %}</h2>
+  </div>
+  <div class="tl-card-body">
+    <div class="tlb-form tst-form">
+      <div class="tlb-field tl-col-1{% if f.name.errors %} tst-has-error{% endif %}">
+        <label for="id_name">{% trans "Name" %} <em class="tl-req">*</em></label>
+        {{ f.name.errors }}{{ f.name }}
+        <span class="tst-help">{{ f.name.help_text }}</span>
+      </div>
+      <div class="tlb-field tl-col-2{% if f.slug.errors %} tst-has-error{% endif %}">
+        <span class="tl-label-row">
+          <label for="id_slug">{% trans "Macro name" %} <em class="tl-req">*</em></label>
+          <span class="tl-hint tl-hint-neutral"><i class="fa fa-code" aria-hidden="true"></i> {% trans "used in calculations" %}</span>
+        </span>
+        {{ f.slug.errors }}{{ f.slug }}
+        <span class="tst-help">{{ f.slug.help_text }}</span>
+      </div>
+      <div class="tlb-field tl-col-1{% if f.display_name.errors %} tst-has-error{% endif %}">
+        <label for="id_display_name">{% trans "Display name" %}</label>
+        {{ f.display_name.errors }}{{ f.display_name }}
+        <span class="tst-help">{{ f.display_name.help_text }}</span>
+      </div>
+      <div class="tlb-field tl-col-2{% if f.category.errors %} tst-has-error{% endif %}">
+        <label for="id_category">{% trans "Category" %} <em class="tl-req">*</em></label>
+        {{ f.category.errors }}
+        <div class="tst-related">{{ f.category }}</div>
+      </div>
+      <div class="tlb-field tl-col-full{% if f.procedure.errors %} tst-has-error{% endif %}">
+        <label for="id_procedure">{% trans "Procedure link" %}</label>
+        {{ f.procedure.errors }}{{ f.procedure }}
+        <span class="tst-help">{{ f.procedure.help_text }}</span>
+      </div>
+      <div class="tlb-field tl-col-full{% if f.description.errors %} tst-has-error{% endif %}">
+        <span class="tl-label-row">
+          <label for="id_description">{% trans "Description" %}</label>
+          <span class="tl-hint tl-hint-neutral"><i class="fa fa-code" aria-hidden="true"></i> {% trans "HTML markup allowed" %}</span>
+          <button type="button" class="tl-preview-toggle" data-desc-toggle aria-pressed="false" aria-controls="tst-desc-preview">
+            <i class="fa fa-eye" aria-hidden="true"></i> {% trans "Preview" %}
+          </button>
+        </span>
+        {{ f.description.errors }}
+        <textarea id="id_description" name="description" rows="3" class="tl-desc-input"
+                  hx-post="{% url 'admin:qa_testlist_desc_preview' %}"
+                  hx-trigger="previewrequested delay:300ms"
+                  hx-target="#tst-desc-preview"
+                  hx-swap="innerHTML"
+                  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>{{ f.description.value|default:'' }}</textarea>
+        <div class="tl-html-preview" id="tst-desc-preview" hidden></div>
+        <span class="tst-help">{{ f.description.help_text }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---- Type & Behaviour ---- #}
+<div class="tl-details-card tst-card" id="tst-type-card">
+  <div class="tl-card-header">
+    <i class="fa fa-sliders" aria-hidden="true"></i>
+    <h2 class="tl-card-title">{% trans "Type & Behaviour" %}</h2>
+  </div>
+  <div class="tl-card-body">
+    <div class="tlb-form tst-form">
+      <div class="tlb-field tl-col-1{% if f.type.errors %} tst-has-error{% endif %}">
+        <label for="id_type">{% trans "Type" %} <em class="tl-req">*</em></label>
+        {{ f.type.errors }}{{ f.type }}
+      </div>
+      <div class="tst-type-help tl-col-2" id="tst-type-help" aria-live="polite"
+           {% for t, text in tst_type_help.items %}data-help-{{ t }}="{{ text }}" {% endfor %}>
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+        <span id="tst-type-help-text">{% for t, text in tst_type_help.items %}{% if t == f.type.value %}{{ text }}{% endif %}{% endfor %}</span>
+      </div>
+
+      {# Type-specific settings: data-show-for lists the types each one applies to (see test_assets.html). #}
+      <div class="tlb-field tl-col-full{% if f.choices.errors %} tst-has-error{% endif %}" data-show-for="multchoice" id="tst-choices-field">
+        <label for="id_choices">{% trans "Choices" %} <em class="tl-req">*</em></label>
+        {{ f.choices.errors }}{{ f.choices }}
+        <span class="tst-help">{{ f.choices.help_text }}</span>
+      </div>
+      <div class="tlb-field tl-col-1{% if f.constant_value.errors %} tst-has-error{% endif %}" data-show-for="constant">
+        <label for="id_constant_value">{% trans "Constant value" %} <em class="tl-req">*</em></label>
+        {{ f.constant_value.errors }}{{ f.constant_value }}
+      </div>
+      <div class="tlb-field tl-col-1{% if f.wrap_low.errors %} tst-has-error{% endif %}" data-show-for="wraparound">
+        <label for="id_wrap_low">{% trans "Wrap low" %} <em class="tl-req">*</em></label>
+        {{ f.wrap_low.errors }}{{ f.wrap_low }}
+        <span class="tst-help">{{ f.wrap_low.help_text }}</span>
+      </div>
+      <div class="tlb-field tl-col-2{% if f.wrap_high.errors %} tst-has-error{% endif %}" data-show-for="wraparound">
+        <label for="id_wrap_high">{% trans "Wrap high" %} <em class="tl-req">*</em></label>
+        {{ f.wrap_high.errors }}{{ f.wrap_high }}
+        <span class="tst-help">{{ f.wrap_high.help_text }}</span>
+      </div>
+      <div class="tlb-field tl-col-1{% if f.flag_when.errors %} tst-has-error{% endif %}" data-show-for="boolean">
+        <label for="id_flag_when">{% trans "Flag the test list" %}</label>
+        {{ f.flag_when.errors }}{{ f.flag_when }}
+        <span class="tst-help">{{ f.flag_when.help_text }}</span>
+      </div>
+      <div class="tlb-field tl-col-1{% if f.formatting.errors %} tst-has-error{% endif %}" data-show-for="simple wraparound constant composite">
+        <label for="id_formatting">{% trans "Number format" %}</label>
+        {{ f.formatting.errors }}
+        {# Shown by the JS; without it, the free-text box below works on its own. #}
+        <select id="tst-format-select" class="tst-format-select" aria-label="{% trans "Number format" %}" hidden>
+          {% for value, label in tst_format_presets %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          <option value="__custom__">{% trans "Custom…" %}</option>
+        </select>
+        {{ f.formatting }}
+      </div>
+      <div class="tst-format-preview tl-col-2" data-show-for="simple wraparound constant composite" id="tst-format-preview"
+           hx-get="{% url 'admin:qa_test_format_preview' %}"
+           hx-trigger="load, formatchanged delay:200ms"
+           hx-include="#id_formatting"
+           aria-live="polite"></div>
+      <details class="tst-format-help tl-col-full" data-show-for="simple wraparound constant composite">
+        <summary>{% trans "About number formats" %}</summary>
+        <div class="tst-help">{{ f.formatting.help_text|safe }}</div>
+      </details>
+
+      {# Behaviour switches #}
+      <div class="tst-section-label tl-col-full">{% trans "Behaviour" %}</div>
+      <div class="tst-switches tl-col-full">
+        <div class="tst-switch-field{% if f.chart_visibility.errors %} tst-has-error{% endif %}" data-hide-for="string scomposite date datetime upload">
+          {{ f.chart_visibility.errors }}
+          <label class="tst-switch">{{ f.chart_visibility }}<span class="tst-switch-track" aria-hidden="true"></span>
+            <span class="tst-switch-text"><span class="tst-switch-title">{% trans "Show in charts" %}</span>
+            <span class="tst-help">{% trans "Results can be plotted on the Charts page." %}</span></span>
+          </label>
+        </div>
+        <div class="tst-switch-field{% if f.skip_without_comment.errors %} tst-has-error{% endif %}" data-hide-for="constant composite scomposite">
+          {{ f.skip_without_comment.errors }}
+          <label class="tst-switch">{{ f.skip_without_comment }}<span class="tst-switch-track" aria-hidden="true"></span>
+            <span class="tst-switch-text"><span class="tst-switch-title">{% trans "Skip without comment" %}</span>
+            <span class="tst-help">{{ f.skip_without_comment.help_text }}</span></span>
+          </label>
+        </div>
+        <div class="tst-switch-field{% if f.require_comment.errors %} tst-has-error{% endif %}">
+          {{ f.require_comment.errors }}
+          <label class="tst-switch">{{ f.require_comment }}<span class="tst-switch-track" aria-hidden="true"></span>
+            <span class="tst-switch-text"><span class="tst-switch-title">{% trans "Require a comment" %}</span>
+            <span class="tst-help">{{ f.require_comment.help_text }}</span></span>
+          </label>
+        </div>
+        <div class="tst-switch-field{% if f.hidden.errors %} tst-has-error{% endif %}" data-show-for="constant composite scomposite">
+          {{ f.hidden.errors }}
+          <label class="tst-switch">{{ f.hidden }}<span class="tst-switch-track" aria-hidden="true"></span>
+            <span class="tst-switch-text"><span class="tst-switch-title">{% trans "Hidden" %}</span>
+            <span class="tst-help">{{ f.hidden.help_text }}</span></span>
+          </label>
+        </div>
+        <div class="tst-switch-field{% if f.display_image.errors %} tst-has-error{% endif %}" data-show-for="upload composite scomposite">
+          {{ f.display_image.errors }}
+          <label class="tst-switch">{{ f.display_image }}<span class="tst-switch-track" aria-hidden="true"></span>
+            <span class="tst-switch-text"><span class="tst-switch-title">{% trans "Show uploaded images" %}</span>
+            <span class="tst-help">{{ f.display_image.help_text }}</span></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="tlb-field tl-col-1{% if f.autoreviewruleset.errors %} tst-has-error{% endif %}">
+        <label for="id_autoreviewruleset">{% trans "Auto review rules" %}</label>
+        {{ f.autoreviewruleset.errors }}
+        <div class="tst-related">{{ f.autoreviewruleset }}</div>
+        <span class="tst-help">{{ f.autoreviewruleset.help_text }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---- Calculation procedure: hidden for Constant tests, which have no snippet ---- #}
+<div class="tl-details-card tst-card{% if f.calculation_procedure.errors %} tst-has-error{% endif %}" id="tst-calc-card" data-hide-for="constant">
+  <div class="tl-card-header">
+    <i class="fa fa-code" aria-hidden="true"></i>
+    <h2 class="tl-card-title"><label for="id_calculation_procedure">{% trans "Calculation procedure" %}</label></h2>
+    <span class="tst-calc-badge" id="tst-calc-badge"
+          data-required="{% trans "Required" %}" data-optional="{% trans "Optional" %}"></span>
+    <span class="tl-hint tl-hint-neutral tst-calc-lang"><i class="fa fa-file-code-o" aria-hidden="true"></i> Python</span>
+  </div>
+  <div class="tl-card-body">
+    <p class="tst-calc-note" id="tst-calc-note"
+       data-note-calculated="{% trans "This snippet calculates the test's value from other tests. It must set the macro name (or result) to a value." %}"
+       data-note-upload="{% trans "This snippet processes the uploaded file. Leave it blank to store the file as it is." %}"
+       data-note-initial="{% trans "Optional: a snippet that sets this test's starting value, which the person performing QC can change." %}"></p>
+    <div class="tlb-field">
+      {{ f.calculation_procedure.errors }}
+      {{ f.calculation_procedure }}
+    </div>
+    <details class="tst-calc-help">
+      <summary>{% trans "Examples" %}</summary>
+      <div class="tst-help">{{ f.calculation_procedure.help_text|safe }}</div>
+    </details>
+  </div>
+</div>
+{% endwith %}
+{% endif %}
+{% endblock %}
+
+{% block inline_field_sets %}
+  {% for inline_admin_formset in inline_admin_formsets %}
+    {% if "attachment" in inline_admin_formset.formset.prefix and has_editable_inline_admin_formsets %}
+      {% include "admin/qa/shared/_attachments_card.html" with attach_fk_name="test" %}
+    {% else %}
+      {% include inline_admin_formset.opts.template %}
+    {% endif %}
+  {% endfor %}
+{% endblock %}
+
+{% block after_related_objects %}
+{% if original.pk %}
+<div class="tl-details-card tst-card" id="tst-used-card">
+  <div class="tl-card-header">
+    <i class="fa fa-sitemap" aria-hidden="true"></i>
+    <h2 class="tl-card-title">{% trans "Used In" %}</h2>
+  </div>
+  <div class="tl-card-body tst-used-body">
+    <section class="tst-used-section" aria-labelledby="tst-used-lists-title">
+      <h3 class="tst-used-title" id="tst-used-lists-title">{% trans "Test lists" %} <span class="tl-count-badge">{{ tst_used_lists|length }}</span></h3>
+      {% if tst_used_lists %}
+        <ul class="tst-used-lists">
+          {% for test_list in tst_used_lists %}
+            <li><a href="{% url 'admin:qa_testlist_change' test_list.pk %}"><i class="fa fa-list-ul" aria-hidden="true"></i> {{ test_list.name }}</a></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="tst-empty">{% trans "This test isn't in any test list yet." %}</p>
+      {% endif %}
+    </section>
+    <section class="tst-used-section" aria-labelledby="tst-used-units-title">
+      <h3 class="tst-used-title" id="tst-used-units-title">{% trans "Machines" %} <span class="tl-count-badge">{{ tst_used_utis|length }}</span></h3>
+      {% if tst_used_utis %}
+        {% trans "Not set" as not_set %}
+        <table class="tst-used-table">
+          <thead>
+            <tr><th scope="col">{% trans "Machine" %}</th><th scope="col">{% trans "Reference" %}</th><th scope="col">{% trans "Tolerance" %}</th><th scope="col"><span class="tl-visually-hidden">{% trans "Edit" %}</span></th></tr>
+          </thead>
+          <tbody>
+            {% for uti in tst_used_utis %}
+              {% with ref=uti.reference|reference_display:original|default:not_set tol=uti.tolerance.plain_display|default:not_set %}
+              <tr data-uti="{{ uti.pk }}">
+                <td>{{ uti.unit.name }}</td>
+                <td class="tst-reftol{% if ref == not_set %} tst-not-set{% endif %}">{{ ref }}</td>
+                <td class="tst-reftol{% if tol == not_set %} tst-not-set{% endif %}">{{ tol }}</td>
+                <td class="tst-used-edit">
+                  <a href="{% url 'admin:qa_unittestinfo_change' uti.pk %}" class="tl-attach-btn"
+                     title="{% blocktrans with unit=uti.unit.name %}Edit reference and tolerance for {{ unit }}{% endblocktrans %}"
+                     aria-label="{% blocktrans with unit=uti.unit.name %}Edit reference and tolerance for {{ unit }}{% endblocktrans %}">
+                    <i class="fa fa-pencil" aria-hidden="true"></i></a>
+                </td>
+              </tr>
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="tst-empty">{% trans "No machine has this test yet. It appears here once a test list that has it is assigned to a machine." %}</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{# One save button group, in the title row at the top, so Django's bottom submit row isn't shown. #}
+{% block submit_buttons_bottom %}{% if change and not has_change_permission %}{{ block.super }}{% endif %}{% endblock %}

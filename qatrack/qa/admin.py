@@ -2442,6 +2442,101 @@ class TestListAdmin(SaveUserMixin, SaveInlineAttachmentUserMixin, BaseQATrackAdm
         )
 
 
+# The Test change form's Type select, grouped (same values as models.TEST_TYPE_CHOICES)
+TEST_TYPE_GROUPS = (
+    (_l("Numbers"), (models.SIMPLE, models.WRAPAROUND, models.CONSTANT, models.COMPOSITE)),
+    (_l("Answers & text"), (models.BOOLEAN, models.MULTIPLE_CHOICE, models.STRING, models.STRING_COMPOSITE)),
+    (_l("Dates"), (models.DATE, models.DATETIME)),
+    (_l("Files"), (models.UPLOAD,)),
+)
+
+# One line under the Type select saying what the chosen type is for
+TEST_TYPE_HELP = {
+    models.SIMPLE: _l("A number typed in by the person performing QC."),
+    models.WRAPAROUND: _l(
+        "A number on a scale that wraps around, such as a gantry or collimator angle where 359 is next to 0."
+    ),
+    models.CONSTANT: _l("A fixed number shown on the form for use in calculations. Nobody types it in."),
+    models.COMPOSITE: _l("A number calculated from other tests by a Python snippet."),
+    models.BOOLEAN: _l("A Yes / No answer."),
+    models.MULTIPLE_CHOICE: _l("One answer picked from a list of choices."),
+    models.STRING: _l("Free text typed in by the person performing QC."),
+    models.STRING_COMPOSITE: _l("Text or JSON calculated from other tests by a Python snippet."),
+    models.DATE: _l("A date picked by the person performing QC."),
+    models.DATETIME: _l("A date and time picked by the person performing QC."),
+    models.UPLOAD: _l("A file uploaded by the person performing QC, which a Python snippet can process."),
+}
+
+# The Number format picker's presets: (format string, label). Anything else is "Custom".
+TEST_FORMAT_PRESETS = (
+    ("", _l("Default")),
+    ("%.0f", _l("Fixed, 0 decimals (%.0f)")),
+    ("%.1f", _l("Fixed, 1 decimal (%.1f)")),
+    ("%.2f", _l("Fixed, 2 decimals (%.2f)")),
+    ("%.3f", _l("Fixed, 3 decimals (%.3f)")),
+    ("%.4f", _l("Fixed, 4 decimals (%.4f)")),
+    ("%.5f", _l("Fixed, 5 decimals (%.5f)")),
+    ("%.6f", _l("Fixed, 6 decimals (%.6f)")),
+    ("%.0E", _l("Scientific, 1 significant figure (%.0E)")),
+    ("%.1E", _l("Scientific, 2 significant figures (%.1E)")),
+    ("%.2E", _l("Scientific, 3 significant figures (%.2E)")),
+    ("%.3E", _l("Scientific, 4 significant figures (%.3E)")),
+    ("%.4E", _l("Scientific, 5 significant figures (%.4E)")),
+    ("%.5E", _l("Scientific, 6 significant figures (%.5E)")),
+    ("%.0G", _l("General, up to 1 significant figure (%.0G)")),
+    ("%.1G", _l("General, up to 2 significant figures (%.1G)")),
+    ("%.2G", _l("General, up to 3 significant figures (%.2G)")),
+    ("%.3G", _l("General, up to 4 significant figures (%.3G)")),
+    ("%.4G", _l("General, up to 5 significant figures (%.4G)")),
+    ("%.5G", _l("General, up to 6 significant figures (%.5G)")),
+)
+
+# Sample values the Number format preview shows formatted
+TEST_FORMAT_SAMPLES = (123.4567, 0.00123456)
+
+# Test checkboxes drawn as on/off switches on the change form
+TEST_SWITCH_FIELDS = ("chart_visibility", "skip_without_comment", "require_comment", "hidden", "display_image")
+
+
+def _apply_test_format(value, fmt):
+    """`value` formatted with `fmt` by the same steps as format_qc_value (old style,
+    then new style only after a TypeError that isn't "a number is required"), or None
+    when those steps fail. format_qc_value itself never fails: it falls back to the
+    default format, which would hide a format that can't be used."""
+    try:
+        return fmt % value
+    except TypeError as e:
+        if "number is required" in str(e):
+            return None
+        try:
+            return fmt.format(value)
+        except Exception:  # noqa: BLE001 - any failure means the default format is used
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def testadmin_format_preview(request):
+    """The Test change form's Number format preview: the sample values as results
+    would show them with ?formatting=. Wired up via htmx; staff-only (wrapped in
+    admin_view). Points out a format that can't be applied (results fall back to the
+    default format) and one that leaves the number out (results show only its text)."""
+    fmt = request.GET.get("formatting", "")
+    samples = [(value, format_qc_value(value, fmt)) for value in TEST_FORMAT_SAMPLES]
+    problem = ""
+    if fmt:
+        applied = [_apply_test_format(value, fmt) for value in TEST_FORMAT_SAMPLES]
+        if any(a is None for a in applied):
+            problem = "fallback"
+        elif all(a == fmt for a in applied):
+            problem = "no_number"
+    return render(request, "admin/qa/test/partials/_format_preview.html", {
+        "samples": samples,
+        "problem": problem,
+        "formatting": fmt,
+    })
+
+
 class TestForm(forms.ModelForm):
 
     class Meta:
@@ -2452,6 +2547,17 @@ class TestForm(forms.ModelForm):
         labels = {
             'choices': _l("Choices"),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "type" in self.fields:
+            labels = dict(models.TEST_TYPE_CHOICES)
+            self.fields["type"].choices = [
+                (group, [(t, labels[t]) for t in types]) for group, types in TEST_TYPE_GROUPS
+            ]
+        for name in TEST_SWITCH_FIELDS:
+            if name in self.fields:
+                self.fields[name].widget.attrs.update({"role": "switch", "class": "tst-switch-input"})
 
     def clean(self):
         """if test already has some history don't allow for the test type to be changed"""
@@ -2622,20 +2728,47 @@ class TestAdmin(SaveUserMixin, SaveInlineAttachmentUserMixin, BaseQATrackAdmin):
     ]
 
     class Media:
+        # The change form's styling and JS are inlined via admin/qa/test/test_assets.html
+        # (like the Test List builder), so they load under DEBUG=False without a
+        # collectstatic step. ace is the calculation procedure's code editor; the page
+        # falls back to a plain textarea if it isn't loaded.
         js = (
             'admin/js/jquery.init.js',
             'jquery/js/jquery.min.js',
-            "js/test_admin.js",
-            "js/admin_description_editor.js",
             "ace/ace.js",
-            "select2/js/select2.js",
+            "htmx/js/htmx.min.js",
         )
         css = {
             'all': (
                 "qatrack_core/css/admin.css",
-                "select2/css/select2.css",
+                "fontawsome/css/font-awesome.min.css",
             ),
         }
+
+    def get_urls(self):
+        custom_urls = [
+            path(
+                'format-preview/',
+                self.admin_site.admin_view(testadmin_format_preview),
+                name='qa_test_format_preview',
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
+        """Context for the card layout in admin/qa/test/change_form.html."""
+        context.update({
+            "tst_type_help": {k: str(v) for k, v in TEST_TYPE_HELP.items()},
+            "tst_format_presets": TEST_FORMAT_PRESETS,
+            "tst_used_lists": [],
+            "tst_used_utis": [],
+        })
+        if obj is not None and obj.pk:
+            context["tst_used_lists"] = list(obj.testlist_set.order_by("name"))
+            context["tst_used_utis"] = list(
+                obj.unittestinfo_set.select_related("unit", "reference", "tolerance").order_by("unit__name")
+            )
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def save_model(self, request, obj, form, change):
         if 'calculation_procedure' in form.changed_data:

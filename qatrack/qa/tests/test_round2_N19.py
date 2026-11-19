@@ -1,3 +1,5 @@
+import re
+
 from django.test import TestCase
 from django.urls import reverse
 
@@ -7,7 +9,8 @@ from qatrack.qa.tests import utils
 
 
 class TestTestChangeFormUnitAssignments(TestCase):
-    """The "Assigned to the following Units" list on the Test admin change page."""
+    """The machines table in the Test admin change page's Used In card (R13; was the
+    "Assigned to the following Units" list)."""
 
     def setUp(self):
         create_user(is_superuser=True, uname='user', pwd='pwd')
@@ -19,16 +22,24 @@ class TestTestChangeFormUnitAssignments(TestCase):
         return resp.content.decode()
 
     def _assignment_line(self, html, uti):
+        """The machine's row: reference and tolerance cells, then the edit link."""
+        start = html.index('<tr data-uti="%s">' % uti.pk)
+        row = html[start:html.index('</tr>', start)]
         url = reverse('admin:qa_unittestinfo_change', args=(uti.pk,))
-        start = html.index('href="%s"' % url)
-        return html[start:html.index('</a>', start)]
+        self.assertIn('href="%s"' % url, row)
+        return row
+
+    def _cells(self, row):
+        """(reference, tolerance) text from a machine row."""
+        ref, tol = re.findall(r'<td class="tst-reftol[^"]*">(.*?)</td>', row, re.S)
+        return ref.strip(), tol.strip()
 
     def test_missing_reference_and_tolerance_show_not_set(self):
         test = utils.create_test(name='no_ref_tol')
         uti = utils.create_unit_test_info(test=test)
         line = self._assignment_line(self._get(test), uti)
-        self.assertIn('Ref=Not set', line)
-        self.assertIn('Tolerance = Not set', line)
+        self.assertEqual(self._cells(line), ('Not set', 'Not set'))
+        self.assertIn('tst-not-set', line)
         self.assertNotIn('None', line)
 
     def test_numerical_reference_and_readable_tolerance(self):
@@ -37,9 +48,10 @@ class TestTestChangeFormUnitAssignments(TestCase):
         tol = utils.create_tolerance()
         uti = utils.create_unit_test_info(test=test, ref=ref, tol=tol)
         line = self._assignment_line(self._get(test), uti)
-        self.assertIn('Ref=0 ', line)
+        ref_cell, tol_cell = self._cells(line)
+        self.assertEqual(ref_cell, '0')
         self.assertNotIn('Not set', line)
-        self.assertIn(tol.plain_display(), line)
+        self.assertEqual(tol_cell, tol.plain_display())
 
     def test_boolean_reference_shows_yes_no(self):
         test = utils.create_test(name='bool', test_type=models.BOOLEAN)
@@ -49,5 +61,5 @@ class TestTestChangeFormUnitAssignments(TestCase):
         ref_no = utils.create_reference(name='no', ref_type=models.BOOLEAN, value=0)
         uti_no = utils.create_unit_test_info(test=test, ref=ref_no)
         html = self._get(test)
-        self.assertIn('Ref=Yes ', self._assignment_line(html, uti_yes))
-        self.assertIn('Ref=No ', self._assignment_line(html, uti_no))
+        self.assertEqual(self._cells(self._assignment_line(html, uti_yes))[0], 'Yes')
+        self.assertEqual(self._cells(self._assignment_line(html, uti_no))[0], 'No')

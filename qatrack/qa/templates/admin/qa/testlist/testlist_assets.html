@@ -35,141 +35,7 @@ step. The live description preview and test list builder are driven by htmx.
   --border-color: #d2d6de; --darkened-bg: #f8f9fa; --selected-bg: #f5f7fa; --selected-row: #f5f7fa;
 }
 
-/* ---- Top Header Bar ---- */
-.tl-header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin: 0 0 12px;
-  font-family: 'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif;
-}
-/* The title row stays pinned just below the admin header (base_site.html measures
-   its height into --qa-admin-top-h); the scope bar below it scrolls away.
-   Solid page-coloured background so rows don't show through; z-index below the
-   admin header (1000) and the builder dialogs (9999). */
-.tl-header-bar {
-  position: sticky;
-  top: var(--qa-admin-top-h, 90px);
-  z-index: 900;
-  padding: 10px 0;
-  background: var(--body-bg);
-  box-shadow: 0 1px 0 var(--hairline-color);
-}
-/* Keep anchor jumps / focused fields clear of the pinned title row too. */
-html:has(.tl-header-bar) { scroll-padding-top: calc(var(--qa-admin-top-h, 90px) + 72px); }
-/* At 1024px and below the admin header is taller and the buttons wrap, so the
-   two pinned rows would cover over a quarter of the window: let this one scroll. */
-@media (max-width: 1024px), (max-height: 700px) {
-  .tl-header-bar { position: static; padding: 0; box-shadow: none; }
-  html:has(.tl-header-bar) { scroll-padding-top: calc(var(--qa-admin-top-h, 90px) + 12px); }
-}
-.tl-header-left {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-/* Title and counts sit on the page background (not a white card), so they use
-   Django's variables to stay readable in the dark admin theme too. */
-.tl-header-title {
-  font-size: 22px;
-  font-weight: 400;
-  color: var(--body-fg, #444);
-  margin: 0;
-  line-height: 1.1;
-  letter-spacing: normal;
-  font-family: 'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif;
-}
-/* "· ID 123" after "Edit Test List": same line, quieter colour, never split. */
-.tl-header-id {
-  color: var(--body-quiet-color, #666);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.tl-header-id-sep { margin-right: 2px; }
-.tl-header-counts {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--body-quiet-color, #666);
-}
-/* The page's one save button group (Django's bottom submit row is removed).
-   Left to right: History, Delete, Cancel, Save As…, Save and Continue Editing, Save. */
-.tl-header-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-/* a.tl-top-btn / button.tl-top-btn outrank the admin's link and button colours */
-a.tl-top-btn,
-button.tl-top-btn,
-.tl-top-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.4;
-  padding: 4px 12px;
-  margin: 0;
-  border-radius: 3px;
-  cursor: pointer;
-  text-decoration: none;
-  text-transform: none;
-  letter-spacing: normal;
-  white-space: nowrap;
-  font-family: 'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif;
-  height: 30px;
-  box-sizing: border-box;
-  box-shadow: 2px 2px 2px #ddd;
-  transition: background-color 0.15s ease;
-}
-a.tl-top-btn:focus-visible,
-button.tl-top-btn:focus-visible {
-  outline: 2px solid #3c8dbc;
-  outline-offset: 1px;
-}
-a.tl-top-btn-secondary,
-button.tl-top-btn-secondary {
-  background: #f4f4f4;
-  border: 1px solid #d2d6de;
-  color: #444;
-}
-a.tl-top-btn-secondary:hover,
-a.tl-top-btn-secondary:focus,
-button.tl-top-btn-secondary:hover {
-  background: #e7e7e7;
-  border-color: #d2d6de;
-  color: #444;
-  text-decoration: none;
-}
-/* Delete: ghost style, so it doesn't compete with Save */
-a.tl-top-btn-delete {
-  background: #fff;
-  border: 1px solid #e8c4be;
-  color: #c0392b;
-}
-a.tl-top-btn-delete:hover,
-a.tl-top-btn-delete:focus {
-  background: #fbe9e7;
-  border-color: #e8c4be;
-  color: #c0392b;
-  text-decoration: none;
-}
-button.tl-top-btn-save {
-  background: #424f57;
-  border: 1px solid #424f57;
-  color: #fff;
-  font-weight: 600;
-}
-button.tl-top-btn-save:hover {
-  background: #323e46;
-  border-color: #323e46;
-  color: #fff;
-}
+{% include "admin/qa/shared/_header_css.html" %}
 
 /* ---- Top Control Card / Toolbar ---- */
 .tl-control-card {
@@ -925,42 +791,7 @@ body.tl-mode-machine #tl-details-card textarea[readonly] {
   opacity: 1;
 }
 
-/* ---- Details card (change form) ---- */
-.tl-details-card { background:#fff; border-top:3px solid #424f57; box-shadow:0 1px 1px rgba(0,0,0,.1); border-radius:0; margin-bottom:20px; font-family:'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif; color:#333; }
-.tl-card-header { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid #f4f4f4; background:#fff; }
-.tl-card-header > .fa { font-size:16px; color:#555; }
-.tl-card-title { font-size:18px; font-weight:400; color:#444 !important; background:transparent !important; margin:0; line-height:1; padding:0; text-transform:none; letter-spacing:normal; }
-.tl-card-body { padding:14px; }
-/* tlb- (builder) prefix: base.css already defines shared tl- form, field and table blocks. */
-.tlb-form { display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; }
-.tlb-field { display:flex; flex-direction:column; gap:4px; min-width:0; }
-.tl-col-1 { grid-column:1; } .tl-col-2 { grid-column:2; } .tl-col-full { grid-column:1 / -1; }
-.tlb-field > label, .tl-label-row > label { font-size:13px; font-weight:600; color:#555; margin:0; }
-.tl-req { color:#c0392b; font-style:normal; }
-.tl-label-row { display:flex; align-items:center; }
-.tl-hint { font-size:11px; font-weight:600; margin-left:6px; display:inline-flex; align-items:center; gap:4px; }
-.tl-hint-neutral { color:#6e7785; } .tl-hint-warn { color:#8a6420; }
-.tl-preview-toggle { margin-left:auto; border:1px solid #d2d6de; background:#f4f4f4; color:#444; border-radius:3px; padding:3px 10px; font-size:11px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:2px 2px 2px #ddd; }
-.tl-preview-toggle:hover { background:#e7e7e7; color:#444; }
-.tl-preview-toggle.on { background:#e7e7e7; color:#333; box-shadow:inset 0 1px 2px rgba(0,0,0,.1); }
-.tl-preview-toggle:focus-visible { border-color:#3c8dbc; outline:2px solid #3c8dbc; outline-offset:1px; }
-.tlb-field input[type="text"], .tlb-field textarea, .tlb-field select {
-  width:100%; box-sizing:border-box; font-size:14px; color:#555; background:#fff;
-  border:1px solid #d2d6de; border-radius:0; box-shadow:2px 2px 2px #ddd;
-  padding:6px 10px; min-height:34px; margin:0;
-}
-.tlb-field textarea { resize:vertical; line-height:1.5; }
-.tl-desc-input { min-height:52px; }
-.tlb-field #id_javascript { font-family:Menlo, Consolas, monospace; font-size:13px; height:76px; }
-.tlb-field #id_slug { font-family:Menlo, Consolas, monospace; font-size:13px; }
-.tlb-field input[type="text"]:focus, .tlb-field textarea:focus { border-color:#3c8dbc; outline:none; }
-.tl-html-preview { min-height:60px; border:1px solid #d2d6de; box-shadow:2px 2px 2px #ddd; padding:8px 10px; background:#fff; font-size:14px; line-height:1.5; color:#333; }
-.tl-html-preview p { margin:0 0 8px; } .tl-html-preview p:last-child { margin-bottom:0; }
-.tl-html-preview ul, .tl-html-preview ol { margin:0 0 8px; padding-left:22px; }
-.tl-html-preview a { color:#357da7; }
-.tl-htmlpreview-empty { color:#6d7787; font-style:italic; }
-.tlb-field .errorlist { list-style:none; margin:0 0 4px; padding:0; color:#c0392b; font-size:12px; font-weight:600; }
-.tlb-field .errorlist li { margin:0; }
+{% include "admin/qa/shared/_card_form_css.html" %}
 
 /* ---- Tests Card & Table ---- */
 .tl-members-card {
@@ -2134,166 +1965,7 @@ input[type="text"].tl-search-input:focus,
   outline-offset: 1px;
 }
 
-/* ---- Attachments Card (Matching Fault Logs Edit Mode) ---- */
-.tl-attachments-card {
-  background: #fff;
-  border-top: 3px solid #424f57;
-  box-shadow: 0 1px 1px rgba(0,0,0,.1);
-  border-radius: 0;
-  margin-top: 24px;
-  margin-bottom: 24px;
-  font-family: 'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif;
-  color: #333;
-}
-.attachment-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  margin-bottom: 8px;
-  border: 1px solid #d2d6de;
-  border-radius: 0;
-  background: #fff;
-  box-shadow: none;
-}
-.attachment-card:hover {
-  background: #f5f7fa;
-}
-/* Left rule: grey = saved, dark slate = pending upload (saved with the list),
-   red = file missing from the server (a real problem). */
-.attachment-card.existing {
-  border-left: 3px solid #d2d6de;
-}
-.attachment-card.missing {
-  border-left: 3px solid #dd4b39;
-}
-.attachment-card.pending {
-  border-left: 3px solid #424f57;
-  background: #fbfcfd;
-}
-.attachment-name {
-  flex-grow: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-right: 15px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.attachment-name strong {
-  color: #333;
-}
-.tl-attach-icon {
-  color: #555;
-}
-.tl-attach-size {
-  font-size: 12px;
-  color: #555;
-}
-/* Icon-only buttons on each attachment: Preview (secondary), Remove (ghost danger) */
-.tl-attach-btn,
-a.tl-attach-btn:link,
-a.tl-attach-btn:visited {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 8px;
-  font-size: 12px;
-  line-height: 1.4;
-  border: 1px solid #d2d6de;
-  border-radius: 3px;
-  background: #f4f4f4;
-  color: #444;
-  box-shadow: 2px 2px 2px #ddd;
-  text-decoration: none;
-  cursor: pointer;
-}
-.tl-attach-btn:hover,
-a.tl-attach-btn:hover {
-  background: #e7e7e7;
-  color: #444;
-}
-.tl-attach-btn.tl-attach-btn-remove {
-  background: #fff;
-  border-color: #e8c4be;
-  color: #c0392b;
-}
-.tl-attach-btn.tl-attach-btn-remove:hover {
-  background: #fbe9e7;
-  color: #c0392b;
-}
-.tl-attach-btn:focus-visible,
-.tl-browse-btn:focus-visible {
-  border-color: #3c8dbc;
-  outline: 2px solid #3c8dbc;
-  outline-offset: 1px;
-}
-.attachment-actions {
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.tl-attach-comment-tag {
-  font-size: 12px;
-  color: #555;
-  background: #f4f4f4;
-  border: 1px solid #d2d6de;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-weight: normal;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.tl-pending-comment-input {
-  font-size: 12px;
-  border: 1px solid #d2d6de;
-  border-radius: 2px;
-  box-shadow: 2px 2px 2px #eee;
-  padding: 4px 8px;
-  min-width: 200px;
-  margin-left: 6px;
-  outline: none;
-}
-.tl-pending-comment-input:focus {
-  border-color: #3c8dbc;
-}
-.tl-browse-wrap {
-  margin-top: 12px;
-}
-.tl-browse-btn {
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  border: 1px solid #d2d6de;
-  border-radius: 3px;
-  background: #f4f4f4;
-  color: #444;
-  box-shadow: 2px 2px 2px #ddd;
-  transition: background-color 0.15s ease;
-}
-.tl-browse-btn:hover {
-  background: #e7e7e7;
-  color: #444;
-}
-.tl-browse-btn .fa {
-  color: #555;
-}
-.tl-empty-attachments-msg {
-  padding: 14px 4px;
-  color: #6d7787;
-  font-size: 13px;
-  font-style: italic;
-}
+{% include "admin/qa/shared/_attachments_css.html" %}
 
 /* ---- Parent Memberships Card ---- */
 .tl-parents-card {
@@ -2431,8 +2103,8 @@ ul.messagelist li.error {
 }
 
 /* ---- Changelist ---- */
-/* Text for screen readers only (e.g. the unit names behind the Units count). */
-.tl-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0; }
+/* .tl-visually-hidden (screen-reader-only text, e.g. the unit names behind the Units count)
+   and .tl-count-badge are in admin/qa/shared/_card_form_css.html. */
 .change-list.model-testlist #content { padding-top:8px; }
 .tl-index-header { display:flex; align-items:flex-end; justify-content:space-between; gap:12px 16px; flex-wrap:wrap; margin:0 0 12px; }
 /* The title sits on the page background, not a white card: Django's own variables
@@ -2522,7 +2194,6 @@ ul.messagelist li.error {
 .tl-cell-name .tl-name { font-weight:600; color:#333; }
 .tl-cell-name .tl-slug { font-size:12px; color:#6b6b6b; }
 .tl-cell-name:hover .tl-name { color:#317399; }
-.tl-count-badge { display:inline-block; background:#d2d6de; color:#444; font-size:75%; font-weight:600; border-radius:2px; padding:.22em .6em; }
 .tl-freq-tag { display:inline-block; font-size:11px; font-weight:600; color:#555; background:#f4f4f4; border:1px solid #d2d6de; border-radius:3px; padding:2px 8px; margin:0 3px 3px 0; }
 .tl-cell-units { color:#6b6b6b; white-space:nowrap; } .tl-cell-units .fa { margin-right:3px; }
 .tl-cell-modified { display:flex; flex-direction:column; font-size:13px; line-height:1.35; }
@@ -2581,6 +2252,7 @@ ul.messagelist li.error {
 }
 </style>
 
+{% include "admin/qa/shared/_attachments_js.html" %}
 <script>
 (function () {
   "use strict";
@@ -4238,140 +3910,10 @@ ul.messagelist li.error {
       .replace(/'/g, "&#039;");
   }
 
+  // The attachments card and its JS are shared with the Test change form:
+  // admin/qa/shared/_attachments_card.html and _attachments_js.html.
   function initAttachmentsSection() {
-    var fileInput = document.getElementById("id_tl-new-attachments");
-    var container = document.getElementById("attachments-editor-container");
-    // No file input when the user may not add attachments; removing saved ones still works.
-    if (!container) { return; }
-
-    var prefix = container.getAttribute("data-prefix") || "attachments_attachment_set";
-    var parentId = container.getAttribute("data-parent-id") || "";
-    var totalFormsInput = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
-    var pendingList = document.getElementById("pending-attachments-list");
-    var formsetInputsContainer = document.getElementById("new-attachments-formset-inputs");
-
-    // Browse… is a real button (keyboard access); it opens the hidden file input.
-    var browseBtn = document.getElementById("tl-browse-btn");
-    if (browseBtn && fileInput && !browseBtn.hasAttribute("data-tl-init")) {
-      browseBtn.setAttribute("data-tl-init", "");
-      browseBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        fileInput.click();
-      });
-    }
-
-    function updateAttachmentCounts() {
-      var existingVisible = document.querySelectorAll("#existing-attachments-list .attachment-card:not([style*='display: none'])").length;
-      var pendingCount = document.querySelectorAll("#pending-attachments-list .attachment-card").length;
-      var total = existingVisible + pendingCount;
-      var badge = document.getElementById("tl-attachments-count");
-      if (badge) { badge.textContent = total; }
-      var emptyMsg = document.getElementById("tl-empty-attachments-msg");
-      if (emptyMsg) {
-        emptyMsg.style.display = total === 0 ? "block" : "none";
-      }
-    }
-
-    // Existing attachments deletion
-    document.addEventListener("click", function(e) {
-      var delBtn = e.target.closest(".btn-delete-existing");
-      if (delBtn) {
-        e.preventDefault();
-        var attachId = delBtn.getAttribute("data-id");
-        var card = document.getElementById("existing-attach-" + attachId);
-        if (card) {
-          card.style.display = "none";
-          var delCheckbox = card.querySelector(".attach-delete");
-          if (delCheckbox) { delCheckbox.checked = true; }
-          updateAttachmentCounts();
-        }
-      }
-    });
-
-    // File input change: add pending attachment cards and Django formset file inputs
-    if (fileInput) fileInput.addEventListener("change", function () {
-      if (!this.files || !this.files.length) { return; }
-
-      var currentTotal = totalFormsInput ? (parseInt(totalFormsInput.value, 10) || 0) : 0;
-
-      Array.from(this.files).forEach(function (file) {
-        var newIndex = currentTotal;
-        var url = URL.createObjectURL(file);
-        var sizeKB = (file.size / 1024).toFixed(1);
-
-        // 1. Create pending visual card matching Fault Logs
-        var card = document.createElement("div");
-        card.className = "attachment-card pending";
-        card.id = "pending-attach-" + newIndex;
-        var previewLabel = interpolate(gettext("Preview %(name)s"), { name: file.name }, true);
-        var removeLabel = interpolate(gettext("Remove %(name)s"), { name: file.name }, true);
-        var commentPlaceholder = gettext("Add an optional comment…");
-        card.innerHTML =
-          '<div class="attachment-name">' +
-            '<i class="fa fa-upload fa-fw tl-attach-icon" aria-hidden="true"></i> ' +
-            '<strong>' + escapeHtml(file.name) + '</strong> ' +
-            '<span class="tl-attach-size">(' + escapeHtml(interpolate(gettext("%(size)s KB"), { size: sizeKB }, true)) + ')</span>' +
-            '<input type="text" name="' + prefix + '-' + newIndex + '-comment" placeholder="' + escapeHtml(commentPlaceholder) + '"' +
-              ' aria-label="' + escapeHtml(commentPlaceholder) + '" class="tl-pending-comment-input">' +
-          '</div>' +
-          '<div class="attachment-actions">' +
-            '<a href="' + url + '" target="_blank" class="tl-attach-btn"' +
-              ' title="' + escapeHtml(gettext("Preview")) + '" aria-label="' + escapeHtml(previewLabel) + '">' +
-              '<i class="fa fa-eye" aria-hidden="true"></i></a>' +
-            '<button type="button" class="tl-attach-btn tl-attach-btn-remove btn-remove-pending" data-index="' + newIndex + '"' +
-              ' title="' + escapeHtml(gettext("Remove")) + '" aria-label="' + escapeHtml(removeLabel) + '">' +
-              '<i class="fa fa-trash-o" aria-hidden="true"></i></button>' +
-          '</div>';
-        pendingList.appendChild(card);
-
-        // 2. Create actual Django formset input with DataTransfer
-        var dt = new DataTransfer();
-        dt.items.add(file);
-
-        var rowDiv = document.createElement("div");
-        rowDiv.id = "formset-row-" + newIndex;
-
-        var input = document.createElement("input");
-        input.type = "file";
-        input.name = prefix + "-" + newIndex + "-attachment";
-        input.files = dt.files;
-        rowDiv.appendChild(input);
-
-        if (parentId) {
-          var fkInput = document.createElement("input");
-          fkInput.type = "hidden";
-          fkInput.name = prefix + "-" + newIndex + "-testlist";
-          fkInput.value = parentId;
-          rowDiv.appendChild(fkInput);
-        }
-
-        formsetInputsContainer.appendChild(rowDiv);
-
-        currentTotal++;
-      });
-
-      if (totalFormsInput) {
-        totalFormsInput.value = currentTotal;
-      }
-      this.value = "";
-      updateAttachmentCounts();
-    });
-
-    // Remove pending attachment
-    document.addEventListener("click", function(e) {
-      var removeBtn = e.target.closest(".btn-remove-pending");
-      if (removeBtn) {
-        e.preventDefault();
-        var index = removeBtn.getAttribute("data-index");
-        var card = document.getElementById("pending-attach-" + index);
-        if (card) { card.remove(); }
-        var row = document.getElementById("formset-row-" + index);
-        if (row) { row.remove(); }
-        updateAttachmentCounts();
-      }
-    });
-
-    updateAttachmentCounts();
+    if (window.qaInitAttachmentsEditor) { window.qaInitAttachmentsEditor(); }
   }
 
   // ---- Editing scope: base list vs. one machine ----

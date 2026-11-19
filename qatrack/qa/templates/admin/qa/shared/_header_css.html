@@ -1,0 +1,136 @@
+{# Title row with the page's one save button group: shared by the Test List and Test change forms. Included inside a <style> block. #}
+/* ---- Top Header Bar ---- */
+.tl-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  font-family: 'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+/* The title row stays pinned just below the admin header (base_site.html measures
+   its height into --qa-admin-top-h); the scope bar below it scrolls away.
+   Solid page-coloured background so rows don't show through; z-index below the
+   admin header (1000) and the builder dialogs (9999). */
+.tl-header-bar {
+  position: sticky;
+  top: var(--qa-admin-top-h, 90px);
+  z-index: 900;
+  padding: 10px 0;
+  background: var(--body-bg);
+  box-shadow: 0 1px 0 var(--hairline-color);
+}
+/* Keep anchor jumps / focused fields clear of the pinned title row too. */
+html:has(.tl-header-bar) { scroll-padding-top: calc(var(--qa-admin-top-h, 90px) + 72px); }
+/* At 1024px and below the admin header is taller and the buttons wrap, so the
+   two pinned rows would cover over a quarter of the window: let this one scroll. */
+@media (max-width: 1024px), (max-height: 700px) {
+  .tl-header-bar { position: static; padding: 0; box-shadow: none; }
+  html:has(.tl-header-bar) { scroll-padding-top: calc(var(--qa-admin-top-h, 90px) + 12px); }
+}
+.tl-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Title and counts sit on the page background (not a white card), so they use
+   Django's variables to stay readable in the dark admin theme too. */
+.tl-header-title {
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--body-fg, #444);
+  margin: 0;
+  line-height: 1.1;
+  letter-spacing: normal;
+  font-family: 'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif;
+}
+/* "· ID 123" after "Edit Test List": same line, quieter colour, never split. */
+.tl-header-id {
+  color: var(--body-quiet-color, #666);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tl-header-id-sep { margin-right: 2px; }
+.tl-header-counts {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--body-quiet-color, #666);
+}
+/* The page's one save button group (Django's bottom submit row is removed).
+   Left to right: History, Delete, Cancel, Save As…, Save and Continue Editing, Save. */
+.tl-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* a.tl-top-btn / button.tl-top-btn outrank the admin's link and button colours */
+a.tl-top-btn,
+button.tl-top-btn,
+.tl-top-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  padding: 4px 12px;
+  margin: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  font-family: 'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif;
+  height: 30px;
+  box-sizing: border-box;
+  box-shadow: 2px 2px 2px #ddd;
+  transition: background-color 0.15s ease;
+}
+a.tl-top-btn:focus-visible,
+button.tl-top-btn:focus-visible {
+  outline: 2px solid #3c8dbc;
+  outline-offset: 1px;
+}
+a.tl-top-btn-secondary,
+button.tl-top-btn-secondary {
+  background: #f4f4f4;
+  border: 1px solid #d2d6de;
+  color: #444;
+}
+a.tl-top-btn-secondary:hover,
+a.tl-top-btn-secondary:focus,
+button.tl-top-btn-secondary:hover {
+  background: #e7e7e7;
+  border-color: #d2d6de;
+  color: #444;
+  text-decoration: none;
+}
+/* Delete: ghost style, so it doesn't compete with Save */
+a.tl-top-btn-delete {
+  background: #fff;
+  border: 1px solid #e8c4be;
+  color: #c0392b;
+}
+a.tl-top-btn-delete:hover,
+a.tl-top-btn-delete:focus {
+  background: #fbe9e7;
+  border-color: #e8c4be;
+  color: #c0392b;
+  text-decoration: none;
+}
+button.tl-top-btn-save {
+  background: #424f57;
+  border: 1px solid #424f57;
+  color: #fff;
+  font-weight: 600;
+}
+button.tl-top-btn-save:hover {
+  background: #323e46;
+  border-color: #323e46;
+  color: #fff;
+}

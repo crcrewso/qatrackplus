@@ -1,0 +1,161 @@
+{# Attachments card (matches Fault Logs edit mode): shared by the Test List and Test change forms. Included inside a <style> block. #}
+/* ---- Attachments Card (Matching Fault Logs Edit Mode) ---- */
+.tl-attachments-card {
+  background: #fff;
+  border-top: 3px solid #424f57;
+  box-shadow: 0 1px 1px rgba(0,0,0,.1);
+  border-radius: 0;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  font-family: 'Source Sans Pro','Helvetica Neue',Helvetica,Arial,sans-serif;
+  color: #333;
+}
+.attachment-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid #d2d6de;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+.attachment-card:hover {
+  background: #f5f7fa;
+}
+/* Left rule: grey = saved, dark slate = pending upload (saved with the list),
+   red = file missing from the server (a real problem). */
+.attachment-card.existing {
+  border-left: 3px solid #d2d6de;
+}
+.attachment-card.missing {
+  border-left: 3px solid #dd4b39;
+}
+.attachment-card.pending {
+  border-left: 3px solid #424f57;
+  background: #fbfcfd;
+}
+.attachment-name {
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 15px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.attachment-name strong {
+  color: #333;
+}
+.tl-attach-icon {
+  color: #555;
+}
+.tl-attach-size {
+  font-size: 12px;
+  color: #555;
+}
+/* Icon-only buttons on each attachment: Preview (secondary), Remove (ghost danger) */
+.tl-attach-btn,
+a.tl-attach-btn:link,
+a.tl-attach-btn:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid #d2d6de;
+  border-radius: 3px;
+  background: #f4f4f4;
+  color: #444;
+  box-shadow: 2px 2px 2px #ddd;
+  text-decoration: none;
+  cursor: pointer;
+}
+.tl-attach-btn:hover,
+a.tl-attach-btn:hover {
+  background: #e7e7e7;
+  color: #444;
+}
+.tl-attach-btn.tl-attach-btn-remove {
+  background: #fff;
+  border-color: #e8c4be;
+  color: #c0392b;
+}
+.tl-attach-btn.tl-attach-btn-remove:hover {
+  background: #fbe9e7;
+  color: #c0392b;
+}
+.tl-attach-btn:focus-visible,
+.tl-browse-btn:focus-visible {
+  border-color: #3c8dbc;
+  outline: 2px solid #3c8dbc;
+  outline-offset: 1px;
+}
+.attachment-actions {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.tl-attach-comment-tag {
+  font-size: 12px;
+  color: #555;
+  background: #f4f4f4;
+  border: 1px solid #d2d6de;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: normal;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.tl-pending-comment-input {
+  font-size: 12px;
+  border: 1px solid #d2d6de;
+  border-radius: 2px;
+  box-shadow: 2px 2px 2px #eee;
+  padding: 4px 8px;
+  min-width: 200px;
+  margin-left: 6px;
+  outline: none;
+}
+.tl-pending-comment-input:focus {
+  border-color: #3c8dbc;
+}
+.tl-browse-wrap {
+  margin-top: 12px;
+}
+.tl-browse-btn {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #d2d6de;
+  border-radius: 3px;
+  background: #f4f4f4;
+  color: #444;
+  box-shadow: 2px 2px 2px #ddd;
+  transition: background-color 0.15s ease;
+}
+.tl-browse-btn:hover {
+  background: #e7e7e7;
+  color: #444;
+}
+.tl-browse-btn .fa {
+  color: #555;
+}
+.tl-empty-attachments-msg {
+  padding: 14px 4px;
+  color: #6d7787;
+  font-size: 13px;
+  font-style: italic;
+}

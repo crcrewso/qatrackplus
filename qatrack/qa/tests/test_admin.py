@@ -4332,9 +4332,8 @@ class TestTestListBuilderLinkContrast(TestCase):
         return (hi + 0.05) / (lo + 0.05)
 
     def _style(self):
-        origin = get_template('admin/qa/testlist/testlist_assets.html').origin
-        with open(origin.name, encoding='utf-8') as f:
-            source = f.read()
+        # Rendered, so the shared partials it includes (admin/qa/shared/) are checked too
+        source = get_template('admin/qa/testlist/testlist_assets.html').render({})
         style = source[source.index('<style>'):source.index('</style>')]
         return re.sub(r'/\*.*?\*/', '', style, flags=re.S)
 

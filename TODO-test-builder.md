@@ -368,3 +368,15 @@ Remove this file before the branch is merged.
     belongs with the shared settings: add it to the machine-mode hide list in
     `testlist_assets.html`. It comes back when the scope returns to the base
     list, without a reload, and the toolbar spacing stays even.
+- [x] **Test change form in the Test List page's style**
+  - Home › QC › Tests › {test}: cards (Details, Type & Behaviour, Calculation
+    procedure, Attachments, Used In) and the title-row save buttons, like the
+    Test List page. Header, card and attachments CSS and the attachments JS now
+    live in `admin/qa/shared/` and both pages include them.
+  - Controls: grouped Type select with a one-line explanation, on/off switches,
+    chips for multiple-choice options (drag or Alt+arrows to reorder), a Number
+    format picker with a live preview (`qa_test_format_preview`), the
+    description preview from the Test List page, ace for the Python snippet.
+  - Settings show and hide with the type (same rules as the old
+    `test_admin.js`, now removed); a setting with an error always stays shown.
+  - Used In lists the test lists and each machine's reference and tolerance.

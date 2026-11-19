@@ -1,0 +1,159 @@
+{% comment %}
+JS for the shared attachments card (admin/qa/shared/_attachments_card.html), used by the
+Test List and Test change forms. Defines window.qaInitAttachmentsEditor(); each page calls
+it once its DOM is ready. Inlined in the page body (not a static file) so it runs under
+hx-boost and without a collectstatic step, like the rest of these pages' assets.
+{% endcomment %}<script>
+(function () {
+  "use strict";
+
+  function escapeHtml(text) {
+    if (!text) { return ""; }
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function updateAttachmentCounts() {
+    var existingVisible = document.querySelectorAll("#existing-attachments-list .attachment-card:not([style*='display: none'])").length;
+    var pendingCount = document.querySelectorAll("#pending-attachments-list .attachment-card").length;
+    var total = existingVisible + pendingCount;
+    var badge = document.getElementById("tl-attachments-count");
+    if (badge) { badge.textContent = total; }
+    var emptyMsg = document.getElementById("tl-empty-attachments-msg");
+    if (emptyMsg) {
+      emptyMsg.style.display = total === 0 ? "block" : "none";
+    }
+  }
+
+  // Remove (saved) and Remove (pending) are delegated from the document, so they are
+  // registered once per document: hx-boost swaps the body but keeps the document.
+  if (!document.qaAttachmentsDelegates) {
+    document.qaAttachmentsDelegates = true;
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest) { return; }
+      var delBtn = e.target.closest(".btn-delete-existing");
+      if (delBtn) {
+        e.preventDefault();
+        var card = document.getElementById("existing-attach-" + delBtn.getAttribute("data-id"));
+        if (card) {
+          card.style.display = "none";
+          var delCheckbox = card.querySelector(".attach-delete");
+          if (delCheckbox) { delCheckbox.checked = true; }
+          updateAttachmentCounts();
+        }
+        return;
+      }
+      var removeBtn = e.target.closest(".btn-remove-pending");
+      if (removeBtn) {
+        e.preventDefault();
+        var index = removeBtn.getAttribute("data-index");
+        var pending = document.getElementById("pending-attach-" + index);
+        if (pending) { pending.remove(); }
+        var row = document.getElementById("formset-row-" + index);
+        if (row) { row.remove(); }
+        updateAttachmentCounts();
+      }
+    });
+  }
+
+  window.qaInitAttachmentsEditor = function () {
+    var container = document.getElementById("attachments-editor-container");
+    if (!container || container.hasAttribute("data-qa-init")) { return; }
+    container.setAttribute("data-qa-init", "");
+    // No file input when the user may not add attachments; removing saved ones still works.
+    var fileInput = document.getElementById("id_tl-new-attachments");
+
+    var prefix = container.getAttribute("data-prefix") || "attachments_attachment_set";
+    var parentId = container.getAttribute("data-parent-id") || "";
+    // The attachment's foreign key to the object being edited ("testlist", "test")
+    var fkName = container.getAttribute("data-fk-name") || "testlist";
+    var totalFormsInput = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
+    var pendingList = document.getElementById("pending-attachments-list");
+    var formsetInputsContainer = document.getElementById("new-attachments-formset-inputs");
+
+    // Browse… is a real button (keyboard access); it opens the hidden file input.
+    var browseBtn = document.getElementById("tl-browse-btn");
+    if (browseBtn && fileInput) {
+      browseBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        fileInput.click();
+      });
+    }
+
+    // File input change: add pending attachment cards and Django formset file inputs
+    if (fileInput) fileInput.addEventListener("change", function () {
+      if (!this.files || !this.files.length) { return; }
+
+      var currentTotal = totalFormsInput ? (parseInt(totalFormsInput.value, 10) || 0) : 0;
+
+      Array.from(this.files).forEach(function (file) {
+        var newIndex = currentTotal;
+        var url = URL.createObjectURL(file);
+        var sizeKB = (file.size / 1024).toFixed(1);
+
+        // 1. Create pending visual card matching Fault Logs
+        var card = document.createElement("div");
+        card.className = "attachment-card pending";
+        card.id = "pending-attach-" + newIndex;
+        var previewLabel = interpolate(gettext("Preview %(name)s"), { name: file.name }, true);
+        var removeLabel = interpolate(gettext("Remove %(name)s"), { name: file.name }, true);
+        var commentPlaceholder = gettext("Add an optional comment…");
+        card.innerHTML =
+          '<div class="attachment-name">' +
+            '<i class="fa fa-upload fa-fw tl-attach-icon" aria-hidden="true"></i> ' +
+            '<strong>' + escapeHtml(file.name) + '</strong> ' +
+            '<span class="tl-attach-size">(' + escapeHtml(interpolate(gettext("%(size)s KB"), { size: sizeKB }, true)) + ')</span>' +
+            '<input type="text" name="' + prefix + '-' + newIndex + '-comment" placeholder="' + escapeHtml(commentPlaceholder) + '"' +
+              ' aria-label="' + escapeHtml(commentPlaceholder) + '" class="tl-pending-comment-input">' +
+          '</div>' +
+          '<div class="attachment-actions">' +
+            '<a href="' + url + '" target="_blank" class="tl-attach-btn"' +
+              ' title="' + escapeHtml(gettext("Preview")) + '" aria-label="' + escapeHtml(previewLabel) + '">' +
+              '<i class="fa fa-eye" aria-hidden="true"></i></a>' +
+            '<button type="button" class="tl-attach-btn tl-attach-btn-remove btn-remove-pending" data-index="' + newIndex + '"' +
+              ' title="' + escapeHtml(gettext("Remove")) + '" aria-label="' + escapeHtml(removeLabel) + '">' +
+              '<i class="fa fa-trash-o" aria-hidden="true"></i></button>' +
+          '</div>';
+        pendingList.appendChild(card);
+
+        // 2. Create actual Django formset input with DataTransfer
+        var dt = new DataTransfer();
+        dt.items.add(file);
+
+        var rowDiv = document.createElement("div");
+        rowDiv.id = "formset-row-" + newIndex;
+
+        var input = document.createElement("input");
+        input.type = "file";
+        input.name = prefix + "-" + newIndex + "-attachment";
+        input.files = dt.files;
+        rowDiv.appendChild(input);
+
+        if (parentId) {
+          var fkInput = document.createElement("input");
+          fkInput.type = "hidden";
+          fkInput.name = prefix + "-" + newIndex + "-" + fkName;
+          fkInput.value = parentId;
+          rowDiv.appendChild(fkInput);
+        }
+
+        formsetInputsContainer.appendChild(rowDiv);
+
+        currentTotal++;
+      });
+
+      if (totalFormsInput) {
+        totalFormsInput.value = currentTotal;
+      }
+      this.value = "";
+      updateAttachmentCounts();
+    });
+
+    updateAttachmentCounts();
+  };
+})();
+</script>
