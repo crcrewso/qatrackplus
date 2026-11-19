@@ -1,0 +1,37 @@
+name: Release Ancestry
+
+# A site on an older release of this line must be able to reach this branch with the
+# `git pull` the published upgrade pages promise. That holds only while every earlier release
+# tag is an ancestor of the branch, and twice now it has not been: `v4.0.1` against `v4.0.2`,
+# and `v3.1.1` against `releases/3.1`. Nothing noticed either, because nothing looked.
+#
+# Release branches and tags only: every branch is covered by CI, but a feature branch has no
+# upgrade promise to keep, and failing them all would teach everyone to ignore this.
+on:
+  push:
+    branches: [ master, develop, "releases/**" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ master, develop, "releases/**" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ancestry:
+    name: Older releases can be pulled onto this branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          # The check reads the release tags, so the clone cannot be shallow. With no tags
+          # the script fails rather than passing on an empty list.
+          fetch-depth: 0
+      - name: Check release ancestry
+        run: python scripts/check_release_ancestry.py
