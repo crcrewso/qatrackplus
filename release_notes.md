@@ -20,6 +20,14 @@ Release notes are located at http://docs.qatrackplus.com/en/latest/release_notes
 
   **Restart QATrack+ after any of this.** Python caches time zone data for the life of a process, so a web server or Django Q cluster that started before the update keeps the rules it loaded. On Windows restart the `QATrack+ Web Service` and the `QATrack+ Django Q Cluster` task; on Linux restart the supervisor programs; on Docker, `docker compose up -d` after the build recreates both services. Leaving the Django Q cluster running is the easiest one to miss, and it is the process that sends scheduled notices and reports.
 
+* **Service log**: Deleting a service event now requires the *Can delete service event* permission. **This takes a capability away from users who had it by accident**: the permission was declared on the view but never checked, because the permission mixin was listed after the generic view base and Django resolves `dispatch()` by method order - so any signed-in user could open the delete page and use it. Check who is meant to delete service events before upgrading, and grant the permission to the groups that need it.
+* **QA**: Completing a test list that was saved in progress no longer clears its due date. The edit form carried a `due_date` field that no page rendered, so every save posted it empty and wrote `None` over the real date ([#650](https://github.com/qatrackplus/qatrackplus/issues/650)).
+* **QA**: Values of wraparound tests are formatted on the perform page as the other numeric types already were, rather than shown unformatted.
+* **QA**: Labels in the QC history popup are readable against every pass, tolerance and action background; some were close to the colour behind them.
+* **Admin**: The *Export Test Pack* and *Import Test Pack* links appear only for users who may use them. Reaching a Test, Test List or Test List Cycle changelist needs only that model's own permission, while the views need *Can change test list*, so a user with view-only rights saw both links and got a permission error on clicking either.
+* **Reports**: Resizing the window no longer raises an error on pages that have no report preview ([#607](https://github.com/qatrackplus/qatrackplus/issues/607)).
+* **Installation**: The media folder check says which fault it found - `qatrack.E003` when the folder is not configured and `qatrack.E004` when it does not exist, rather than both arriving as a write-permission error - and `qatrack.W001` warns when the server is running as `root`, since re-running under `sudo` is the natural reaction to a permissions complaint and makes it worse ([#836](https://github.com/qatrackplus/qatrackplus/issues/836), [#843](https://github.com/qatrackplus/qatrackplus/issues/843)).
+
 ## 4.0.2
 
 * **QA**: The Test List admin shows each member test's name again, and the view and change icons beside it work ([#897](https://github.com/qatrackplus/qatrackplus/issues/897)).
