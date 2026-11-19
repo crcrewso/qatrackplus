@@ -387,5 +387,6 @@ Remove this file before the branch is merged.
     results of 1 or 0 (`check_tli_flag` doesn't look at the type).
     `TestForm.clean` now clears them (`TEST_TYPE_ONLY_FIELDS`), the page says
     which ones it cleared, and the history lists them.
-  - Not done: tests already saved with a stale `flag_when`, and the signal
-    itself still ignores the type.
+  - `check_tli_flag` now only counts Boolean tests, so a `flag_when` already
+    saved on another type does nothing (no data migration needed). Test lists
+    flagged that way in the past keep their flag.

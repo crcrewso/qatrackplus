@@ -4,8 +4,9 @@ The Test change form hides settings that don't apply to the chosen type (R13), b
 their old values were still posted. Choices, a Constant value or Wrap values on the
 wrong type made the model refuse the save, and a leftover "Flag the test list" setting
 on a non-Boolean test flagged the test list whenever a result was 1 or 0
-(signals.check_tli_flag doesn't look at the type). TestForm.clean now clears them,
-TestAdmin says which ones it cleared, and the history lists them.
+(signals.check_tli_flag didn't look at the type). TestForm.clean now clears them,
+TestAdmin says which ones it cleared, and the history lists them; check_tli_flag now
+only counts Boolean tests, so a flag_when already saved on another type does nothing.
 """
 
 from django.contrib.admin.models import LogEntry
@@ -14,7 +15,7 @@ from django.urls import reverse
 
 from qatrack.accounts.tests.utils import create_user
 from qatrack.qa import admin as qa_admin
-from qatrack.qa import models
+from qatrack.qa import models, signals
 from qatrack.qa.tests import utils as qa_utils
 
 
@@ -116,3 +117,27 @@ class TestLeftoverTypeSettings(TestCase):
         for name, types, _label in qa_admin.TEST_TYPE_ONLY_FIELDS:
             self.assertIn(name, fields)
             self.assertTrue(set(types) <= {t for t, _ in models.TEST_TYPE_CHOICES})
+
+
+class TestFlagOnlyFromBooleanTests(TestCase):
+    """signals.check_tli_flag ignores a flag_when left on a test that is no longer Boolean."""
+
+    def _flagged(self, test_type, flag_when, value):
+        test = qa_utils.create_test(name='t', test_type=test_type)
+        # Saved directly, as older data may be: TestForm would clear it.
+        models.Test.objects.filter(pk=test.pk).update(flag_when=flag_when)
+        tli = qa_utils.create_test_list_instance()
+        uti = qa_utils.create_unit_test_info(unit=tli.unit_test_collection.unit, test=test)
+        qa_utils.create_test_instance(tli, unit_test_info=uti, value=value)
+        signals.testlist_complete.send(sender=self, instance=tli, created=True)
+        tli.refresh_from_db()
+        return tli.flagged
+
+    def test_boolean_tests_still_flag(self):
+        self.assertTrue(self._flagged(models.BOOLEAN, True, 1))
+        self.assertTrue(self._flagged(models.BOOLEAN, False, 0))
+        self.assertFalse(self._flagged(models.BOOLEAN, True, 0))
+
+    def test_leftover_flag_on_other_types_is_ignored(self):
+        self.assertFalse(self._flagged(models.SIMPLE, True, 1))
+        self.assertFalse(self._flagged(models.MULTIPLE_CHOICE, False, 0))

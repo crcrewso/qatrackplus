@@ -204,10 +204,14 @@ def on_test_save(*args, **kwargs):
 
 @receiver(testlist_complete)
 def check_tli_flag(*args, **kwargs):
-    """Flag this test list instance if required"""
+    """Flag this test list instance if required.
+
+    Only Boolean tests can flag a test list. A test that used to be Boolean may still
+    have flag_when set from then, and its results of 1 or 0 mean something else now.
+    """
     tli = kwargs["instance"]
     models.TestListInstance.objects.filter(pk=tli.pk).update(
-        flagged=tli.testinstance_set.
+        flagged=tli.testinstance_set.filter(unit_test_info__test__type=models.BOOLEAN).
         filter(Q(value=1, unit_test_info__test__flag_when=True)
                | Q(value=0, unit_test_info__test__flag_when=False)).exists()
     )
