@@ -36,7 +36,7 @@ The fields are as follows:
 * **Alteranate Part Number** Alternate manufactures part number.
 * **Cost** Last known cost for this part.
 * **Part Category (optional)** Which category does this part belong to.
-* **Low Inventory Count** When the part inventory count falls below this
+* **Notification level** When the part inventory count falls below this
   number, a message will be shown to the user and the part will show up in the
   :ref:`Low Inventory Report <parts_low_inventory>`.
 * **Notes (optional)** Any additional comments about this part type?

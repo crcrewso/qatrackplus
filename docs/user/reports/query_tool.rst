@@ -24,8 +24,8 @@ create a new one using the `New Query` or `Playground` links in the sidebar.
 Permissions Required
 --------------------
 
-Currently, to access this tool a user must have the :ref:`"Can Run SQL Reports"
-or "Can Create SQL Reports" <qa_auth>` permission set on their account.
+Currently, to access this tool a user must have the :ref:`"Can run SQL Data Reports"
+or "Can create SQL Data Reports" <qa_auth>` permission set on their account.
 
 
 Creating a new Query
