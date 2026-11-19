@@ -20,6 +20,8 @@ Release notes are located at http://docs.qatrackplus.com/en/latest/release_notes
 
   **Restart QATrack+ after any of this.** Python caches time zone data for the life of a process, so a web server or Django Q cluster that started before the update keeps the rules it loaded. On Windows restart the `QATrack+ Web Service` and the `QATrack+ Django Q Cluster` task; on Linux restart the supervisor programs; on Docker, `docker compose up -d` after the build recreates both services. Leaving the Django Q cluster running is the easiest one to miss, and it is the process that sends scheduled notices and reports.
 
+* **QA**: A test list with hidden tests now offers **Show hidden tests** in the left-hand menu while performing QC. A hidden test is usually an intermediate value that a composite depends on, and until now there was no way to see what it had computed without changing the test list. Revealing them is display only: the value, the comment box and the Skip checkbox of a revealed test are all put out of reach, so looking at an intermediate value cannot change what is submitted. The menu entry appears only on lists that actually have hidden tests, and hiding them again gives back any edit the feature borrowed.
+
 ## 4.0.2
 
 * **QA**: The Test List admin shows each member test's name again, and the view and change icons beside it work ([#897](https://github.com/qatrackplus/qatrackplus/issues/897)).

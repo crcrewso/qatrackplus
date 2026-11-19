@@ -383,6 +383,31 @@ div.sublist-description {
     border-bottom: 1px solid #eeeeee !important;
 }
 
+/* #818-adjacent, but its own feature: "Show hidden tests" reveals the rows a
+   test list marks hidden - intermediate values a composite depends on. They are
+   rendered in full and only CSS-hidden, so one class on the table is the whole
+   mechanism.
+
+   There is deliberately no rule here that makes the row display. qa/js/qahidden.js
+   takes Bootstrap's `hidden` class off the row instead, so the row is simply a
+   normal row while revealed, and these rules only tint it.
+
+   That is not a style preference. Bootstrap's `.hidden` is
+   `display: none !important`, so a rule that reveals the row has to be !important
+   too - and an author !important beats an inline style. `TestInstance.hide()`,
+   which the category filter uses, hides a row by setting `display: none` on the
+   element, so a revealed row could no longer be filtered out: deselecting every
+   category left nothing on screen but the hidden rows, each marked skipped.
+   Removing the class leaves show()/hide() working, and needs no !important
+   anywhere.
+
+   The revealed row is tinted so it is obvious it is not part of the normal list,
+   and its inputs are made readonly by qa/js/qahidden.js. */
+#perform-qa-table > tbody > tr.qa-hidden-revealed > td,
+#perform-qa-table > tbody > tr.qa-hidden-revealed > th {
+    background-color: #fcf8e3;
+}
+
 #perform-qa-table > tbody > tr.qa-procedure.hidden-procedure {
     /*display: none;*/
     border-bottom: 0px !important;
