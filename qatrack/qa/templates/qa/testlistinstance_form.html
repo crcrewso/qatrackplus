@@ -652,7 +652,12 @@
                                     {% for test_form in formset %}
                                         {% with test=test_form.get_test_info.test ti=test_form.instance %}
                                             {% if test.display_image %}
-                                                <div class="row">
+                                                {% comment %}A hidden test's image box lives here, outside
+                                                   #perform-qa-table, so hiding its row does not hide this.
+                                                   Without the class below a hidden test displayed both its
+                                                   name and its image - the two things `hidden` exists to
+                                                   suppress. qa/js/qahidden.js reveals these with the rows.{% endcomment %}
+                                                <div class="row {% if test.hidden %}hidden qa-hidden-image{% endif %}">
                                                     <div class="col-sm-12">
                                                         <strong>
                                                             <p>
@@ -663,7 +668,7 @@
                                                         </strong>
                                                     </div>
                                                 </div>
-                                                <div class="row">
+                                                <div class="row {% if test.hidden %}hidden qa-hidden-image{% endif %}">
                                                     <div id="{{ test.slug }}"></div>
                                                 </div>
                                             {% endif %}
@@ -809,6 +814,21 @@
                 </a></li>
 
                 {# Category selection #}
+                {% if has_hidden_tests %}
+                    {% comment %}A hidden test is computed but not shown - usually an
+                       intermediate value a composite depends on. Its row is
+                       rendered in full and only CSS-hidden, so revealing it is a
+                       class on the table; see qa/js/qahidden.js. Revealed inputs
+                       are made readonly, so that seeing a value can never change
+                       what is submitted. {% endcomment %}
+                    <li>
+                        <a class="has-icheck row" id="menu-show-hidden" href="#!">
+                            <input id="show-hidden-tests" class="iCheck" type="checkbox">
+                            <label for="show-hidden-tests">{% trans "Show hidden tests" %}</label>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {% if perms.qa.can_perform_subset and categories|length > 1 %}
                     <li class="treeview">
                         <a id="menu-categories" href="#!">

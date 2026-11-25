@@ -1413,6 +1413,9 @@ class PerformQA(PermissionRequiredMixin, CreateView):
         context["formset"] = formset
         context["history_dates"] = self.history_dates
         context['categories'] = sorted(set([x.test.category for x in self.unit_test_infos]), key=lambda c: c.name)
+        # Whether this list has anything to reveal, so the toggle is not offered
+        # on the many lists that have no hidden tests at all.
+        context['has_hidden_tests'] = any(x.test.hidden for x in self.unit_test_infos)
         context['current_day'] = self.actual_day + 1
         context["last_instance"] = self.unit_test_col.last_instance
         context['last_day'] = self.last_day
@@ -1721,6 +1724,13 @@ class EditTestListInstance(PermissionRequiredMixin, BaseEditTestListInstance):
             "test__attachment_set",
         )
         self.unit_test_infos = list(sorted(utis, key=lambda x: uti_pks.index(x.pk)))
+
+        # Same flag, same expression, as PerformQA sets. Edit and Continue render
+        # the same template and neither declares a template_name, so without this
+        # the `{% if has_hidden_tests %}` block is simply never true here and the
+        # toggle cannot be reached - on the two pages where a hidden intermediate
+        # value is most worth seeing, because the run already has results in it.
+        context['has_hidden_tests'] = any(x.test.hidden for x in self.unit_test_infos)
 
         context["unit_test_infos"] = json.dumps(self.template_unit_test_infos(), cls=QATrackJSONEncoder)
 
