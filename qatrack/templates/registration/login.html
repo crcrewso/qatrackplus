@@ -69,7 +69,8 @@
       <form method="POST" class="form" action="{% url "login" %}" autocapitalize="off">
 
         {% csrf_token %}
-        {% include "_form.html" with form=form %}
+        {# two fields in a box of their own: striping them groups nothing #}
+        {% include "_form.html" with form=form no_stripe=True %}
 
         {% if next %}
           <input type="hidden" name="next" value="{{ next }}" />
