@@ -678,8 +678,8 @@ class TestEveryLanguageAcceptsTheSameInput(TestCase):
         # The reload that puts the formats back has to run *after* the override
         # has been lifted; inside the ``with`` it re-derives them from the
         # overridden setting, and every later test in the process then accepted
-        # %d/%m/%Y as well. That was the order-dependent failure jackdaw
-        # measured with pytest-randomly (aviary B135).
+        # %d/%m/%Y as well, which pytest-randomly showed as an order-dependent
+        # failure.
         try:
             with override_settings(QATRACK_EXTRA_DATE_INPUT_FORMATS=["%d %b %Y", "%d/%m/%Y"]):
                 reload_formats()
