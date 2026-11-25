@@ -34,7 +34,7 @@ On the next page, all the test lists with the chosen frequency will be
 displayed along with relevant information about the last time that test
 list was performed and when the test list is next due on this unit.
 
-Click on the **Perform QC** button next to the list that you would like
+Click on the **Perform** button next to the list that you would like
 to complete.
 
 .. figure:: images/choose_test_list.png
@@ -105,7 +105,6 @@ You may add either test specific comments by clicking on the speech
 bubble beside the test or you can add a general comment for the whole
 test list by entering the comment in the text box below the `Submit QC Results` button.
 
-`Adding comments to a test list <add_comment.png>`__
 
 .. figure:: images/add_comment.png
    :alt: Adding comments to test lists
@@ -118,8 +117,7 @@ Skipping a test
 
 Occasionally it may be required to skip a test when performing a test list. To
 accomplish this, check off the **skip** checkbox next to the test and add a
-comment (required unless the user has the `Can skip without comment
-<../../admin/qa/auth.rst>`__ permission) explaining why you are skipping the test.
+comment (required unless the user has the :ref:`Can skip without comment <qa_auth>` permission) explaining why you are skipping the test.
 
 .. figure:: images/skip_test.png
    :alt: Skipping a single test
@@ -133,8 +131,7 @@ Performing a subset of a test list
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-Some test lists may have tests from more than one `category type
-<../admin/qa/categories>`__. To selectively perform the tests from one or
+Some test lists may have tests from more than one :ref:`category type <qa_categories>`. To selectively perform the tests from one or
 more categories, use the select box from the left hand drawer menu to choose
 the test categories you want to perform. Tests from categories that are not
 selected, will be hidden and marked as skipped with a comment explaining why.

@@ -132,7 +132,7 @@ First, delete the old virtual environment, and uninstall all installed python in
 
 Open a PowerShell window with **Administrator privileges** and run the following commands:
 
-.. code-block::powershell
+.. code-block:: powershell
 
    >>  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 

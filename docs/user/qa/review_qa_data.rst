@@ -29,8 +29,10 @@ review data).
 
    Unreviewed count is displayed at the top of every page
 
-To review data, choose the **Unreviewed** option from the **Review
-Data** dropdown menu at the top of the page.
+To review data, choose the **Unreviewed** option from the **Review QC** dropdown
+menu at the top of the page. If you can review every group's QC, it is
+**Unreviewed - All Groups**, with **Unreviewed - Your Groups** beside it for the
+groups you belong to.
 
 .. figure:: images/unreviewed_menu.png
    :alt: Unreviewed menu option
