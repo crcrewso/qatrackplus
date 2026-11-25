@@ -137,6 +137,47 @@ on this machine, as described at the end of this page.
         cd ~/web/qatrackplus
         uv sync --extra mysql --no-dev
 
+.. dropdown:: For Active Directory / LDAP authentication
+    :color: warning
+
+    **If this site authenticates against Active Directory or another LDAP
+    directory, add the ldap extra to the command above.**
+
+    ``python-ldap`` is compiled from source on Linux, so install its build
+    headers **first** - the sync fails partway through without them:
+
+    .. code-block:: bash
+
+        sudo apt install libldap2-dev libsasl2-dev
+
+    Then run the sync with the extra added:
+
+    .. code-block:: bash
+
+        cd ~/web/qatrackplus
+        uv sync --extra postgres --extra ldap --no-dev
+
+    On a MySQL site, use ``--extra mysql`` in place of ``--extra postgres``: the
+    sync removes any database driver it is not told to keep.
+
+    ``uv sync`` is exact: it installs what the command names and uninstalls
+    everything else. Neither the ``postgres`` nor the ``mysql`` extra carries
+    ``python-ldap``, and nothing about Active Directory requires SQL Server, so
+    a PostgreSQL or MySQL site that authenticates against a directory has the
+    package from somewhere else - the ``mssql`` extra, the ``ldap`` extra added
+    in 4.0.2, or a hand install. Running the command above without
+    ``--extra ldap`` **removes it**.
+
+    **Without it, nobody can sign in at all**, local accounts included, and
+    nothing warns you. Check before restarting:
+
+    .. code-block:: bash
+
+        python -c "import ldap; print(ldap.__version__)"
+
+    If that raises ``ModuleNotFoundError``, install it before restarting -
+    :ref:`auth_check_package` explains why.
+
 Check the installation before touching the database. ``--database default`` runs the
 checks that need a connection as well as the ones that do not; on PostgreSQL and MySQL
 they find nothing, because the constraint loss this release repairs only happened on

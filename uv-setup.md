@@ -35,6 +35,11 @@ export PATH="/home/$USER/.local/bin:$PATH"
 QATrack+ currently runs with the python 3.12 interpreter, as indicated in the `.python-version` file.
 uv considers this file when running commands.
 
+> **Linux: install the build headers before your first `uv sync`** -
+> `sudo apt-get install build-essential python3-dev libldap2-dev libsasl2-dev`.
+> `python-ldap` is in the `dev` group and compiles from source on Linux, so
+> without them the sync stops at `fatal error: lber.h`. Windows needs nothing.
+
 Create a virtual environment with Python 3.12 and install all dependencies:
 
 ```bash
