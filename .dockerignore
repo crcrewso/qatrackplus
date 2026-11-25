@@ -13,6 +13,16 @@
 
 !manage.py
 
+# The default fixtures: QA categories, statuses, frequencies and tolerances,
+# service types, areas and statuses, unit vendors, classes and types. Both
+# install guides document `loaddata fixtures/defaults/*/*` as an install step
+# (linux.rst, win.rst), and `manage.py generate_sample_data` loads them too.
+# Excluded by the `**` above they were absent from the image, so neither could
+# be done from a container: a Docker install started with no defaults at all
+# and no way to add them.
+!fixtures/
+!fixtures/**
+
 # Docker deployment files
 !deploy/
 !deploy/docker/

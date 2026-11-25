@@ -4,6 +4,7 @@ from django.template.loader import get_template
 from django.test import TestCase, override_settings
 
 from qatrack.qa.tests import utils
+from qatrack.qatrack_core.utils import file_uri
 from qatrack.reports import qc
 from qatrack.reports.reports import BaseReport
 from qatrack.units.models import Site as USite
@@ -47,7 +48,7 @@ class TestLogoInReports(TestCase):
         self.assertIn('class="logo logo-hidden"', html_content, "Logo should be hidden when include_logo=False")
         self.assertIn('logo.png', html_content, "Logo should reference the correct image file")
 
-    @override_settings(STATIC_ROOT='/test/static/root')
+    @override_settings(STATIC_ROOT='/test/static/root', PDF_RENDERER='weasyprint')
     def test_logo_visible_pdf_report_include_logo_true(self):
         """Test that logo uses file:// path in PDF reports when include_logo=True."""
         rep = qc.TestListInstanceDetailsReport(
@@ -67,11 +68,11 @@ class TestLogoInReports(TestCase):
         self.assertIn('alt="Organization Logo"', html_content, "Logo image should be present")
         self.assertIn('class="logo logo-visible"', html_content, "Logo should be visible when include_logo=True")
         self.assertIn(
-            'file:///test/static/root/reports/img/logo.png', html_content,
+            file_uri('/test/static/root') + '/reports/img/logo.png', html_content,
             "Logo should use correct file:// path for PDF"
         )
 
-    @override_settings(STATIC_ROOT='/test/static/root')
+    @override_settings(STATIC_ROOT='/test/static/root', PDF_RENDERER='weasyprint')
     def test_logo_hidden_pdf_report_include_logo_false(self):
         """Test that logo is hidden in PDF reports when include_logo=False."""
         rep = qc.TestListInstanceDetailsReport(
@@ -92,7 +93,7 @@ class TestLogoInReports(TestCase):
         self.assertIn('class="logo logo-hidden"', html_content, "Logo should be hidden when include_logo=False")
         self.assertIn('file://', html_content, "Logo should use file:// path even when hidden")
 
-    @override_settings(STATIC_ROOT='/test/static/root')
+    @override_settings(STATIC_ROOT='/test/static/root', PDF_RENDERER='weasyprint')
     def test_logo_present_in_pdf(self):
         """Test that logo is present in PDF reports."""
         rep = qc.TestListInstanceDetailsReport(
@@ -109,7 +110,10 @@ class TestLogoInReports(TestCase):
             html_content = mock_weasyprint.call_args[0][0]
 
         # Should contain the logo image
-        self.assertIn('src="file:///test/static/root/reports/img/logo.png"', html_content, "Logo should be present in PDF")
+        self.assertIn(
+            'src="%s/reports/img/logo.png"' % file_uri('/test/static/root'), html_content,
+            "Logo should be present in PDF"
+        )
         self.assertIn('alt="Organization Logo"', html_content, "Logo should have correct alt text")
 
     def test_logo_present_in_html(self):
@@ -139,7 +143,10 @@ class TestLogoInReports(TestCase):
         rendered = template.render(context)
 
         # Should use file:// path for PDF
-        self.assertIn('file:///test/static/root/reports/img/logo.png', rendered, "PDF should use file:// path")
+        self.assertIn(
+            file_uri('/test/static/root') + '/reports/img/logo.png', rendered,
+            "PDF should use file:// path"
+        )
 
     def test_header_template_context_for_html(self):
         """Test that the header template receives correct context for HTML generation."""
@@ -215,7 +222,10 @@ class TestLogoInReports(TestCase):
         # Test PDF path construction
         context = {'for_pdf': 1, 'include_logo': True, 'STATIC_ROOT': static_root, 'report_title': 'Test'}
         rendered = template.render(context)
-        self.assertIn(f'file://{static_root}/reports/img/logo.png', rendered, "PDF should use correct file:// path")
+        self.assertIn(
+            file_uri(static_root) + '/reports/img/logo.png', rendered,
+            "PDF should use correct file:// path"
+        )
 
         # Test HTML path construction (uses Django static template tag)
         context = {'for_pdf': 0, 'include_logo': True, 'report_title': 'Test'}
