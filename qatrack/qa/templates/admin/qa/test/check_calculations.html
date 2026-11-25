@@ -1,0 +1,136 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    .cc-intro { max-width: 60em; }
+    .cc-intro code { font-size: 1em; }
+    .cc-controls { margin: 1.5em 0 1em; display: flex; flex-wrap: wrap; gap: 1em; align-items: center; }
+    .cc-table { width: 100%; }
+    .cc-table td { vertical-align: top; }
+    .cc-status { display: inline-block; padding: 2px 8px; border-radius: 4px; white-space: nowrap; font-weight: bold; }
+    .cc-error { background: var(--message-error-bg, #ffefef); color: var(--error-fg, #ba2121); }
+    .cc-changed, .cc-warning { background: var(--message-warning-bg, #ffc); }
+    .cc-not_run { background: var(--darkened-bg, #f8f8f8); }
+    .cc-ok { background: var(--message-success-bg, #dfd); }
+    .cc-details { margin: 0; padding-left: 1.2em; }
+    .cc-details li { list-style: disc; margin-bottom: 0.4em; overflow-wrap: anywhere; }
+    .cc-values { margin: 0.2em 0 0; font-family: monospace; white-space: pre-wrap; }
+    .cc-quiet { color: var(--body-quiet-color, #666); }
+    .cc-traceback { margin: 0.3em 0 0; white-space: pre-wrap; font-size: 0.9em; }
+    tr.cc-hidden { display: none; }
+  </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a> &rsaquo;
+    <a href="{% url 'admin:app_list' app_label='qa' %}">{% trans "QC" %}</a> &rsaquo;
+    <a href="{% url 'admin:qa_test_changelist' %}">{% trans "Tests" %}</a> &rsaquo;
+    {{ title }}
+  </div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <div class="cc-intro">
+    <p>
+      {% blocktrans trimmed %}
+        This page checks the calculation procedures of your composite, string composite and file
+        upload tests, and of any other test whose procedure sets a default value. Use it after
+        upgrading QATrack+ or the Python libraries it uses (NumPy, for example) to find tests that
+        no longer work, before somebody performing QC does.
+      {% endblocktrans %}
+    </p>
+    <p>
+      {% blocktrans trimmed %}
+        <strong>Scan:</strong> each procedure is checked for things NumPy 2 removed or changed.
+        This was done when the page loaded, and can warn you about a test before you upgrade.
+      {% endblocktrans %}
+    </p>
+    <p>
+      {% blocktrans trimmed with label=sample_file_label %}
+        <strong>Recalculate:</strong> the most recent saved result of each test on each unit is
+        calculated again from the values saved with it, just as if that test list had been opened
+        for editing, and compared with the result that was saved. Nothing is saved. Upload tests
+        are recalculated from the file that was uploaded. To check an upload test that has never
+        been performed, attach a sample file to the test with a label starting
+        <code>{{ label }}</code>.
+      {% endblocktrans %}
+    </p>
+    <p class="cc-quiet">
+      {% blocktrans trimmed %}
+        Procedures run exactly as they do when QC is performed, so anything a procedure does
+        outside QATrack+, like writing a file to a network share, will happen again.
+      {% endblocktrans %}
+    </p>
+    <p class="cc-quiet">
+      {% for name, version in versions.items %}{{ name }} {{ version }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}
+    </p>
+  </div>
+
+  {% csrf_token %}
+  <div class="cc-controls">
+    <button type="button" id="cc-recalculate" class="button default" {% if not recalculation_count %}disabled{% endif %}>
+      {% trans "Recalculate" %}
+    </button>
+    <span id="cc-progress" role="status" aria-live="polite">
+      {% blocktrans trimmed count counter=recalculation_count %}
+        {{ counter }} saved result or sample file to recalculate.
+      {% plural %}
+        {{ counter }} saved results and sample files to recalculate.
+      {% endblocktrans %}
+    </span>
+    <label>
+      <input type="checkbox" id="cc-problems-only">
+      {% trans "Only show tests with problems" %}
+    </label>
+    <span id="cc-summary"></span>
+  </div>
+
+  {% if rows %}
+    <table class="cc-table" id="cc-table">
+      <thead>
+        <tr>
+          <th scope="col">{% trans "Status" %}</th>
+          <th scope="col">{% trans "Test" %}</th>
+          <th scope="col">{% trans "Type" %}</th>
+          <th scope="col">{% trans "Details" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          {% with check=row.check test=row.check.test %}
+            <tr data-test-id="{{ test.pk }}" data-scan-status="{{ check.status }}">
+              <td>
+                <span class="cc-status cc-{{ check.status }}">{{ check.status_display }}</span>
+              </td>
+              <td>
+                {# a new tab, so the report is still here to work from after editing a test #}
+                <a href="{% url 'admin:qa_test_change' test.pk %}" target="_blank" rel="noopener">{{ test.name }}</a>
+                <div class="cc-quiet">{{ test.slug }}</div>
+              </td>
+              <td>{{ row.kind }}</td>
+              <td>
+                <ul class="cc-details">
+                  {% for finding in check.findings %}
+                    <li data-status="{{ finding.status }}">
+                      {% if finding.line %}{% blocktrans with line=finding.line %}Line {{ line }}{% endblocktrans %}: {% endif %}{{ finding.message }}
+                    </li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+          {% endwith %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>{% trans "No tests have a calculation procedure." %}</p>
+  {% endif %}
+</div>
+
+{{ page_data|json_script:"cc-data" }}
+<script src="{% static 'js/check_calculations.js' %}"></script>
+{% endblock %}

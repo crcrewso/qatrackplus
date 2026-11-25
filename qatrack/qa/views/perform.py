@@ -112,6 +112,12 @@ class CompositeUtils:
         # tests that were skipped by calculation procedure
         self.changed_skips = {}
 
+        # A saved test list instance to leave out of the history lookups
+        # below. Set when an existing instance is recalculated (see
+        # qatrack.qa.calculation_check), so that it isn't found as its own
+        # "previous" result.
+        self.exclude_test_list_instance_id = None
+
     def set_comment(self, comment):
         self.context["__comment__"] = comment
 
@@ -161,6 +167,8 @@ class CompositeUtils:
         )
         if not include_in_progress:
             qs = qs.exclude(in_progress=True)
+        if self.exclude_test_list_instance_id is not None:
+            qs = qs.exclude(pk=self.exclude_test_list_instance_id)
 
         try:
             return qs.latest("work_completed")
@@ -191,6 +199,8 @@ class CompositeUtils:
             qs = qs.exclude(test_list_instance__in_progress=True)
         if exclude_skipped:
             qs = qs.exclude(skipped=True)
+        if self.exclude_test_list_instance_id is not None:
+            qs = qs.exclude(test_list_instance_id=self.exclude_test_list_instance_id)
 
         try:
             return qs.latest("work_completed")
@@ -242,6 +252,9 @@ class CompositeUtils:
             unit_number = self.unit.number
 
         qs = qs.filter(unit_test_info__unit__number=unit_number)
+
+        if self.exclude_test_list_instance_id is not None:
+            qs = qs.exclude(test_list_instance_id=self.exclude_test_list_instance_id)
 
         try:
             return qs.latest("work_completed")
@@ -1759,10 +1772,18 @@ def autosave_load(request):
     autosave_id = request.GET.get("autosave_id")
     auto = get_object_or_404(models.AutoSave, pk=autosave_id)
 
+    # work_started/work_completed are consumed client side by flatpickr's
+    # strict `.setDate()` (qa.js load_autosave()), which parses using
+    # siteConfig.FLATPICKR_DATETIME_FMT (settings.DATETIME_INPUT_FORMATS[2]).
+    # These must be pre-formatted to that exact format here rather than left
+    # as datetime objects for QATrackJSONEncoder to serialize - the encoder's
+    # default datetime format is DATETIME_INPUT_FORMATS[1], which flatpickr's
+    # parser silently mis-parses instead of erroring on.
+    fp_fmt = settings.DATETIME_INPUT_FORMATS[2]
     data = {
         'meta': {
-            'work_started': timezone.localtime(auto.work_started) if auto.work_started else None,
-            'work_completed': timezone.localtime(auto.work_completed) if auto.work_completed else None,
+            'work_started': format_datetime(auto.work_started, fmt=fp_fmt) or None,
+            'work_completed': format_datetime(auto.work_completed, fmt=fp_fmt) or None,
         },
         'data': auto.data,
     }

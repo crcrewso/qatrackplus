@@ -1147,6 +1147,22 @@ class TestAdmin(SaveUserMixin, SaveInlineAttachmentUserMixin, BaseQATrackAdmin):
             ),
         }
 
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'check-calculations/',
+                self.admin_site.admin_view(admin_views.CheckCalculations.as_view()),
+                name='qa_check_calculations',
+            ),
+            path(
+                'check-calculations/run/',
+                self.admin_site.admin_view(admin_views.CheckCalculationsRun.as_view()),
+                name='qa_check_calculations_run',
+            ),
+        ]
+        return custom_urls + urls
+
     def save_model(self, request, obj, form, change):
         if 'calculation_procedure' in form.changed_data:
             cp = obj.calculation_procedure or ""

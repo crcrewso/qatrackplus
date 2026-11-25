@@ -174,6 +174,21 @@ We can now upgrade the database schema and static media files to be compatible w
 
 If you have issues with the migration, first check
 
+.. dropdown:: Side note: Checking your calculation procedures
+
+   Upgrading also upgrades the Python libraries that your composite, string
+   composite and upload tests use. To make sure they all still work, run:
+
+   .. code-block:: powershell
+
+      >>  python manage.py check_calculations
+
+   This recalculates the most recent results of each test, without saving
+   anything, and lists any test that is broken or now gives a different result.
+   The same check is available in the admin from the **Check Calculation
+   Procedures** button on the *Tests* page. See :ref:`qa_check_calculations`
+   for more.
+
 .. dropdown:: Side note: Migrations
 
    Django migrations are a way of propagating database schema changes (e.g., adding a field to a model) into the database. Running migrations at the appropriate time is a crucial step in upgrading QATrack+ to ensure that the database schema is compatible with the new version of the application.

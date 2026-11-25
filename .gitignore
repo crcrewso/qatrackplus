@@ -74,3 +74,5 @@ src/*.egg-info
 tmp/
 ./generate_ro_privileges.sql
 
+# Screenshots captured when a Selenium test fails (see conftest.py)
+selenium-screenshots/
