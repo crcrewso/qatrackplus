@@ -35,6 +35,106 @@ jobs:
       - name: Run pre-commit
         run: uvx pre-commit run --all-files
 
+  translations:
+    # Reports which strings a change adds that nobody can read yet. It never
+    # fails: a contributor is responsible for making their strings
+    # translatable, not for translating them into French and Spanish. The
+    # point is that a reviewer can see the cost at review time rather than a
+    # translator finding it months later.
+    name: Translation Impact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
+        with:
+          enable-cache: true
+      - name: Install gettext
+        run: sudo apt-get update && sudo apt-get install -y gettext
+      - name: Setup Database configuration
+        run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+      - name: Sync dependencies
+        run: uv sync --locked
+      - name: Current state of each catalogue
+        run: |
+          {
+            echo "## Translation status"
+            echo
+            echo "| Locale | Translated | Fuzzy | Untranslated |"
+            echo "|---|---|---|---|"
+            for po in qatrack/locale/*/LC_MESSAGES/django.po; do
+              locale=$(basename "$(dirname "$(dirname "$po")")")
+              stats=$(msgfmt --statistics -o /dev/null "$po" 2>&1)
+              t=$(echo "$stats" | grep -oE '[0-9]+ translated'   | grep -oE '[0-9]+' || echo 0)
+              f=$(echo "$stats" | grep -oE '[0-9]+ fuzzy'        | grep -oE '[0-9]+' || echo 0)
+              u=$(echo "$stats" | grep -oE '[0-9]+ untranslated' | grep -oE '[0-9]+' || echo 0)
+              echo "| \`$locale\` | $t | $f | $u |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Strings this change adds
+        run: |
+          mkdir -p /tmp/po-before
+          for po in qatrack/locale/*/LC_MESSAGES/django.po; do
+            locale=$(basename "$(dirname "$(dirname "$po")")")
+            git show "HEAD:$po" > "/tmp/po-before/$locale.po"
+          done
+
+          # No --no-location: the committed catalogues carry source references,
+          # and stripping 3000+ of them would bury the real diff.
+          #
+          # This command's own failure has to be visible. Discarding it and
+          # carrying on left the catalogues unchanged, which the step then
+          # reported as "No new translatable strings" - a clean result meaning
+          # only that nothing had been looked at. Translation debt stays
+          # non-blocking, so the job still passes; it just says what happened.
+          if ! uv run python manage.py makemessages --all --no-obsolete >/tmp/makemessages.log 2>&1; then
+            {
+              echo
+              echo "### Could not work out which strings this change adds"
+              echo
+              echo '`makemessages` failed, so there is no report below. This does not fail'
+              echo 'the build - translation debt is not blocking - but do **not** read it as'
+              echo '"no new strings".'
+              echo
+              echo '```'
+              tail -30 /tmp/makemessages.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Compares catalogues as catalogues. Grepping '^+msgid "' out of the
+          # diff could only see short messages: gettext writes a long one as
+          # `msgid ""` plus continuation lines, so every real validation message
+          # was missing from the count. See the script's own docstring.
+          uv run --with polib python .github/scripts/new_translatable_strings.py \
+            qatrack/locale /tmp/po-before > /tmp/new-strings.txt
+          added=$(head -1 /tmp/new-strings.txt)
+          {
+            echo
+            if [ "${added:-0}" -eq 0 ]; then
+              echo "No new translatable strings in this change."
+            else
+              echo "### This change adds $added new translatable string(s)"
+              echo
+              echo "They are untranslated in every locale until somebody translates them."
+              echo "You do **not** need to do that yourself - flag it in the PR so a"
+              echo "translator can pick it up."
+              echo
+              echo '```'
+              tail -n +2 /tmp/new-strings.txt | head -40
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Leave the catalogues as they were
+        run: git checkout -- qatrack/locale/ || true
+
   requirements:
     name: Requirements Test
     runs-on: ubuntu-latest
