@@ -1495,13 +1495,16 @@ class TestShowHiddenTests(BaseQATests):
             self.utc.visible_to.add(self.group)
             self.url = reverse("perform_qa", kwargs={'pk': self.utc.pk})
 
+    SHOWING = "return document.getElementById('perform-qa-table').classList.contains('show-hidden-tests');"
+
     def snapshot(self):
         return self.driver.execute_script(self.SNAPSHOT)
 
     def toggle(self):
         """Click the menu entry, which is how a user turns this on and off."""
+        showing = self.driver.execute_script(self.SHOWING)
         self.driver.find_element(By.ID, 'menu-show-hidden').click()
-        time.sleep(1)
+        self.wait.until(lambda d: d.execute_script(self.SHOWING) != showing)
 
     def open_perform_page(self):
         self.login()

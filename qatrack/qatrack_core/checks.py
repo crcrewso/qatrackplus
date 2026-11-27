@@ -716,24 +716,26 @@ def check_hidden_tests_are_not_user_entered(app_configs=None, databases=None, **
     if not databases:
         return []
 
+    from django.db import connections
     from django.db.utils import DatabaseError
 
     from qatrack.qa import models
 
-    try:
-        offenders = list(
-            models.Test.objects.filter(hidden=True)
-            .exclude(type__in=models.NO_SKIP_REQUIRED_TYPES)
-            .values_list("slug", "type")[:20]
-        )
-        total = (
-            models.Test.objects.filter(hidden=True)
-            .exclude(type__in=models.NO_SKIP_REQUIRED_TYPES)
-            .count()
-        )
-    except DatabaseError:
-        # The table does not exist yet, which is normal on a first `migrate`.
-        return []
+    offenders, total, seen = [], 0, set()
+    for alias in databases:
+        # Each database once: `readonly` is the same database as `default` on a site.
+        settings_dict = connections[alias].settings_dict
+        database = tuple(settings_dict.get(key) for key in ("ENGINE", "HOST", "PORT", "NAME"))
+        if database in seen:
+            continue
+        seen.add(database)
+        hidden = models.Test.objects.using(alias).filter(hidden=True).exclude(type__in=models.NO_SKIP_REQUIRED_TYPES)
+        try:
+            total += hidden.count()
+            offenders += list(hidden.values_list("slug", "type")[: max(0, 20 - len(offenders))])
+        except DatabaseError:
+            # The table does not exist yet, which is normal on a first `migrate`.
+            continue
 
     if not offenders:
         return []
