@@ -12,11 +12,12 @@ moving focus is browser behaviour, and belongs in a Selenium test. Stated here
 so the next reader does not take a green run as proof the toggle works.
 """
 
-import os
+from unittest import mock
 
-from django.conf import settings
+from django.template.loader import get_template
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import translation
 
 
 class TestTheLoginPageOffersToRevealThePassword(TestCase):
@@ -66,10 +67,27 @@ class TestTheLoginPageOffersToRevealThePassword(TestCase):
         password field is rendered. That is a wider change than this is, and it
         should be a deliberate one rather than a side effect of this.
         """
-        partial = os.path.join(settings.PROJECT_ROOT, "templates", "_form.html")
-        with open(partial, encoding="utf-8") as f:
-            source = f.read()
+        source = get_template("_form.html").template.source
         assert "id_password" not in source and "aria-pressed" not in source, (
             "the reveal has leaked into _form.html, so it now appears on every "
             "form in QATrack+ rather than the login page"
         )
+
+    def test_a_translated_label_keeps_its_quotes_and_cannot_break_the_script(self):
+        """The labels go into a JavaScript string, and from there into the button's text.
+
+        HTML-escaping them, which `{% trans %}` does by itself, kept the script valid but put
+        `&quot;` on the button. They are JavaScript-escaped instead.
+        """
+        risky = 'Afficher le "mot de passe" </script>'
+
+        def fake_gettext(message):
+            return risky if message in ("Show password", "Hide password") else message
+
+        with mock.patch.object(translation._trans, "gettext", fake_gettext, create=True):
+            html = self.client.get(self.url).content.decode()
+
+        assert risky not in html, "a translated label reached the script unescaped"
+        assert "&quot;mot de passe&quot;" not in html, "the label was HTML-escaped, so the button would show &quot;"
+        assert "\\u0022mot de passe\\u0022" in html, "the label was not written through escapejs"
+

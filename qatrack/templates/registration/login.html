@@ -32,15 +32,18 @@
    *
    * It does not touch `_form.html`, which renders every form in QATrack+.
    */
+  {% autoescape off %}{% trans "Show password" as show_label %}{% trans "Hide password" as hide_label %}{% endautoescape %}
   require(['jquery'], function ($) {
+   $(function () {  // after the form exists: require.js may run this first
 
     var $field = $("#id_password");
     if ($field.length === 0) {
       return;
     }
 
-    var show = "{% trans "Show password" %}";
-    var hide = "{% trans "Hide password" %}";
+    // Unescaped above, then escapejs: a label with a quote shows the quote, and cannot end the string.
+    var show = "{{ show_label|escapejs }}";
+    var hide = "{{ hide_label|escapejs }}";
 
     var $button = $("<button>", {
       type: "button",                 // not submit: this is inside the form
@@ -63,11 +66,11 @@
         .attr("aria-pressed", revealed ? "false" : "true")
         .attr("title", revealed ? show : hide)
         .text(revealed ? show : hide);
-      // Keep the caret where it was; changing `type` moves it to the end in
-      // some browsers, which is jarring mid-password.
+      // Back to the field, so the user can carry on typing.
       $field.focus();
     });
 
+   });
   });
 
 {% endblock require_javascript %}
