@@ -16,9 +16,21 @@
   </div>
 {% endif %}
 
+{% comment %}
+   clearfix: this row's col-sm-* children float at >=768px, and Bootstrap only
+   clears them for `.form-horizontal .form-group`. backup_form.html includes this
+   partial inside `<form class="form">`, where that does not apply - the row then
+   has only its padding height and the tint does not cover the field. Harmless
+   where .form-horizontal already clears it.
+
+   A block tag, not {# ... #}: the single-line form does not span lines, so an
+   earlier revision of this comment was printed into every row the partial
+   rendered. test_template_comments.py keeps that from coming back.
+{% endcomment %}
+
 {% for field in form.visible_fields %}
 
-  <div class="form-group {% if field.errors %}has-error{% endif %}">
+  <div class="form-group clearfix {% if not no_stripe %}{% if forloop.counter|divisibleby:2 %}form-row-even{% else %}form-row-odd{% endif %}{% endif %} {% if field.errors %}has-error{% endif %}">
 
     {% if field|field_type == "booleanfield" %}
       <div class="col-sm-offset-4 col-sm-8">

@@ -4,7 +4,7 @@
 
 /* globals jQuery, window, QAUtils, require, document */
 
-require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'inputmask', 'jquery-ui', 'comments', 'flatpickr'], function ($, _, moment, Dropzone, autosize) {
+require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'qastripe', 'cheekycheck', 'inputmask', 'jquery-ui', 'comments', 'flatpickr'], function ($, _, moment, Dropzone, autosize, stripe_qa_rows) {
 
     function getParameterByName(name, url) {
         if (!url) url = window.location.href;
@@ -1313,6 +1313,15 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
         tli.initialize();
 
         context = $("#perform-qa-table")[0];
+
+        // #818: shade alternate tests, and shade them again whenever the
+        // category filter changes which tests are on screen. Deferred so it
+        // runs after every other categoryFilter subscriber has finished its
+        // show()/hide(), whatever order they were subscribed in.
+        stripe_qa_rows(context);
+        $.Topic("categoryFilter").subscribe(function(){
+            _.defer(function(){ stripe_qa_rows(context); });
+        });
 
         pass_fail_only = $("#pass-fail-only").val() === "yes" ? true : false;
         comment_on_skip = $("#require-comment-on-skip").val() === "yes" ? true : false;
