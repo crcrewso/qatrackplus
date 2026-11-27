@@ -36,10 +36,20 @@ Logging in and accessing the admin interface
 --------------------------------------------
 
 Access the url for QATrack+ (your website adminstrator should have provided you
-with a URL) in your favourite web browser.  QATrack+ looks and works best with
-`Chrome <https://www.google.com/chrome/>`__ or `Firefox
-<http://www.mozilla.org/en-US/firefox/new/>`__ but Internet Explorer versions
-11 and up are also supported.
+with a URL) in your web browser. QATrack+ supports current versions of
+`Chrome <https://www.google.com/chrome/>`__, `Firefox
+<https://www.mozilla.org/firefox/new/>`__ and `Edge
+<https://www.microsoft.com/edge>`__, and Edge is already on the Windows machines
+many clinics use.
+
+.. note::
+
+    **Internet Explorer is no longer supported.** This page used to say that
+    Internet Explorer 11 and up would work; that is withdrawn. If you are
+    still reaching QATrack+ through Internet Explorer, use a current version
+    of Edge, Chrome or Firefox instead. A workstation too old to run one, such
+    as Windows 7 or 8.1, needs upgrading or replacing. The full statement of
+    which browsers are supported is in :doc:`/install/install`.
 
 If you are not already logged in, you will be taken to the login page:
 
