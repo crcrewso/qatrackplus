@@ -224,8 +224,8 @@ class TestTheReferenceAndToleranceRight(PerformPageRights):
 
         blob = self.unit_test_infos_json(content)
         assert blob[0]['reference']['value'] == REFERENCE_VALUE
-        assert blob[0]['tolerance']['act_low'] is not None
-        assert blob[0]['tolerance']['act_high'] is not None
+        for boundary in ('act_low', 'tol_low', 'tol_high', 'act_high'):
+            assert blob[0]['tolerance'][boundary] is not None, boundary
 
     def test_the_history_does_not_leak_the_same_way(self):
         """The contrast, and why the one above is a finding rather than a rule.
