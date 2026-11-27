@@ -25,7 +25,9 @@ Permissions Required
 --------------------
 
 Currently, to access this tool a user must have the :ref:`"Can run SQL Data Reports"
-or "Can create SQL Data Reports" <qa_auth>` permission set on their account.
+or "Can create SQL Data Reports" <qa_auth>` permission set on their account. The
+:ref:`Groups & Permissions page <auth_users_groups_app>` labels them "Can Run SQL
+Reports" and "Can Create SQL Reports".
 
 
 Creating a new Query
