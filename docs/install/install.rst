@@ -37,12 +37,13 @@ Firefox and Chrome/Chromium are the two the automated browser tests drive, so
 they are the two with ongoing evidence behind them rather than only an
 intention.
 
-**Not supported: Internet Explorer.** Microsoft ended support for Internet
-Explorer 11 in June 2022 and it cannot be installed on a current version of
-Windows. Earlier QATrack+ documentation said that Internet Explorer 11 and
-above would work; that is withdrawn. If a site is still reaching QATrack+
-through Internet Explorer, Edge is installed beside it on every supported
-Windows release and is the replacement.
+**Not supported: Internet Explorer.** Microsoft has retired the Internet
+Explorer 11 desktop app on most Windows 10 releases, and it is not part of
+Windows 11. QATrack+ does not support it anywhere, including where it is still
+present, such as Windows Server and Windows 10 LTSC. Earlier QATrack+
+documentation said that Internet Explorer 11 and above would work; that is
+withdrawn. If a site is still reaching QATrack+ through Internet Explorer, use
+a current version of Edge instead.
 
 **Untested rather than unsupported:** Safari, and anything else not named
 above. Nothing in QATrack+ deliberately excludes them and no defect has been
