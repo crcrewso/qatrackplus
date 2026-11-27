@@ -7,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
+from django.utils.translation import gettext as _
 from django_comments.models import Comment
 
 from qatrack.attachments.models import Attachment
@@ -841,7 +842,8 @@ class TestCRUDFault(TestCase):
 
         assert resp.status_code == 302
         assert list(Comment.objects.values_list("comment", flat=True)) == ["on the other fault"]
-        assert [str(m) for m in get_messages(resp.wsgi_request)] == ["Successfully deleted Fault %d" % fault.pk]
+        expected = _("Successfully deleted Fault {fault_id}").format(fault_id=fault.pk)
+        assert [str(m) for m in get_messages(resp.wsgi_request)] == [expected]
 
     def test_review_fault(self):
         fault = utils.create_fault(unit=self.unit)
