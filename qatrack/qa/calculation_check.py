@@ -302,12 +302,6 @@ NUMPY2_REMOVED = {
     # deprecated around NumPy 1.24 - 2.0 and removed since
     'product': 'Use `np.prod` instead.',
     'cumproduct': 'Use `np.cumprod` instead.',
-    'trapz': (
-        'Use `scipy.integrate.trapezoid`, which works with every NumPy version, '
-        'or `np.trapezoid`, which only exists from NumPy 2.0 on.'
-    ),
-    'in1d': 'Use `np.isin` instead.',
-    'row_stack': 'Use `np.vstack` instead.',
     'msort': 'Use `np.sort(a, axis=0)` instead.',
     'int0': 'Use `np.intp` instead.',
     'uint0': 'Use `np.uintp` instead.',
@@ -342,8 +336,18 @@ NUMPY2_REMOVED = {
     'ndarray.newbyteorder': 'Use `arr.view(arr.dtype.newbyteorder(order))` instead.',
 }
 
-# Still present in NumPy 2, but only as deprecated aliases.
+# Deprecated in NumPy 2. Reported as errors once the installed NumPy no longer
+# has them, since some were removed in later 2.x releases.
 NUMPY2_DEPRECATED = {
+    'trapz': (
+        '`np.trapz` is deprecated from NumPy 2.0 and removed in later releases. Use '
+        '`scipy.integrate.trapezoid`, which works with every NumPy version, or '
+        '`np.trapezoid`, which only exists from NumPy 2.0 on.'
+    ),
+    'in1d': '`np.in1d` is deprecated from NumPy 2.0 and removed in later releases. Use `np.isin` instead.',
+    'row_stack': (
+        '`np.row_stack` is deprecated from NumPy 2.0 and removed in later releases. Use `np.vstack` instead.'
+    ),
     'core': (
         '`numpy.core` was renamed `numpy._core` in NumPy 2.0 and is only kept as a deprecated '
         'alias. Use the public NumPy API instead.'
@@ -381,6 +385,13 @@ def scan_procedure(source):
     return _NumpyScan(ast.parse(source)).findings
 
 
+# Nodes that start a new scope for the names bound inside them.
+SCOPES = (
+    ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef,
+    ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp,
+)
+
+
 class _NumpyScan:
     """
     Find the NumPy features a procedure uses that NumPy 2 removed or changed.
@@ -398,7 +409,6 @@ class _NumpyScan:
         # the calculation context provides `numpy` without an import
         self.aliases = {'numpy': 'numpy'}
         self.star_import = False
-        self.rebound = set()
         self._collect_aliases()
 
         self._scan_imports()
@@ -414,36 +424,63 @@ class _NumpyScan:
             self.findings.append(Finding(status, message, line))
 
     def _collect_aliases(self):
-        rebound = self.rebound
-        for node in ast.walk(self.tree):
-            if isinstance(node, ast.Import):
-                for name in node.names:
-                    if _is_numpy(name.name):
-                        # `import numpy.linalg` binds `numpy`, `import numpy.linalg as la` binds `la`
-                        if name.asname:
-                            self.aliases[name.asname] = name.name
-                        else:
-                            self.aliases['numpy'] = 'numpy'
-                    else:
-                        rebound.add(name.asname or name.name.split('.')[0])
-            elif isinstance(node, ast.ImportFrom):
-                for name in node.names:
-                    if name.name == '*':
-                        self.star_import = self.star_import or (node.module == 'numpy' and not node.level)
-                    elif node.module and not node.level and _is_numpy(node.module):
-                        self.aliases[name.asname or name.name] = '%s.%s' % (node.module, name.name)
-                    else:
-                        rebound.add(name.asname or name.name)
-            elif isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
-                rebound.add(node.id)
-            elif isinstance(node, ast.arg):
-                rebound.add(node.arg)
-            elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-                rebound.add(node.name)
+        """Find NumPy's names, and every other binding by the scope it is made in.
 
-        # a name assigned something other than NumPy isn't NumPy any more
-        for name in rebound:
-            self.aliases.pop(name, None)
+        A binding only hides NumPy in its own scope and the functions inside
+        it, so a helper's parameter named `np` doesn't hide `np.NaN` elsewhere.
+        Within a scope a binding hides the name throughout, before it as well
+        as after: the scan doesn't follow the order statements run in.
+        """
+        self.bound = defaultdict(set)  # id(scope) -> names bound there other than to NumPy
+        self.scope_of = {}  # id(node) -> the scope it's in
+        self.enclosing = {}  # id(scope) -> the scope around it
+        self._visit(self.tree, self.tree)
+
+    def _visit(self, node, scope):
+        self.scope_of[id(node)] = scope
+        bound = self.bound[id(scope)]
+        if isinstance(node, ast.Import):
+            for name in node.names:
+                if _is_numpy(name.name):
+                    # `import numpy.linalg` binds `numpy`, `import numpy.linalg as la` binds `la`
+                    if name.asname:
+                        self.aliases[name.asname] = name.name
+                    else:
+                        self.aliases['numpy'] = 'numpy'
+                else:
+                    bound.add(name.asname or name.name.split('.')[0])
+        elif isinstance(node, ast.ImportFrom):
+            for name in node.names:
+                if name.name == '*':
+                    self.star_import = self.star_import or (node.module == 'numpy' and not node.level)
+                elif node.module and not node.level and _is_numpy(node.module):
+                    self.aliases[name.asname or name.name] = '%s.%s' % (node.module, name.name)
+                else:
+                    bound.add(name.asname or name.name)
+        elif isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
+            bound.add(node.id)
+        elif isinstance(node, ast.arg):
+            bound.add(node.arg)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            bound.add(node.name)
+
+        if isinstance(node, SCOPES):
+            self.enclosing[id(node)] = scope
+            scope = node
+        for child in ast.iter_child_nodes(node):
+            self._visit(child, scope)
+
+    def _shadowed(self, name, node):
+        """Whether `name`, used at `node`, means something other than NumPy"""
+        scope = self.scope_of.get(id(node), self.tree)
+        start = scope
+        while scope is not None:
+            # a class body's names aren't visible in the functions inside it
+            if scope is start or not isinstance(scope, ast.ClassDef):
+                if name in self.bound[id(scope)]:
+                    return True
+            scope = self.enclosing.get(id(scope))
+        return False
 
     def _scan_imports(self):
         for node in ast.walk(self.tree):
@@ -467,7 +504,7 @@ class _NumpyScan:
                 if isinstance(node.value, ast.Attribute):
                     inner.add(id(node.value))
             elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and self.star_import:
-                if node.id in NUMPY2_REMOVED and node.id not in self.rebound:
+                if (node.id in NUMPY2_REMOVED or node.id in NUMPY2_DEPRECATED) and not self._shadowed(node.id, node):
                     self._check('numpy.%s' % node.id, 'numpy.%s' % node.id, node)
 
         for node in chains:
@@ -520,7 +557,7 @@ class _NumpyScan:
         while isinstance(node, ast.Attribute):
             attrs.append(node.attr)
             node = node.value
-        if not (isinstance(node, ast.Name) and node.id in self.aliases):
+        if not (isinstance(node, ast.Name) and node.id in self.aliases) or self._shadowed(node.id, node):
             return None
         attrs.reverse()
         path = '.'.join([self.aliases[node.id]] + attrs)
@@ -553,15 +590,17 @@ class _NumpyScan:
                 self._add(ERROR if NUMPY_MAJOR >= 2 else WARNING, msg, node)
                 return
             if key in NUMPY2_DEPRECATED:
-                self._add(WARNING, NUMPY2_DEPRECATED[key], node)
-                return
+                if NUMPY_MAJOR < 2 or _installed_numpy_has(parts[:n]):
+                    self._add(WARNING, NUMPY2_DEPRECATED[key], node)
+                    return
+                break  # gone from this NumPy: the lookup below reports it
 
         # Anything else is looked up in the NumPy that's installed, which
         # catches names it has removed that the table above doesn't know about,
         # and anything it merely warns about. Only attributes of NumPy's own
         # modules and classes are read; nothing is called.
         obj = numpy
-        with warnings.catch_warnings(record=True) as caught:
+        with _WARNINGS_LOCK, warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter('always')
             for n, part in enumerate(parts, start=1):
                 try:
@@ -588,6 +627,22 @@ class _NumpyScan:
                     'warning': str(w.message).splitlines()[0],
                 }
                 self._add(WARNING, msg, node)
+
+
+def _installed_numpy_has(parts):
+    """Whether the installed NumPy has `numpy.<parts>`, read without calling anything"""
+    obj = numpy
+    with _WARNINGS_LOCK, warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        try:
+            for part in parts:
+                obj = getattr(obj, part)
+        except AttributeError:
+            return False
+        except Exception:
+            # a lazily imported submodule failed to import: don't escalate on a guess
+            return True
+    return True
 
 
 def _is_numpy(module):
@@ -1284,6 +1339,9 @@ def _same_string_result(saved, new, rtol, atol):
 
 def _same(saved, new, rtol, atol):
     """Compare saved and recalculated results, allowing for floating point noise in numbers"""
+    if isinstance(saved, bool) or isinstance(new, bool):
+        # bool is an int, but `true` and `1` read differently
+        return type(saved) is type(new) and saved == new
     number = int | float
     if isinstance(saved, number) and isinstance(new, number):
         if math.isnan(saved) or math.isnan(new):

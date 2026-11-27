@@ -3,6 +3,7 @@ import json
 import pathlib
 import shutil
 import tempfile
+from unittest import mock
 
 from django.contrib.auth.models import Permission
 from django.core.files.base import ContentFile
@@ -19,6 +20,12 @@ from qatrack.qa.tests import utils
 # What a NumPy 2 removal is reported as depends on which NumPy is installed:
 # a prediction under NumPy 1, a certainty under NumPy 2.
 REMOVED = cc.ERROR if cc.NUMPY_MAJOR >= 2 else cc.WARNING
+
+
+def numpy_module():
+    import numpy
+
+    return numpy
 
 
 def scan(source):
@@ -77,6 +84,66 @@ class TestScanProcedure(SimpleTestCase):
     def test_reassigned_alias_is_not_numpy(self):
         assert scan('import numpy as np\nnp = {"NaN": 1}\nresult = np.NaN') == []
 
+    def test_a_parameter_named_like_the_alias_only_shadows_its_function(self):
+        source = 'import numpy as np\n\ndef f(np):\n    return np.NaN\n\nresult = np.NaN'
+        [(status, line, message)] = scan(source)
+        assert (status, line) == (REMOVED, 6)
+
+    def test_an_assignment_in_a_function_only_shadows_that_function(self):
+        source = 'def f():\n    numpy = {"NaN": 1}\n    return numpy.NaN\n\nresult = numpy.NaN'
+        assert [line for _status, line, _message in scan(source)] == [5]
+
+    def test_a_shadowing_function_shadows_the_functions_inside_it(self):
+        source = 'def f(np):\n    def g():\n        return np.NaN\n    return g()\nresult = 1'
+        assert scan('import numpy as np\n' + source) == []
+
+    def test_a_comprehension_variable_only_shadows_the_comprehension(self):
+        source = 'import numpy as np\nx = [np.NaN for np in values]\nresult = np.NaN'
+        assert [line for _status, line, _message in scan(source)] == [3]
+
+    def test_star_import_names_are_shadowed_by_scope_too(self):
+        source = 'from numpy import *\n\ndef f(alltrue):\n    return alltrue(a)\n\nresult = alltrue([a])'
+        assert [line for _status, line, _message in scan(source)] == [6]
+
+    def test_deprecated_in_numpy_2_while_it_still_exists(self):
+        """`trapz`, `in1d` and `row_stack` were deprecated in 2.0 and removed later"""
+        for name, hint in (('trapz', 'trapezoid'), ('in1d', 'np.isin'), ('row_stack', 'np.vstack')):
+            source = 'result = numpy.%s(a)' % name
+            if not hasattr(numpy_module(), name):
+                assert scan(source)[0][0] == cc.ERROR
+                continue
+            [(status, line, message)] = scan(source)
+            assert status == cc.WARNING, name
+            assert 'deprecated' in message and hint in message
+
+    def test_a_deprecated_name_the_installed_numpy_lacks_is_an_error(self):
+        with mock.patch.dict(cc.NUMPY2_DEPRECATED, {'definitely_not_a_numpy_function': 'deprecated'}):
+            with mock.patch.object(cc, 'NUMPY_MAJOR', 2):
+                [(status, line, message)] = scan('result = numpy.definitely_not_a_numpy_function(a)')
+        assert status == cc.ERROR
+        assert cc.NUMPY_VERSION in message
+
+    def test_the_scan_takes_the_warnings_lock(self):
+        """Recalculation swaps the same process-wide warning state under this lock"""
+        held = []
+
+        class Lock:
+            def __enter__(self):
+                held.append(True)
+
+            def __exit__(self, *exc):
+                held.pop()
+
+        real = cc.warnings.catch_warnings
+
+        def catch_warnings(*args, **kwargs):
+            assert held, 'warnings.catch_warnings() used without _WARNINGS_LOCK'
+            return real(*args, **kwargs)
+
+        with mock.patch.object(cc, '_WARNINGS_LOCK', Lock()), \
+                mock.patch.object(cc.warnings, 'catch_warnings', catch_warnings):
+            scan('import numpy as np\nresult = np.mean(a) + np.trapz(a)')
+
     def test_numpy_core(self):
         [(status, line, message)] = scan('from numpy.core import multiarray\nresult = 1')
         assert (status, line) == (cc.WARNING, 1)
@@ -112,6 +179,19 @@ class TestScanProcedure(SimpleTestCase):
     def test_crlf_line_numbers(self):
         [(status, line, message)] = scan('x = 1\r\ny = 2\r\nresult = numpy.NaN')
         assert line == 3
+
+
+class TestSameResult(SimpleTestCase):
+    def test_a_boolean_is_not_the_number_it_equals(self):
+        """bool is an int subclass, so True == 1; the text a user sees still changes"""
+        assert not cc._same(True, 1, cc.DEFAULT_RTOL, cc.DEFAULT_ATOL)
+        assert not cc._same(0, False, cc.DEFAULT_RTOL, cc.DEFAULT_ATOL)
+        assert not cc._same({'ok': True}, {'ok': 1}, cc.DEFAULT_RTOL, cc.DEFAULT_ATOL)
+        assert cc._same([True, 1.0], [True, 1.0 + 1e-13], cc.DEFAULT_RTOL, cc.DEFAULT_ATOL)
+
+    def test_a_string_composite_saved_as_true_now_giving_1(self):
+        assert not cc._same_string_result('true', 1, cc.DEFAULT_RTOL, cc.DEFAULT_ATOL)
+        assert cc._same_string_result('true', True, cc.DEFAULT_RTOL, cc.DEFAULT_ATOL)
 
 
 class CalculationCheckTestCase(TestCase):

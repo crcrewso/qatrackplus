@@ -40,7 +40,9 @@ whatever name it was imported under (`import numpy as np`, `from numpy import
 NaN`, `from numpy import *`, or the `numpy` the calculation context provides
 without an import). Names are matched against a table of what NumPy 2 removed,
 built from NumPy's own `_expired_attrs_2_0.py` plus a diff of what exists in
-1.26 and not in 2.5.3, so the advice matches NumPy's own wording. Anything not
+1.26 and not in 2.5.3, so the advice matches NumPy's own wording. `trapz`,
+`in1d` and `row_stack` were only deprecated in 2.0 and removed later, so they
+are warnings while the installed NumPy still has them. Anything not
 in the table is resolved against the *installed* NumPy, which catches removals
 the table doesn't know about and reports deprecation warnings raised on
 attribute access. There are also three call-shape rules: `np.array(...,
@@ -125,8 +127,8 @@ ignores warnings that point inside a library, which are that library's
 business. Procedures are compiled with the filename `__QAT+COMP_<macro name>`,
 which is what makes the attribution possible at all.
 
-`warnings.catch_warnings` swaps process-global state, so the capture is
-serialised with a module-level lock; two admins checking at once on a threaded
+`warnings.catch_warnings` swaps process-global state, so the capture, and the
+scan's own NumPy lookups, are serialised with a module-level lock; two admins checking at once on a threaded
 server would otherwise leave warnings swallowed process-wide.
 
 ### Sample files for upload tests
@@ -150,12 +152,12 @@ the test's procedure when QC is performed, which is documented.
 
 ## Tests
 
-`qatrack/qa/tests/test_calculation_check.py`, 72 tests. They pass under NumPy
+`qatrack/qa/tests/test_calculation_check.py`, 82 tests. They pass under NumPy
 1.26.4/pandas 2.3.3 and under NumPy 2.5.3/pandas 3.0.5; the version-dependent
 expectations are derived from `cc.NUMPY_MAJOR` so the suite is honest under
 both.
 
-### `TestScanProcedure` (17) — reading a procedure's source
+### `TestScanProcedure` (25) — reading a procedure's source
 
 | Test | Purpose |
 |---|---|
@@ -169,6 +171,14 @@ both.
 | `test_submodule_alias` | `import numpy.linalg as la` resolves through the alias |
 | `test_removed_module_reported_once` | A removed module is reported at its import, not on every use |
 | `test_reassigned_alias_is_not_numpy` | A name reassigned to something else is no longer treated as NumPy |
+| `test_a_parameter_named_like_the_alias_only_shadows_its_function` | A helper's `np` parameter doesn't hide `np` elsewhere |
+| `test_an_assignment_in_a_function_only_shadows_that_function` | Likewise for an assignment inside a function |
+| `test_a_shadowing_function_shadows_the_functions_inside_it` | A shadowed name stays shadowed in nested functions |
+| `test_a_comprehension_variable_only_shadows_the_comprehension` | A comprehension's loop variable is its own scope |
+| `test_star_import_names_are_shadowed_by_scope_too` | Bare names from `from numpy import *` follow the same scopes |
+| `test_deprecated_in_numpy_2_while_it_still_exists` | `trapz`, `in1d`, `row_stack` are warnings while the installed NumPy has them |
+| `test_a_deprecated_name_the_installed_numpy_lacks_is_an_error` | ...and errors once it doesn't |
+| `test_the_scan_takes_the_warnings_lock` | The scan's NumPy lookups don't race a recalculation's warning capture |
 | `test_numpy_core` | `numpy.core` is reported as a deprecated alias, not a removal |
 | `test_not_in_installed_numpy` | A name missing from the installed NumPy is an error naming the version |
 | `test_array_copy_false` | `np.array(..., copy=False)` is flagged; `copy=True` is not |
@@ -221,6 +231,13 @@ both.
 | `test_sample_file_broken` | A sample file that fails reports broken |
 | `test_sample_file_test_not_assigned` | A test on no unit says so rather than failing |
 
+### `TestSameResult` (2) — comparing results
+
+| Test | Purpose |
+|---|---|
+| `test_a_boolean_is_not_the_number_it_equals` | `True` and `1` are different results, though Python says they're equal |
+| `test_a_string_composite_saved_as_true_now_giving_1` | ...so a string composite whose text changes from `true` to `1` is Changed |
+
 ### `TestJob` (2), `TestStatus` (1) — the small pieces
 
 | Test | Purpose |
@@ -262,7 +279,8 @@ both.
 - The full suite on this branch: 1278 passed, 55 skipped, 0 failed.
 - The same change with NumPy 2.5.3 and pandas 3.0.5 (a scratch worktree with
   the #854 compatibility commit cherry-picked): all 72 new tests pass, and the
-  full suite passed there too on the develop-based version of this work.
+  full suite passed there too on the develop-based version of this work. The
+  scan and comparison tests added since (now 27) pass under 2.5.3 as well.
 - A demo database was built through the real `CompositePerformer`/`UploadHandler`
   under NumPy 1.26, then checked under both versions. `np.product`, `.ptp()`
   and `fillna(method=)` went from Warning to Broken, and a string composite went
