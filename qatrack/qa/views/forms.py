@@ -143,6 +143,9 @@ class TestInstanceWidgetsMixin:
             self.fields["value"].widget.attrs["readonly"] = "readonly"
         elif self.unit_test_info.test.type in (models.STRING_COMPOSITE,):
             self.fields["string_value"].widget.attrs["readonly"] = "readonly"
+        if self.unit_test_info.test.hidden:
+            # Readonly, not disabled: a procedure's computed comment must still be submitted.
+            self.fields["comment"].widget.attrs["readonly"] = "readonly"
 
     @property
     def attachments_to_process(self):

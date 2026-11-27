@@ -4,7 +4,7 @@
 
 /* globals jQuery, window, QAUtils, require, document */
 
-require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'inputmask', 'jquery-ui', 'comments', 'flatpickr'], function ($, _, moment, Dropzone, autosize) {
+require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'qahidden', 'cheekycheck', 'inputmask', 'jquery-ui', 'comments', 'flatpickr'], function ($, _, moment, Dropzone, autosize, show_hidden_tests) {
 
     function getParameterByName(name, url) {
         if (!url) url = window.location.href;
@@ -1313,6 +1313,23 @@ require(['jquery', 'lodash', 'moment', 'dropzone', 'autosize', 'cheekycheck', 'i
         tli.initialize();
 
         context = $("#perform-qa-table")[0];
+
+        /* "Show hidden tests". The dependency is inserted at index 5 so that the
+         * callback's existing argument names stay lined up with their modules;
+         * the ones after it are loaded for their side effects and are not named.
+         *
+         * The module returns a function that re-applies the checkbox's state,
+         * for anything that re-renders rows later; nothing here needs it yet, so
+         * it is not kept.
+         *
+         * The category filter and the reveal no longer contend. The reveal takes
+         * Bootstrap's `hidden` class off the row rather than out-specifying it,
+         * so a revealed row is an ordinary row and TestInstance.show()/hide()
+         * behave normally on it. An earlier version used
+         * `display: table-row !important`, which beat the inline `display: none`
+         * that hide() sets - so with the reveal on, deselecting every category
+         * left nothing on screen but the hidden rows, each marked skipped. */
+        show_hidden_tests(context, '#show-hidden-tests');
 
         pass_fail_only = $("#pass-fail-only").val() === "yes" ? true : false;
         comment_on_skip = $("#require-comment-on-skip").val() === "yes" ? true : false;

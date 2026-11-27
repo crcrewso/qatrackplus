@@ -1033,6 +1033,27 @@ class TestForm(forms.ModelForm):
                 except:  # noqa: E722
                     self.add_error("formatting", forms.ValidationError(_("Invalid numerical format")))
 
+        # Two fields the admin JS shows only for certain types (test_admin.js), and
+        # which nothing was clearing when the type changed away from them. The JS
+        # uses .hide(), so the input stays in the DOM and keeps posting its value:
+        # a hidden composite changed to Simple saved as a hidden Simple test, with
+        # the checkbox that would have shown the problem being the one that had
+        # just disappeared. (COMPOSITE -> SIMPLE is an allowed transition, see
+        # Test.allow_type_transition, so this is a supported edit, not a misuse.)
+        #
+        # Cleared rather than rejected: the user never asked for the value, the
+        # form carried it, and an error about a control they cannot see would say
+        # nothing they could act on. Same shape as `formatting` above.
+        if test_type not in models.NO_SKIP_REQUIRED_TYPES:
+            # Only a test nobody enters can be meaningfully hidden; the others
+            # would be unfillable. NO_SKIP_REQUIRED_TYPES is that set already -
+            # they have no Skip checkbox for the same reason.
+            cleaned_data['hidden'] = False
+        if test_type not in models.CALCULATED_TYPES:
+            # display_image renders an attachment the test produced; a type that
+            # produces none has nothing to show.
+            cleaned_data['display_image'] = False
+
         editing_hidden = self.instance.pk is not None and cleaned_data.get("hidden")
         if editing_hidden:
             existing_ref_tols = models.UnitTestInfo.objects.filter(test=self.instance).exclude(
