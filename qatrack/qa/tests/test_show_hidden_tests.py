@@ -438,6 +438,28 @@ class TestTheToggleReachesEveryPageThatRendersTheForm(TestCase):
             "the visible test's image box is marked as hidden-test furniture"
         )
 
+    def comment_textarea(self, html, test):
+        """The <textarea> tag in a test's comment cell."""
+        start = html.index('id="%s-comment"' % test.slug)
+        tag = html[html.index("<textarea", start):]
+        return tag[:tag.index(">") + 1]
+
+    def test_a_hidden_tests_comment_box_is_readonly_on_every_view(self):
+        """Revealing a hidden test is display only, its comment included.
+
+        Readonly rather than disabled: a composite's procedure can set a comment,
+        and that still has to be submitted.
+        """
+        for name, url in self.urls().items():
+            with self.subTest(view=name):
+                html = self.client.get(url).content.decode()
+                assert "readonly" in self.comment_textarea(html, self.hidden), (
+                    "%s: a hidden test's comment box is editable once revealed" % name
+                )
+                assert "readonly" not in self.comment_textarea(html, self.visible), (
+                    "%s: a visible test's comment box was made readonly" % name
+                )
+
     def test_no_view_offers_the_toggle_when_there_is_nothing_to_reveal(self):
         """The flag is a gate, not a constant - the negative case proves it."""
         self.hidden.hidden = False

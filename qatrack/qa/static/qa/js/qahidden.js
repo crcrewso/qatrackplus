@@ -47,10 +47,11 @@
  * Only rows this module hid are put back: it marks each one as it reveals it,
  * and a row that arrives without `hidden` is never given one.
  *
- * The comment row and the Skip checkbox needed handling while every hidden test
- * could be revealed. They do not now: a Composite, Constant or String Composite
- * has no Skip checkbox at all (that is what NO_SKIP_REQUIRED_TYPES means), and
- * its comment box is as readonly as the rest of it.
+ * A Composite, Constant or String Composite has no Skip checkbox at all (that
+ * is what NO_SKIP_REQUIRED_TYPES means). Its comment is kept out of reach
+ * twice: qa.css hides a revealed row's comment toggle, and the form makes a
+ * hidden test's comment box readonly. Re-hiding puts the comment row back as
+ * the reveal found it, since a composite's procedure can open it by itself.
  */
 define(['jquery'], function ($) {
 
@@ -59,6 +60,12 @@ define(['jquery'], function ($) {
     var SHOW_CLASS = 'show-hidden-tests';
     var REVEALED_CLASS = 'qa-hidden-revealed';
     var ROW_MARKER = 'qahiddenRevealed';
+    var COMMENT_MARKER = 'qahiddenCommentWasShown';
+
+    /* A value row's comment row follows it in the table; an image box has none. */
+    function comment_row($el) {
+        return $el.next('tr.qa-comment');
+    }
 
     /* The three types nobody enters. qavalue_form.html puts the test's type on
      * its row as `qa-<type>`, so the page already says which is which. */
@@ -84,7 +91,9 @@ define(['jquery'], function ($) {
      * has something to hide outside it: its image box. */
     function reveal($els) {
         $els.filter('.hidden').each(function () {
-            $(this).removeClass('hidden').addClass(REVEALED_CLASS).data(ROW_MARKER, true);
+            var $el = $(this);
+            $el.data(COMMENT_MARKER, comment_row($el).is(':visible'));
+            $el.removeClass('hidden').addClass(REVEALED_CLASS).data(ROW_MARKER, true);
         });
     }
 
@@ -92,7 +101,10 @@ define(['jquery'], function ($) {
         $els.filter('.' + REVEALED_CLASS).each(function () {
             var $el = $(this);
             if ($el.data(ROW_MARKER)) {
-                $el.removeClass(REVEALED_CLASS).addClass('hidden').removeData(ROW_MARKER);
+                if (!$el.data(COMMENT_MARKER)) {
+                    comment_row($el).css('display', 'none');
+                }
+                $el.removeClass(REVEALED_CLASS).addClass('hidden').removeData(ROW_MARKER).removeData(COMMENT_MARKER);
             }
         });
     }

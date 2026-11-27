@@ -401,11 +401,15 @@ div.sublist-description {
    Removing the class leaves show()/hide() working, and needs no !important
    anywhere.
 
-   The revealed row is tinted so it is obvious it is not part of the normal list,
-   and its inputs are made readonly by qa/js/qahidden.js. */
+   The revealed row is tinted so it is obvious it is not part of the normal list.
+   Its inputs are already readonly, being types nobody enters, and its comment
+   toggle is hidden, so a comment cannot be opened on it. */
 #perform-qa-table > tbody > tr.qa-hidden-revealed > td,
 #perform-qa-table > tbody > tr.qa-hidden-revealed > th {
     background-color: #fcf8e3;
+}
+#perform-qa-table > tbody > tr.qa-hidden-revealed > td.qa-showcmt a {
+    visibility: hidden;
 }
 
 #perform-qa-table > tbody > tr.qa-procedure.hidden-procedure {

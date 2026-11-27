@@ -1531,6 +1531,40 @@ class TestShowHiddenTests(BaseQATests):
             "expected the composite revealed and the simple test still hidden: %r" % after
         )
 
+    COMMENT_STATE = """
+        var row = document.getElementById('testc-row');
+        var comment = row.nextElementSibling;
+        var toggle = row.querySelector('td.qa-showcmt a');
+        return {
+            toggle_visible: getComputedStyle(toggle).visibility !== 'hidden',
+            comment_shown: getComputedStyle(comment).display !== 'none',
+            comment_readonly: comment.querySelector('textarea').readOnly
+        };
+    """
+
+    def test_a_revealed_test_offers_no_comment(self):
+        """A revealed composite's comment toggle is hidden, and its box readonly."""
+        self.open_perform_page()
+        self.toggle()
+        state = self.driver.execute_script(self.COMMENT_STATE)
+        assert not state['toggle_visible'], "a revealed hidden test offers its comment toggle: %r" % state
+        assert state['comment_readonly'], "a revealed hidden test's comment box is editable: %r" % state
+
+    def test_hiding_again_closes_a_comment_the_reveal_left_open(self):
+        """A comment row opened while revealed does not outlive the reveal.
+
+        A composite's procedure can open its own comment row, so one can be open
+        when the reveal is turned off; with the row hidden again, nothing on the
+        page could close it.
+        """
+        self.open_perform_page()
+        self.toggle()
+        self.driver.execute_script("document.getElementById('testc-row').nextElementSibling.style.display = 'table-row';")
+        assert self.driver.execute_script(self.COMMENT_STATE)['comment_shown']
+        self.toggle()
+        state = self.driver.execute_script(self.COMMENT_STATE)
+        assert not state['comment_shown'], "the comment row stayed open after the reveal was turned off: %r" % state
+
     def test_revealing_a_test_changes_nothing_it_can_submit(self):
         self.open_perform_page()
         before = {r['id']: r for r in self.snapshot()['rows']}
