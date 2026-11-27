@@ -264,7 +264,7 @@ we want to perform:
         completed_url = resp.json()['site_url']
         print("Test List performed successfully! View your Test List Instance at %s" % completed_url)
     else:
-        print("Your request failed with error %s (%s)" (resp.status_code, resp.reason))
+        print("Your request failed with error %s (%s)" % (resp.status_code, resp.reason))
 
 Running the script should show:
 

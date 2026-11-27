@@ -130,8 +130,8 @@ Set the **Name** field to `Physics` and choose the following set of permissions:
 
 * **attachments | attachment | Can add attachment**
 * **qa | frequency | Choose QC by Frequency**
-* **qa | test instance | Can review &amp; approve tests**
-* **qa | test instance | Can review &amp; approve self-performed tests**
+* **qa | test instance | Can review & approve tests**
+* **qa | test instance | Can review & approve self-performed tests**
 * **qa | test instance | Can skip tests without comment**
 * **qa | test instance | Can view charts of test history**
 * **qa | test instance | Can see test history when performing QC**
@@ -144,9 +144,9 @@ Set the **Name** field to `Physics` and choose the following set of permissions:
 * **qa | unit test collection | Can view tli and utc not visible to user's groups**
 * **qa | unit test collection | Can view program overview**
 * **qa | unit test info | Can view Refs and Tols**
-* **service_log | return to service qa | Can add return to service qa**
-* **service_log | return to service qa | Can perform return to service qa**
-* **service_log | return to service qa | Can view return to service qa**
+* **service_log | return to service qc | Can add return to service qc**
+* **service_log | return to service qc | Can perform return to service qc**
+* **service_log | return to service qc | Can view return to service qc**
 * **service_log | service event | Can add service event**
 * **service_log | service event | Can review service event**
 * **service_log | service event | Can view service event**
@@ -267,7 +267,7 @@ main admin page and then click on **Add test** in the top right hand corner.
 Give our first test the name *Temperature °C* and the macro name of
 *temperature*.  We will leave the description blank for now.
 
-Since we haven't created any [categories](../categories.md) yet we will do so
+Since we haven't created any :ref:`categories <qa_categories>` yet we will do so
 now.  Click the green cross next to the **Category:** drop down and create a
 *Dosimetry* category.
 
@@ -395,10 +395,13 @@ link under the **QC** section from the main admin page and then click on **Add
 unit test collection** in the top right hand corner.
 
 Select the *Test Unit* from the **Unit:** dropdown, and then create a new
-[frequency](../frequencies) by clicking on the green cross next to the
-**Frequency** dropdown.  Give the frequency the name *Monthly*, slug *monthly*
-and enter *28*, *28*, *35* for **Nominal interval**, **Due Interval** and for
-**Overdue interval**, respectively.
+:ref:`frequency <qa_frequencies>` by clicking on the green cross next to the
+**Frequency** dropdown.  Give the frequency the name *Monthly* and slug
+*monthly*.  Leave **QC Window Start** blank, enter *7* for **QC Window End**,
+and under **Recurrences** add a rule that repeats every *28* days.  That
+schedules the list 28 days after each time it is performed and marks it
+overdue a week after that; see :ref:`qa_frequencies` for how the QC window
+works.
 
 .. figure:: images/new_frequency.png
     :alt: creating a new frequency
@@ -506,7 +509,7 @@ their status to either **Approved** or **Rejected** (note rejected is to be
 used if a Test was performed incorrectly, not if it was performed correctly but
 failing).
 
-Select the `Unreviewed - All Groups` menu item from the `Review Data` menu and
+Select the `Unreviewed - All Groups` menu item from the `Review QC` menu and
 then click `Review` beside the Test List Instance we just performed:
 
 

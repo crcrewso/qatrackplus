@@ -3,8 +3,13 @@ Overseeing The State Of Your QC Program
 
 There are currently two main ways of viewing the overall status of your
 QC program. You can see which tests lists are overdue or coming due soon
-on the **Review By Due Status** page, or you can view a snapshot of your
+on the **By Due Status** page, or you can view a snapshot of your
 whole QC program on the **Overview** page.
+
+The **Review QC** menu shows these as **By Due Status** and **Overview**. If you
+can review every group's QC (the *Can review non visible test list instances*
+permission), each comes twice instead: **- Your Groups** for the groups you belong to, and **- All**
+for every group.
 
 .. figure:: images/due_status_menu.png
    :alt: Review Test Lists By Due Status
@@ -15,9 +20,9 @@ whole QC program on the **Overview** page.
 Viewing Test Lists Which are Coming Due Soon
 --------------------------------------------
 
-From the **Review Data** dropdown menu at the top chose the **By Due
-Status** option. This will take you to page that summarizes any test
-lists that are coming due soon.
+From the **Review QC** dropdown menu at the top choose the **By Due
+Status** option (**By Due Status - All** if you can review every group). This
+will take you to page that summarizes any test lists that are coming due soon.
 
 .. figure:: images/due_status.png
    :alt: Summary of upcoming QC required
@@ -28,8 +33,8 @@ lists that are coming due soon.
 Overview of All Units
 ---------------------
 
-From the **Review Data** dropdown menu at the top chose the **Overview - All Units**
-option. This will take you to page that lists all the defined :term:`Unit` s and
+From the **Review QC** dropdown menu at the top choose the **Overview**
+option (**Overview - All** if you can review every group). This will take you to page that lists all the defined :term:`Unit` s and
 their respective Test Lists, grouped by frequency. This allows you to get a
 quick overview of what the current status of QC is on all of your units.
 
