@@ -1,4 +1,4 @@
-"""`qatrack.W017`: calculation procedures that draw with pyplot.
+"""`qatrack.W017`: calculation procedures that use pyplot.
 
 The parser must find every route to pyplot and ignore text that only mentions it.
 """
@@ -133,6 +133,13 @@ class TestPyplotCheck(TestCase):
         assert 'Windows' in hint
         assert 'sync workers' in hint
 
+    def test_the_same_database_reached_twice_counts_each_procedure_once(self):
+        """As `readonly` mirrors `default` on a site; pytest drops that alias, so `default` is named twice."""
+        self.make_test("import matplotlib.pyplot as plt\nresult = 1\n", name="Flatness plot")
+        problems = check_calculation_procedures_use_pyplot(None, databases=['default', 'default'])
+        assert len(problems) == 1
+        assert problems[0].msg.startswith('1 calculation procedure(s)'), problems[0].msg
+
     def test_many_offenders_are_summarised_rather_than_listed(self):
         for i in range(12):
             self.make_test("import matplotlib.pyplot as plt\nresult = 1\n", name="Plot %02d" % i)
@@ -174,3 +181,13 @@ class TestPyplotCheck(TestCase):
         assert registered, "the check is not registered"
         # Assert this check's own tag: tags_available() has 'database' whenever any check does.
         assert Tags.database in check_calculation_procedures_use_pyplot.tags
+
+
+def test_two_databases_with_the_same_pk_are_not_merged():
+    """Separate databases reuse primary keys, so the dedupe key has to name the database."""
+    from qatrack.qatrack_core.checks import database_identity
+
+    default = {'ENGINE': 'django.db.backends.postgresql', 'HOST': 'db', 'PORT': '5432', 'NAME': 'qatrack'}
+    assert database_identity(default) == database_identity(dict(default))
+    assert database_identity(default) != database_identity(dict(default, NAME='qatrack_archive'))
+

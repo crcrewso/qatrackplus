@@ -482,7 +482,7 @@ An example showing how to use `write_file` to create a matplotlib plot:
 .. warning::
 
     Do not plot with ``matplotlib.pyplot`` (often imported as ``plt``) in a
-    calculation procedure. ``pyplot`` keeps its figures in module level state,
+    calculation procedure. ``pyplot`` keeps its figures in module-level state,
     shared by everything running in the same process, so two procedures plotting
     at the same time, **or one after another in the same test list**, can take
     each other's figures - and QATrack+ clears every figure in the process after

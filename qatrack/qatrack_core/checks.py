@@ -731,9 +731,14 @@ def procedure_uses_pyplot(source):
     return sorted(found)
 
 
+def database_identity(settings_dict):
+    """Which database an alias points at, so two aliases for one database count once."""
+    return tuple(settings_dict.get(key) for key in ('ENGINE', 'HOST', 'PORT', 'NAME'))
+
+
 @register(Tags.database)
 def check_calculation_procedures_use_pyplot(app_configs=None, databases=None, **kwargs):
-    """Warn when a calculation procedure draws with pyplot.
+    """Warn when a calculation procedure uses pyplot.
 
     pyplot keeps its figures in module-level state. `CompositePerformer.calculate` runs every
     composite test of a test list in one request and calls `cleanup_matplotlib` only after the
@@ -782,12 +787,14 @@ def check_calculation_procedures_use_pyplot(app_configs=None, databases=None, **
         except DatabaseError:
             continue
 
+        # Keyed on the database, not the alias: `readonly` mirrors `default`, and a test there is the same test.
+        database = database_identity(connection.settings_dict)
         for pk, name, source in procedures:
-            if pk in seen:
+            if (database, pk) in seen:
                 continue
             names = procedure_uses_pyplot(source or '')
             if names:
-                seen.add(pk)
+                seen.add((database, pk))
                 offenders.append((name, names))
 
     if not offenders:
@@ -801,7 +808,7 @@ def check_calculation_procedures_use_pyplot(app_configs=None, databases=None, **
 
     return [
         Warning(
-            "%d calculation procedure(s) draw with matplotlib.pyplot: %s. pyplot "
+            "%d calculation procedure(s) use matplotlib.pyplot: %s. pyplot "
             "holds its figures in module-level state, so two procedures plotting "
             "at the same time, or one after another in the same test list, can "
             "take each other's figures - and "
