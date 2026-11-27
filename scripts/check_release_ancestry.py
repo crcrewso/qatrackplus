@@ -24,11 +24,12 @@ Nothing caught either one, because nothing looked. This is what looks, in two pa
 Release lines are allowed to diverge from each other in content - that is the point of a release
 branch - so this checks reachability and nothing else. Run it anywhere:
 
-    python scripts/check_release_ancestry.py [TIP] [--version-from REF]
+    python scripts/check_release_ancestry.py [TIP] [--version-from REF] [--tag TAG]
 
 TIP defaults to ``HEAD``. The version is read from ``REF``'s ``qatrack/settings.py``, which defaults
 to TIP; a tag push passes the release branch as TIP and the tag as REF, so a tag cut off a side
-branch is checked against the branch it should be on. It needs the tags, so in CI the checkout
+branch is checked against the branch it should be on. ``--tag`` names the tag being pushed: it must
+declare the version it is named for, and a tag that is not ``vX.Y.Z`` is skipped. It needs the tags, so in CI the checkout
 must be unshallow (``fetch-depth: 0``).
 """
 
@@ -148,10 +149,20 @@ def main(argv=None, root=ROOT):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('tip', nargs='?', default='HEAD', help='the branch tip every release must reach')
     parser.add_argument('--version-from', metavar='REF', help='where to read VERSION (default: the tip)')
+    parser.add_argument('--tag', help='the tag being pushed, which must name the version its tree declares')
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     tip, source = args.tip, args.version_from or args.tip
 
+    if args.tag is not None and version_of(args.tag) is None:
+        print('%s is not a vX.Y.Z release tag, so there is nothing to check.' % args.tag)
+        return 0
+
     current = declared_version(git('show', '%s:qatrack/settings.py' % source, cwd=root))
+    if args.tag is not None and version_of(args.tag) != current:
+        # Otherwise the pushed tag is never selected below, and goes unchecked.
+        print('FAIL: %s was pushed, but the tree it tags declares VERSION %s. Tag the commit '
+              'that declares that version, or correct VERSION.' % (args.tag, '.'.join(str(p) for p in current)))
+        return 1
     tags = git('tag', '--list', 'v*', cwd=root).split()
     wanted = tags_to_check(tags, current)
 
@@ -201,7 +212,8 @@ def main(argv=None, root=ROOT):
         print('The published upgrade pages promise that pull. To restore it without changing a '
               'single file, on this branch run:')
         for tag in broken:
-            print('    git merge -s ours %s' % tag)
+            related = subprocess.run(('git', 'merge-base', tag, tip), cwd=str(root), capture_output=True).returncode == 0
+            print('    git merge -s ours %s%s' % ('' if related else '--allow-unrelated-histories ', tag))
         print('which makes the tag reachable and leaves the tree exactly as it is.')
         return 1
 

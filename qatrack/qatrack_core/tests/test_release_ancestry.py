@@ -149,13 +149,17 @@ def test_a_release_tagged_off_the_line_fails_and_names_the_repair(repo, capsys):
     out = capsys.readouterr().out
     assert 'BROKEN   v4.0.1' in out
     assert 'git merge -s ours v4.0.1' in out
+    assert 'allow-unrelated-histories' not in out, 'the histories share an ancestor, so the plain repair works'
 
 
 def test_the_line_below_must_be_reachable_too(repo, capsys):
     run_git(repo, 'switch', '-q', '--orphan', 'releases/4.1')
     commit_version(repo, '4.1.0')
     assert main([], root=repo) == 1
-    assert 'BROKEN   v4.0.0 is not an ancestor: the line before' in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert 'BROKEN   v4.0.0 is not an ancestor: the line before' in out
+    # No common ancestor, so the plain repair would fail with "refusing to merge unrelated histories".
+    assert 'git merge -s ours --allow-unrelated-histories v4.0.0' in out
 
 
 def test_no_release_tags_at_all_fails(tmp_path, capsys):
@@ -187,3 +191,24 @@ def test_a_tag_cut_off_a_side_branch_fails_against_its_line(repo, capsys):
     run_git(repo, 'merge', '-q', '--ff-only', 'side')
     assert main(['releases/4.0', '--version-from', 'v4.0.1'], root=repo) == 0
 
+
+def test_a_pushed_tag_must_name_the_version_its_tree_declares(repo, capsys):
+    """Otherwise `v4.0.2` on a tree saying 4.0.1 is never selected, and never checked."""
+    commit_version(repo, '4.0.1')
+    run_git(repo, 'tag', 'v4.0.2')
+    assert main(['releases/4.0', '--version-from', 'v4.0.2', '--tag', 'v4.0.2'], root=repo) == 1
+    assert 'v4.0.2 was pushed, but the tree it tags declares VERSION 4.0.1' in capsys.readouterr().out
+
+
+def test_a_pushed_tag_that_names_its_version_is_checked_and_passes(repo, capsys):
+    commit_version(repo, '4.0.1')
+    run_git(repo, 'tag', 'v4.0.1')
+    assert main(['releases/4.0', '--version-from', 'v4.0.1', '--tag', 'v4.0.1'], root=repo) == 0
+    assert 'ok       v4.0.1 is an ancestor' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('tag', ['v4.0.1RC1', 'v0.3.0.19', 'V4.0.Beta.1'])
+def test_a_tag_that_is_not_a_release_is_skipped(repo, capsys, tag):
+    run_git(repo, 'tag', tag)
+    assert main(['releases/4.0', '--version-from', tag, '--tag', tag], root=repo) == 0
+    assert 'is not a vX.Y.Z release tag' in capsys.readouterr().out

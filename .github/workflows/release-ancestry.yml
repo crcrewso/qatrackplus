@@ -39,13 +39,17 @@ jobs:
         # branch fails here.
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            if ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "$GITHUB_REF_NAME is not a vX.Y.Z release tag, so there is nothing to check."
+              exit 0
+            fi
             line="${GITHUB_REF_NAME#v}"
             line="${line%.*}"
             if ! git rev-parse --verify --quiet "origin/releases/$line" >/dev/null; then
               echo "FAIL: $GITHUB_REF_NAME was tagged, but there is no releases/$line branch to check it against."
               exit 1
             fi
-            python scripts/check_release_ancestry.py "origin/releases/$line" --version-from HEAD
+            python scripts/check_release_ancestry.py "origin/releases/$line" --version-from HEAD --tag "$GITHUB_REF_NAME"
           else
             python scripts/check_release_ancestry.py
           fi
