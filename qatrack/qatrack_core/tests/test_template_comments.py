@@ -62,7 +62,7 @@ def comments_that_span_lines(text):
     return found
 
 
-class TestNoTemplateCommentSpansLines:
+class TestNoTemplateCommentSpansLines(SimpleTestCase):
 
     def test_there_are_templates_to_check(self):
         """Guard against the glob quietly matching nothing."""

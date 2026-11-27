@@ -95,11 +95,10 @@ def paints_the_element_itself(selector, class_name):
     """True when the rule's subject is the striped element, not a descendant.
 
     `.form-row-even .form-control[disabled]` mentions the stripe class but
-    paints a control inside the row, so it is not a second stripe colour. Only
-    the last compound selector is the rule's subject.
+    paints a control inside the row, so it is not a second stripe colour. In
+    each selector of a list, only the last compound selector is the subject.
     """
-    subject = selector.split(',')[0].strip().split()[-1]
-    return class_name in subject
+    return any(class_name in part.strip().split()[-1] for part in selector.split(',') if part.strip())
 
 
 def highlight_rules():
