@@ -1,7 +1,8 @@
 """Which translatable strings a change adds, counted once each.
 
-Used by the Translation Impact CI step. Compares every regenerated catalogue
-with the committed one it replaced and reports the message ids that are new.
+Used by the Translation Impact CI step. Compares the catalogues regenerated on
+a change with those regenerated on its base, and reports the messages that are
+new.
 
 Why this is not a `grep` over the diff, which is what it replaced: gettext
 writes a long message as `msgid ""` followed by quoted continuation lines, so
@@ -14,8 +15,9 @@ Usage:
 
     new_translatable_strings.py <locale-dir> <previous-dir>
 
-`previous-dir` holds the committed catalogues as `<locale>.po`. Prints the
-count on the first line and one message per line after it.
+`previous-dir` holds the base's catalogues as `<locale>.po`. Prints the
+count on the first line and one message per line after it, with its
+context in brackets when it has one.
 """
 
 import pathlib
@@ -25,10 +27,11 @@ import polib
 
 
 def new_msgids(locale_dir, previous_dir):
-    """Message ids present in the regenerated catalogues and not in the committed ones.
+    """Messages present in the regenerated catalogues and not in the previous ones.
 
-    De-duplicated across locales: `makemessages --all` adds the same string to
-    every catalogue, and it is one string.
+    Keyed on (msgctxt, msgid), as gettext keys them: pgettext gives one text a
+    translation per context. De-duplicated across locales, since
+    `makemessages --all` adds the same string to every catalogue.
     """
     locale_dir = pathlib.Path(locale_dir)
     previous_dir = pathlib.Path(previous_dir)
@@ -39,12 +42,13 @@ def new_msgids(locale_dir, previous_dir):
         previous = previous_dir / ('%s.po' % locale)
         before = set()
         if previous.exists():
-            before = {entry.msgid for entry in polib.pofile(str(previous))}
+            before = {(entry.msgctxt, entry.msgid) for entry in polib.pofile(str(previous))}
         for entry in polib.pofile(str(current)):
+            key = (entry.msgctxt, entry.msgid)
             # polib yields neither the header nor obsolete entries
-            if entry.msgid and entry.msgid not in before:
-                added.setdefault(entry.msgid, None)
-    return list(added)
+            if entry.msgid and key not in before:
+                added.setdefault(key, None)
+    return [msgid if context is None else '%s (context: %s)' % (msgid, context) for context, msgid in added]
 
 
 def main(argv):

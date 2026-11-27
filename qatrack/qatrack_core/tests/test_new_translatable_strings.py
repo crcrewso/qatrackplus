@@ -89,3 +89,21 @@ def test_a_missing_previous_catalogue_reports_everything(catalogues):
     for stale in before.glob('*.po'):
         stale.unlink()
     assert load().new_msgids(locales, before) == ['Only one']
+
+
+def test_the_same_text_in_a_new_context_is_a_new_string(catalogues):
+    """pgettext gives one text two translations, so translators see two entries."""
+    body = (
+        'msgid "Existing"\nmsgstr "Existante"\n\n'
+        'msgctxt "month"\nmsgid "May"\nmsgstr ""\n\n'
+        'msgctxt "permission"\nmsgid "May"\nmsgstr ""\n'
+    )
+    before = 'msgid "Existing"\nmsgstr "Existante"\n\nmsgctxt "month"\nmsgid "May"\nmsgstr "Mai"\n'
+    locales, previous = catalogues(body, before)
+    assert load().new_msgids(locales, previous) == ['May (context: permission)']
+
+
+def test_a_context_only_string_is_not_hidden_by_a_plain_one(catalogues):
+    body = 'msgid "Existing"\nmsgstr "Existante"\n\nmsgctxt "verb"\nmsgid "Existing"\nmsgstr ""\n'
+    locales, previous = catalogues(body)
+    assert load().new_msgids(locales, previous) == ['Existing (context: verb)']

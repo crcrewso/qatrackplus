@@ -22,6 +22,16 @@ TRANSLATORS = {
     'pgettext', 'pgettext_lazy', 'ngettext', 'ngettext_lazy', 'npgettext',
 }
 
+# Which arguments of a translator are message ids; pgettext's first is a context.
+TRANSLATOR_MESSAGE_ARGUMENTS = {
+    'pgettext': (1,), 'pgettext_lazy': (1,), 'npgettext': (1, 2),
+    'ngettext': (0, 1), 'ngettext_lazy': (0, 1),
+}
+
+# `_(f"Deleted {pk}")` and `_("Deleted %s" % pk)` interpolate before looking
+# up, so the msgid never matches the catalogue and the string stays English.
+INTERPOLATED_FIRST = 'interpolated before translation'
+
 # Keyword arguments whose value is rendered to a user.
 USER_FACING_KWARGS = {
     'verbose_name', 'verbose_name_plural', 'help_text', 'label', 'empty_label',
@@ -203,12 +213,18 @@ def untranslated_in_tree(tree, key=''):
             continue
 
         for keyword in node.keywords:
-            if keyword.arg in USER_FACING_KWARGS and not _is_translated(keyword.value):
-                text = _literal_string(keyword.value)
-                if text:
+            if keyword.arg in USER_FACING_KWARGS:
+                for text in _message_literals(keyword.value):
                     found.add((key, keyword.arg, text))
 
         name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, 'id', '')
+        if name in TRANSLATORS:
+            for index in TRANSLATOR_MESSAGE_ARGUMENTS.get(name, (0,)):
+                message = node.args[index] if len(node.args) > index else None
+                if isinstance(message, ast.JoinedStr) or _template(message) is not message:
+                    text = _literal_string(_template(message))
+                    if text:
+                        found.add((key, INTERPOLATED_FIRST, text))
         if name in USER_FACING_CALLS and _receiver(node.func) not in LOGGING_RECEIVERS:
             index = MESSAGE_ARGUMENT[name]
             arguments = []
@@ -254,8 +270,9 @@ def test_no_new_untranslated_user_facing_strings():
         "%d user-facing string(s) are not marked for translation:\n\n%s\n\n"
         "Wrap them with gettext_lazy (imported as _l in this codebase). If a "
         "string genuinely should not be translated - a code, a unit symbol - "
-        "add it to IGNORED_VALUES with a note saying why."
-        % (len(new), '\n'.join('  %s\n    %s=%r' % (p, k, t) for p, k, t in new))
+        "add it to IGNORED_VALUES with a note saying why. For '%s', move the "
+        "%% or .format() outside the call: _('Deleted %%s') %% pk."
+        % (len(new), INTERPOLATED_FIRST, '\n'.join('  %s\n    %s=%r' % (p, k, t) for p, k, t in new))
     )
 
 
@@ -427,3 +444,28 @@ class TestDetection:
 
     def test_translated_help_text_is_left_alone(self):
         assert scan('models.CharField(help_text=_l("Current status"))') == set()
+
+    def test_interpolated_help_text(self):
+        assert scan('forms.CharField(help_text="Hours on %s" % day)') == {('help_text', 'Hours on %s')}
+        assert scan('forms.CharField(label="Hours on {}".format(day))') == {('label', 'Hours on {}')}
+
+    def test_translated_interpolated_help_text_is_left_alone(self):
+        assert scan('forms.CharField(help_text=_l("Hours on %s") % day)') == set()
+
+    # interpolating *inside* the call: the msgid no longer matches the catalogue
+
+    def test_an_f_string_inside_a_translation_call(self):
+        assert scan('x = _(f"Deleted event {pk}")') == {(INTERPOLATED_FIRST, 'Deleted event {}')}
+
+    def test_percent_inside_a_translation_call(self):
+        assert scan('x = _l("Deleted event %s" % pk)') == {(INTERPOLATED_FIRST, 'Deleted event %s')}
+
+    def test_format_inside_a_translation_call(self):
+        assert scan('x = gettext("Deleted event {}".format(pk))') == {(INTERPOLATED_FIRST, 'Deleted event {}')}
+
+    def test_pgettext_message_is_its_second_argument(self):
+        assert scan('x = pgettext("month", "May")') == set()
+        assert scan('x = pgettext("month", f"May {year}")') == {(INTERPOLATED_FIRST, 'May {}')}
+
+    def test_ngettext_checks_both_forms(self):
+        assert scan('x = ngettext("%d event" % n, "%d events", n)') == {(INTERPOLATED_FIRST, '%d event')}
