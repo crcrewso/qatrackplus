@@ -255,12 +255,16 @@ class TestListInstanceDelete(PermissionRequiredMixin, DeleteView):
     def get_success_url(self):
         return self.request.GET.get("next", reverse("home"))
 
-    def delete(self, request, *args, **kwargs):
-        service_events = ServiceEvent.objects.filter(returntoserviceqa__test_list_instance_id=kwargs['pk'])
-        delete = super().delete(request, *args, **kwargs)
+    # form_valid, not delete(): since Django 4.0 a POST to a DeleteView never calls delete().
+    # The events are listed first, because deleting the instance nulls the link they are found by.
+    # One transaction, so a failed log entry does not leave the instance deleted anyway.
+    @atomic
+    def form_valid(self, form):
+        service_events = list(ServiceEvent.objects.filter(returntoserviceqa__test_list_instance=self.object).distinct())
+        response = super().form_valid(form)
         for se in service_events:
-            ServiceLog.objects.log_rtsqa_changes(request.user, se)
-        return delete
+            ServiceLog.objects.log_rtsqa_changes(self.request.user, se)
+        return response
 
 
 class UTCReview(PermissionRequiredMixin, UTCList):

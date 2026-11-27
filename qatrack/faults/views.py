@@ -367,12 +367,14 @@ class DeleteFault(PermissionRequiredMixin, DeleteView):
     def get_success_url(self):
         return self.request.GET.get("next", reverse("fault_list"))
 
+    # form_valid, not delete(): since Django 4.0 a POST to a DeleteView never calls delete().
     @atomic
-    def delete(self, request, *args, **kwargs):
-        Comment.objects.for_model(models.Fault).filter(object_pk=kwargs['pk']).delete()
-        res = super().delete(self, request, *args, **kwargs)
-        messages.success(request, _("Successfully deleted Fault {fault_id}").format(fault_id=kwargs['pk']))
-        return res
+    def form_valid(self, form):
+        pk = self.object.pk
+        Comment.objects.for_model(models.Fault).filter(object_pk=pk).delete()
+        response = super().form_valid(form)
+        messages.success(self.request, _("Successfully deleted Fault {fault_id}").format(fault_id=pk))
+        return response
 
 
 def fault_create_ajax(request):

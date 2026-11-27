@@ -1951,6 +1951,56 @@ class TestEditTestListInstance(TestCase):
         self.assertNotIn(ti.comment, ("", None))
 
 
+class TestDeleteTestListInstanceView(TestCase):
+    """TestListInstanceDelete's own clean-up runs on POST; until it moved to form_valid it never did."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser("deleter", "d@example.com", "password")
+        self.client.force_login(self.user)
+
+    def test_deleting_an_instance_logs_the_return_to_service_change(self):
+        from qatrack.service_log import models as sl_models
+        from qatrack.service_log.tests import utils as sl_utils
+
+        rtsqa = sl_utils.create_return_to_service_qa(add_test_list_instance=True)
+        tli = rtsqa.test_list_instance
+
+        resp = self.client.post(reverse("delete_test_list_instance", kwargs={"pk": tli.pk}))
+
+        assert resp.status_code == 302
+        assert not models.TestListInstance.objects.filter(pk=tli.pk).exists()
+        logs = sl_models.ServiceLog.objects.filter(service_event=rtsqa.service_event, log_type=sl_models.CHANGED_RTSQA)
+        expected = [{"state": "tli_incomplete", "details": rtsqa.unit_test_collection.name}]
+        assert [log.extra_info for log in logs] == [expected]
+
+    def test_an_event_referring_to_the_instance_twice_is_logged_once(self):
+        from qatrack.service_log import models as sl_models
+        from qatrack.service_log.tests import utils as sl_utils
+
+        first = sl_utils.create_return_to_service_qa(add_test_list_instance=True)
+        sl_utils.create_return_to_service_qa(service_event=first.service_event, add_test_list_instance=first.test_list_instance)
+
+        self.client.post(reverse("delete_test_list_instance", kwargs={"pk": first.test_list_instance.pk}))
+
+        logs = sl_models.ServiceLog.objects.filter(service_event=first.service_event, log_type=sl_models.CHANGED_RTSQA)
+        assert logs.count() == 1
+
+    def test_a_failed_log_entry_leaves_the_instance_in_place(self):
+        from unittest import mock
+
+        from qatrack.service_log import models as sl_models
+        from qatrack.service_log.tests import utils as sl_utils
+
+        rtsqa = sl_utils.create_return_to_service_qa(add_test_list_instance=True)
+        tli = rtsqa.test_list_instance
+        url = reverse("delete_test_list_instance", kwargs={"pk": tli.pk})
+        with mock.patch.object(sl_models.ServiceLog.objects, "log_rtsqa_changes", side_effect=RuntimeError("log failed")):
+            with self.assertRaises(RuntimeError):
+                self.client.post(url)
+
+        assert models.TestListInstance.objects.filter(pk=tli.pk).exists()
+
+
 class TestReviewTestListInstance(TestCase):
 
     def setUp(self):

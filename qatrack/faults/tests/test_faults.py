@@ -2,10 +2,12 @@ from unittest import mock
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Permission, User
+from django.contrib.messages import get_messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
+from django.utils.translation import gettext as _
 from django_comments.models import Comment
 
 from qatrack.attachments.models import Attachment
@@ -825,6 +827,23 @@ class TestCRUDFault(TestCase):
         assert resp.status_code == 302
         assert resp.url == '/faults/'
         assert Fault.objects.count() == 0
+
+    def test_delete_says_which_fault_it_deleted(self):
+        """DeleteFault's own code runs on POST; until it moved to form_valid it never did.
+
+        The comments go either way, through ``Fault.comments``; the message is what was lost.
+        """
+        fault = utils.create_fault(unit=self.unit)
+        kept = utils.create_fault(unit=self.unit)
+        Comment.objects.create(comment="on the deleted fault", content_object=fault, site_id=1)
+        Comment.objects.create(comment="on the other fault", content_object=kept, site_id=1)
+
+        resp = self.client.post(reverse("fault_delete", kwargs={'pk': fault.pk}))
+
+        assert resp.status_code == 302
+        assert list(Comment.objects.values_list("comment", flat=True)) == ["on the other fault"]
+        expected = _("Successfully deleted Fault {fault_id}").format(fault_id=fault.pk)
+        assert [str(m) for m in get_messages(resp.wsgi_request)] == [expected]
 
     def test_review_fault(self):
         fault = utils.create_fault(unit=self.unit)
