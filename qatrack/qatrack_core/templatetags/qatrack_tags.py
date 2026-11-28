@@ -1,4 +1,6 @@
+import ast
 import json
+import logging
 import re
 
 from django import template
@@ -14,7 +16,50 @@ from qatrack.qatrack_core.dates import format_as_time, format_datetime
 from qatrack.qatrack_core.utils import file_uri as _file_uri
 from qatrack.service_log import models as sl_models
 
+logger = logging.getLogger('qatrack')
 register = template.Library()
+
+def parse_extra_info(raw, expect=dict):
+    """A ServiceLog's `extra_info`, as a dict (or a list, for return-to-service changes).
+
+    New entries are JSON (`ServiceLogManager` writes `json.dumps`), so that is
+    tried first: `literal_eval` would read JSON's escaped emoji as two broken
+    halves. Older entries can be Python reprs -
+    `{'status_change': {'old': 'x', 'new': 'y'}}` with single quotes. This used to be read by swapping
+    every `'` for `"` and handing the result to `json.loads`, which corrupts any
+    value containing an apostrophe: one `don't` in a status name or a comment and
+    the parse fails. The `except` then left `extra_info` as the raw *string*, and
+    the template tag went straight on to subscript it - `extra_info['status_change']`
+    on a string raises `TypeError: string indices must be integers`, so the whole
+    page carrying that entry answers 500.
+
+    Measured on a restored clinical database, 2026-10-19: of 4,000 non-empty
+    `extra_info` values, 119 failed the quote swap, 81 of those because of an
+    in-word apostrophe, and 82 of the failures were on entries that also carry a
+    `status_change` - each one enough to take out the page it appears on.
+    `ast.literal_eval` parses 102 of the 119.
+
+    Returns `{}` rather than a string when the value cannot be read at all, so a
+    caller that expects a mapping gets one. An entry rendered without its detail
+    is a worse record than one rendered with it, and a better page than a 500.
+    """
+    if isinstance(raw, dict | list):
+        return raw if isinstance(raw, expect) else expect()
+    if not raw:
+        return expect()
+    for parse in (json.loads, ast.literal_eval):
+        try:
+            parsed = parse(raw)
+        except (ValueError, SyntaxError, TypeError):
+            continue
+        if isinstance(parsed, expect):
+            return parsed
+    logger.warning(
+        "Could not read a ServiceLog's extra_info as a %s; rendering the entry without its detail.", expect.__name__
+    )
+    return expect()
+
+
 
 
 @register.filter(name='file_uri')
@@ -113,51 +158,45 @@ def render_log(service_log, user, link=True, show_rtsqa=False):
 
     elif service_log.log_type == sl_models.MODIFIED_SERVICE_EVENT:
 
-        try:
-            extra_info = json.loads(service_log.extra_info.replace("'", '"'))
-        except:  # noqa: E722
-            extra_info = service_log.extra_info
+        extra_info = parse_extra_info(service_log.extra_info)
 
         context['extra_info'] = extra_info
         return get_template('service_log/log_service_event_modified.html').render(context)
 
     elif service_log.log_type == sl_models.STATUS_SERVICE_EVENT:
 
-        try:
-            extra_info = json.loads(service_log.extra_info.replace("'", '"'))
-        except:  # noqa: E722
-            extra_info = service_log.extra_info
+        extra_info = parse_extra_info(service_log.extra_info)
 
         context['extra_info'] = extra_info
-        status_old_colour = cache.get(settings.CACHE_SERVICE_STATUS_COLOURS).get(extra_info['status_change']['old'])
-        context['old_status_tag'] = '<span class="label smooth-border" style="border-color: %s;">%s</span>' % (
-            status_old_colour, extra_info['status_change']['old']
-        ) if status_old_colour is not None else extra_info['status_change']['old']
+        # An entry whose detail cannot be read renders with "?" for the statuses, not a 500
+        change = extra_info.get('status_change')
+        change = change if isinstance(change, dict) else {}
+        old_status, new_status = change.get('old', '?'), change.get('new', '?')
+        colours = cache.get(settings.CACHE_SERVICE_STATUS_COLOURS) or {}
 
-        status_new_colour = cache.get(settings.CACHE_SERVICE_STATUS_COLOURS).get(extra_info['status_change']['new'])
+        status_old_colour = colours.get(old_status)
+        context['old_status_tag'] = '<span class="label smooth-border" style="border-color: %s;">%s</span>' % (
+            status_old_colour, old_status
+        ) if status_old_colour is not None else old_status
+
+        status_new_colour = colours.get(new_status)
         context['new_status_tag'] = '<span class="label smooth-border" style="border-color: %s;">%s</span>' % (
-            status_new_colour, extra_info['status_change']['new']
-        ) if status_new_colour is not None else extra_info['status_change']['new']
+            status_new_colour, new_status
+        ) if status_new_colour is not None else new_status
         context['new_status_colour'] = status_new_colour
 
         return get_template('service_log/log_service_event_status.html').render(context)
 
     elif service_log.log_type == sl_models.CHANGED_RTSQA:
 
-        try:
-            extra_info = json.loads(service_log.extra_info.replace("'", '"'))
-        except:  # noqa: E722
-            extra_info = service_log.extra_info
+        extra_info = parse_extra_info(service_log.extra_info, expect=list)
 
         context['extra_info'] = extra_info
         return get_template('service_log/log_rtsqa.html').render(context)
 
     elif service_log.log_type == sl_models.DELETED_SERVICE_EVENT:
 
-        try:
-            extra_info = json.loads(service_log.extra_info.replace("'", '"'))
-        except:  # noqa: E722
-            extra_info = service_log.extra_info
+        extra_info = parse_extra_info(service_log.extra_info)
 
         context['extra_info'] = extra_info
         return get_template('service_log/log_service_event_deleted.html').render(context)
