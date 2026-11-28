@@ -172,6 +172,15 @@ and then we need to collect all our static media files:
 
     python manage.py collectstatic
 
+Finally, check that your composite, string composite and upload tests still
+work with the upgraded Python libraries. This recalculates the most recent
+results of each test, without saving anything, and lists any test that is
+broken or now gives a different result (see :ref:`qa_check_calculations`):
+
+.. code-block:: bash
+
+    python manage.py check_calculations
+
 .. _linux_upgrade_3_reports_0009:
 
 If ``migrate`` stops at ``reports.0009``

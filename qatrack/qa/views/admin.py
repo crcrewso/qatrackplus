@@ -12,10 +12,10 @@ from django.shortcuts import HttpResponse, HttpResponseRedirect
 from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as _l
-from django.views.generic import FormView
+from django.views.generic import FormView, TemplateView, View
 from formtools.preview import FormPreview
 
-from qatrack.qa import models
+from qatrack.qa import calculation_check, models
 from qatrack.qa.forms.admin import CopyReferencesAndTolerancesForm
 from qatrack.qa.testpack import add_testpack, create_testpack
 
@@ -330,3 +330,81 @@ class CopyReferencesTolerancesView(PermissionRequiredMixin, FormView):
                 form.add_error(None, _("An error occurred while copying references and tolerances"))
                 return self.form_invalid(form)
         return self.render_to_response(self.get_context_data(form=form))
+
+
+class CheckCalculations(PermissionRequiredMixin, TemplateView):
+    """
+    Admin page for checking that tests' calculation procedures still run, and
+    still give the results that were saved (see qatrack.qa.calculation_check).
+
+    Procedures are scanned when the page loads. Recalculating is done by the
+    page's JavaScript one job at a time through CheckCalculationsRun, so that no
+    single request runs for long however many tests a site has.
+
+    Planned: turn the results into a work list an admin can work through -
+    each problematic test opening in its own window to be edited, and the
+    list keeping track of what has been dealt with. For now every test links
+    to its admin page and opens in a new tab, and "Only show tests with
+    problems" narrows the table to what needs attention.
+    """
+
+    permission_required = 'qa.change_test'
+    template_name = 'admin/qa/test/check_calculations.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        tests = list(calculation_check.tests_with_procedures())
+        rows = []
+        for test in tests:
+            findings = calculation_check.scan_procedure(test.calculation_procedure)
+            check = calculation_check.TestCheck(test, findings, recalculation_requested=False)
+            rows.append({'check': check, 'kind': calculation_check.procedure_kind(test)})
+
+        jobs = calculation_check.plan_recalculations(tests)
+        context.update({
+            'title': _('Check Calculation Procedures'),
+            'rows': rows,
+            'versions': calculation_check.library_versions(),
+            'recalculation_count': sum(len(job.test_ids) for job in jobs),
+            'sample_file_label': calculation_check.SAMPLE_FILE_LABEL,
+            'page_data': {
+                'runUrl': reverse('admin:qa_check_calculations_run'),
+                'jobs': [job.as_dict() for job in jobs],
+                'severity': list(calculation_check.SEVERITY),
+                'statusDisplay': {k: str(v) for k, v in calculation_check.STATUS_DISPLAY.items()},
+                'strings': {
+                    'progress': _('Recalculating: %(done)s of %(total)s done...'),
+                    'finished': _('Finished: %(done)s of %(total)s recalculated.'),
+                    'serverError': _('The server could not run this check: %(error)s'),
+                    'noResults': _('There are no saved results to recalculate it from.'),
+                    'saved': _('Saved'),
+                    'recalculated': _('Recalculated'),
+                    'details': _('Details'),
+                },
+            },
+        })
+        return context
+
+
+class CheckCalculationsRun(PermissionRequiredMixin, View):
+    """Run one recalculation job (calculation_check.Job) for the Check Calculation Procedures page"""
+
+    permission_required = 'qa.change_test'
+
+    def post(self, request, *args, **kwargs):
+        try:
+            job = calculation_check.Job.from_dict(json.loads(request.body))
+        except (AttributeError, TypeError, ValueError):
+            return JsonResponse({'error': _('Invalid recalculation job')}, status=400)
+
+        results = []
+        for test_id, recalculation in calculation_check.run_job(job, user=request.user):
+            result = recalculation.as_dict()
+            result.update({
+                'test_id': test_id,
+                'severity': recalculation.severity,
+                'status_display': str(calculation_check.STATUS_DISPLAY[recalculation.severity]),
+            })
+            results.append(result)
+        return JsonResponse({'results': results})

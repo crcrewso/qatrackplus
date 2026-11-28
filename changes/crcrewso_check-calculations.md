@@ -1,0 +1,1 @@
+* **QC**: A new `check_calculations` command, and a *Check Calculation Procedures* button on the admin's *Tests* page, recalculate the latest results of every composite, string composite and upload test without saving anything, and list any test that is broken or now gives a different result. Run it after an upgrade changes the Python libraries your procedures use, such as NumPy.

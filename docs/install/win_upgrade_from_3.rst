@@ -186,6 +186,21 @@ If you have issues with the migration, first check
 
    We now have a database, we have configured QATrack+ to use it, and we've loaded the default configuration data. Next, we could test that everything is working correctly by running the development server with `python manage.py runserver` and navigating to http://localhost:8000/ in a browser on the server. You should see a poor approximation of the QATrack+ login page (it won't look like this once we're finished!). If you see any errors, check the terminal output for details on what went wrong.  If you can log in successfully, then we know our database is configured correctly and we can move on to the next step.
 
+.. dropdown:: Side note: Checking your calculation procedures
+
+   Upgrading also upgrades the Python libraries that your composite, string
+   composite and upload tests use. To make sure they all still work, run:
+
+   .. code-block:: powershell
+
+      >>  python manage.py check_calculations
+
+   This recalculates the most recent results of each test, without saving
+   anything, and lists any test that is broken or now gives a different result.
+   The same check is available in the admin from the **Check Calculation
+   Procedures** button on the *Tests* page. See :ref:`qa_check_calculations`
+   for more.
+
 .. _win_upgrade_3_reports_0009:
 
 If ``migrate`` stops at ``reports.0009``
