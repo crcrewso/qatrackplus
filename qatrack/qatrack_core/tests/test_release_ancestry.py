@@ -38,10 +38,20 @@ def test_declared_version_reads_the_version_the_tree_claims():
     assert declared_version('DEBUG = True\nVERSION = "4.0.2"\n') == (4, 0, 2)
 
 
+@pytest.mark.parametrize('version, release', [
+    ('0.3.0.19', (0, 3, 0)),
+    ('3.1.1.3', (3, 1, 1)),
+])
+def test_a_fourth_part_is_a_build_of_its_release(version, release):
+    """`releases/0.3.0` and `stable` declare four-part versions, as the old `v0.3.0.N` tags did."""
+    assert declared_version('VERSION = "%s"\n' % version) == release
+
+
 @pytest.mark.parametrize('settings_text', [
     'DEBUG = True\n',                 # no VERSION at all
     'VERSION = "4.0"\n',              # two parts
     'VERSION = "4.1.0rc1"\n',         # not three numbers
+    'VERSION = "4.0.2.x"\n',          # a fourth part that is not a number
 ])
 def test_an_unreadable_version_fails_rather_than_passing(settings_text):
     """A check that cannot read the version has nothing to compare against."""
@@ -212,3 +222,24 @@ def test_a_tag_that_is_not_a_release_is_skipped(repo, capsys, tag):
     run_git(repo, 'tag', tag)
     assert main(['releases/4.0', '--version-from', tag, '--tag', tag], root=repo) == 0
     assert 'is not a vX.Y.Z release tag' in capsys.readouterr().out
+
+
+def test_a_four_part_version_is_checked_as_its_release(repo, capsys):
+    commit_version(repo, '4.0.0.1')
+    assert main([], root=repo) == 0
+    out = capsys.readouterr().out
+    assert 'version 4.0.0.1 (release 4.0.0)' in out
+    assert 'ok       v4.0.0' in out
+
+
+@pytest.mark.parametrize('argv, settings, expected', [
+    (['no-such-ref'], None, 'git show no-such-ref:qatrack/settings.py failed'),
+    ([], 'VERSION = "4.1"', 'not a release version'),
+])
+def test_a_failure_to_read_is_one_line_not_a_traceback(repo, capsys, argv, settings, expected):
+    if settings:
+        (repo / 'qatrack' / 'settings.py').write_text(settings + '\n')
+        run_git(repo, 'commit', '-q', '-am', 'bad version')
+    assert main(argv, root=repo) == 1
+    out = capsys.readouterr().out
+    assert out.startswith('FAIL: ') and expected in out

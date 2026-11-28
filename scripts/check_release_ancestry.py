@@ -86,18 +86,21 @@ def version_of(tag):
 
 
 def declared_version(settings_text):
-    """The version the working tree claims, as (major, minor, patch).
+    """The release the working tree claims, as (major, minor, patch).
 
-    Raises when `VERSION` is missing or is not three numbers: a release check that cannot read
-    the version has nothing to compare against and must say so rather than pass.
+    A fourth part is a build of that release, as on `releases/0.3.0` (`0.3.0.19`) and `stable`
+    (`3.1.1.3`), and is checked as the release. Raises when `VERSION` is missing or is not three
+    or four numbers: a release check that cannot read the version has nothing to compare against
+    and must say so rather than pass.
     """
     found = VERSION_IN_SETTINGS.search(settings_text)
     if not found:
         raise RuntimeError('no VERSION assignment found in qatrack/settings.py')
     parts = found.group(1).split('.')
-    if len(parts) != 3 or not all(p.isdigit() for p in parts):
-        raise RuntimeError('VERSION is %r, which is not a three-part release version' % found.group(1))
-    return tuple(int(p) for p in parts)
+    if len(parts) not in (3, 4) or not all(p.isdigit() for p in parts):
+        raise RuntimeError('VERSION is %r, which is not a release version (X.Y.Z, or X.Y.Z.N for a '
+                           'build of one)' % found.group(1))
+    return tuple(int(p) for p in parts[:3])
 
 
 def tags_to_check(tags, current):
@@ -146,6 +149,16 @@ def excepted(tag, current):
 
 
 def main(argv=None, root=ROOT):
+    """Exit 0 when every release is reachable, 1 when one is not or the check cannot run."""
+    try:
+        return _check(argv, root)
+    except RuntimeError as e:
+        # git failing, or a VERSION that cannot be read: one line, not a traceback.
+        print('FAIL: %s' % e)
+        return 1
+
+
+def _check(argv, root):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('tip', nargs='?', default='HEAD', help='the branch tip every release must reach')
     parser.add_argument('--version-from', metavar='REF', help='where to read VERSION (default: the tip)')
@@ -157,7 +170,9 @@ def main(argv=None, root=ROOT):
         print('%s is not a vX.Y.Z release tag, so there is nothing to check.' % args.tag)
         return 0
 
-    current = declared_version(git('show', '%s:qatrack/settings.py' % source, cwd=root))
+    settings_text = git('show', '%s:qatrack/settings.py' % source, cwd=root)
+    current = declared_version(settings_text)
+    declared = VERSION_IN_SETTINGS.search(settings_text).group(1)
     if args.tag is not None and version_of(args.tag) != current:
         # Otherwise the pushed tag is never selected below, and goes unchecked.
         print('FAIL: %s was pushed, but the tree it tags declares VERSION %s. Tag the commit '
@@ -166,8 +181,10 @@ def main(argv=None, root=ROOT):
     tags = git('tag', '--list', 'v*', cwd=root).split()
     wanted = tags_to_check(tags, current)
 
+    release = '.'.join(str(p) for p in current)
     print('version %s (from %s), tip %s (%s)' % (
-        '.'.join(str(p) for p in current), source, tip, git('rev-parse', '--short', tip, cwd=root).strip()))
+        declared if declared == release else '%s (release %s)' % (declared, release),
+        source, tip, git('rev-parse', '--short', tip, cwd=root).strip()))
 
     if not [t for t in tags if version_of(t)]:
         # No release tag at all is nearly always a shallow clone, which would otherwise pass
