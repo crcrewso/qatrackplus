@@ -287,6 +287,11 @@ def set_paper_size(html, paper_size="letter"):
     return rule + html
 
 
+#: Seconds to wait for Chrome to print a report. Under Django Q's 300 second
+#: task timeout, so a hung browser is reported by name rather than killed silently.
+CHROME_TIMEOUT = 240
+
+
 def chrometopdf(html, name="", paper_size="letter"):
     """use headles chrome to convert an html document to pdf
 
@@ -342,7 +347,12 @@ def chrometopdf(html, name="", paper_size="letter"):
         stdout = open(os.path.join(settings.LOG_ROOT, 'report-stdout.txt'), 'a')
         stderr = open(stderr_path, 'a')
         try:
-            status = subprocess.call(command, stdout=stdout, stderr=stderr)
+            status = subprocess.call(command, stdout=stdout, stderr=stderr, timeout=CHROME_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            raise ChromePdfFailed(
+                "'%s' did not finish within %d seconds. Its output is in %s."
+                % (settings.CHROME_PATH, CHROME_TIMEOUT, stderr_path)
+            )
         except OSError as e:
             raise ChromeNotFound(
                 "Could not run '%s': %s. Check CHROME_PATH in "

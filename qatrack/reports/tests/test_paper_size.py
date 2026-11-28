@@ -341,6 +341,25 @@ class TestChromeFailureReporting(TestCase):
         assert "report-stderr.txt" in str(caught.exception)
 
 
+    def test_a_browser_that_never_exits_is_given_up_on(self):
+        """Without a timeout a hung browser held the request, or a worker, forever."""
+        import subprocess
+        from unittest import mock
+
+        from qatrack.qatrack_core import utils
+
+        def hang(command, **kwargs):
+            assert kwargs.get("timeout") == utils.CHROME_TIMEOUT
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+        with override_settings(CHROME_PATH=self.fake_browser):
+            with mock.patch.object(utils.subprocess, "call", side_effect=hang):
+                with self.assertRaises(utils.ChromePdfFailed) as caught:
+                    utils.chrometopdf("<html><body>x</body></html>")
+        assert "did not finish" in str(caught.exception)
+        assert "report-stderr.txt" in str(caught.exception)
+
+
 class TestEngineSelection(TestCase):
     """Which engine renders a report is a decision, not an accident.
 
