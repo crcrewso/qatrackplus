@@ -1,0 +1,67 @@
+[
+  [
+    "qatrack/faults/views.py",
+    "interpolated before translation",
+    "Fault ID %d was created"
+  ],
+  [
+    "qatrack/issue_tracker/models.py",
+    "help_text",
+    "Any error screen details. (Note the ability to click \"Switch to copy-and-paste view\" to copy Traceback)"
+  ],
+  [
+    "qatrack/issue_tracker/models.py",
+    "help_text",
+    "Current status of this issue"
+  ],
+  [
+    "qatrack/issue_tracker/models.py",
+    "help_text",
+    "If desired, add multiple tags to this issue"
+  ],
+  [
+    "qatrack/qa/models.py",
+    "interpolated before translation",
+    "%s High"
+  ],
+  [
+    "qatrack/qa/models.py",
+    "interpolated before translation",
+    "%s Low"
+  ],
+  [
+    "qatrack/qa/models.py",
+    "interpolated before translation",
+    "Calculation procedure invalid: %(err)s"
+  ],
+  [
+    "qatrack/qa/models.py",
+    "interpolated before translation",
+    "Indicate if this test is a %s"
+  ],
+  [
+    "qatrack/qa/models.py",
+    "interpolated before translation",
+    "Multiple Choice %s Values"
+  ],
+  [
+    "qatrack/qa/models.py",
+    "interpolated before translation",
+    "Value of lower %s level"
+  ],
+  [
+    "qatrack/qa/models.py",
+    "interpolated before translation",
+    "Value of upper %s level"
+  ],
+  [
+    "qatrack/service_log/forms.py",
+    "help_text",
+    "hh:mm"
+  ],
+  [
+    "qatrack/service_log/views.py",
+    "interpolated before translation",
+    "Due to changes detected, service event %s status has been reset to %s"
+  ]
+]

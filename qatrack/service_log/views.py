@@ -673,7 +673,8 @@ class ServiceEventUpdateCreate(
                     messages.add_message(
                         request=self.request,
                         level=messages.INFO,
-                        message='Part %s is low (%s left in stock).' % (str(current_p), current_p.quantity_current)
+                        message=_('Part %s is low (%s left in stock).')
+                        % (str(current_p), current_p.quantity_current)
                     )
                 if initial_p:
                     initial_p.set_quantity_current()
@@ -867,7 +868,9 @@ class DeleteServiceEvent(PermissionRequiredMixin, DeleteView, FormView):
         success_url = self.get_success_url()
         self.object.set_inactive()
 
-        messages.add_message(self.request, messages.INFO, f'Service event {self.object.id} deleted')
+        messages.add_message(
+            self.request, messages.INFO, _('Service event %s deleted') % self.object.id
+        )
 
         return HttpResponseRedirect(success_url)
 
@@ -885,7 +888,9 @@ class DeleteServiceEvent(PermissionRequiredMixin, DeleteView, FormView):
         is not what this line was written to do.
         """
         messages.add_message(
-            self.request, messages.WARNING, f'Could not delete service event {self.kwargs["pk"]}'
+            self.request,
+            messages.WARNING,
+            _('Could not delete service event %s') % self.kwargs["pk"],
         )
         return HttpResponseRedirect(reverse('sl_dash'))
 

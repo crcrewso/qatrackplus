@@ -36,6 +36,128 @@ jobs:
       - name: Run pre-commit
         run: uvx pre-commit@4.6.0 run --all-files
 
+  translations:
+    # Reports which strings a change adds that nobody can read yet. It never
+    # fails: a contributor is responsible for making their strings
+    # translatable, not for translating them into French and Spanish. The
+    # point is that a reviewer can see the cost at review time rather than a
+    # translator finding it months later.
+    name: Translation Impact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
+        with:
+          enable-cache: true
+      - name: Install gettext
+        run: sudo apt-get update && sudo apt-get install -y gettext
+      - name: Setup Database configuration
+        run: cp deploy/sqlite/local_settings.py qatrack/local_settings.py
+      - name: Sync dependencies
+        run: uv sync --locked
+      - name: Current state of each catalogue
+        run: |
+          {
+            echo "## Translation status"
+            echo
+            echo "| Locale | Translated | Fuzzy | Untranslated |"
+            echo "|---|---|---|---|"
+            for po in qatrack/locale/*/LC_MESSAGES/django.po; do
+              locale=$(basename "$(dirname "$(dirname "$po")")")
+              stats=$(msgfmt --statistics -o /dev/null "$po" 2>&1)
+              t=$(echo "$stats" | grep -oE '[0-9]+ translated'   | grep -oE '[0-9]+' || echo 0)
+              f=$(echo "$stats" | grep -oE '[0-9]+ fuzzy'        | grep -oE '[0-9]+' || echo 0)
+              u=$(echo "$stats" | grep -oE '[0-9]+ untranslated' | grep -oE '[0-9]+' || echo 0)
+              echo "| \`$locale\` | $t | $f | $u |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Strings this change adds
+        env:
+          # The revision this change is measured against. Comparing with the
+          # committed catalogues instead counted every string develop had
+          # added since they were last regenerated, on every PR.
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # A failure has to be visible: reporting nothing would read as
+          # "No new translatable strings". Translation debt stays
+          # non-blocking, so the job still passes.
+          could_not() {
+            {
+              echo
+              echo "### Could not work out which strings this change adds"
+              echo
+              echo "$1, so there is no report below. This does not fail the build -"
+              echo 'translation debt is not blocking - but do **not** read it as "no new strings".'
+              if [ -n "$2" ]; then
+                echo
+                echo '```'
+                tail -30 "$2"
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          # No base on workflow_dispatch, and all zeros on a branch's first push.
+          if [ -z "$BASE_SHA" ] || [ -z "${BASE_SHA//0/}" ]; then
+            could_not "There is no earlier revision to compare with" ""
+          fi
+          git fetch --no-tags --depth=1 origin "$BASE_SHA" >/tmp/fetch-base.log 2>&1 \
+            || could_not "The base revision $BASE_SHA could not be fetched" /tmp/fetch-base.log
+          git worktree add --detach /tmp/base "$BASE_SHA" >/tmp/fetch-base.log 2>&1 \
+            || could_not "The base revision $BASE_SHA could not be checked out" /tmp/fetch-base.log
+          cp qatrack/local_settings.py /tmp/base/qatrack/local_settings.py
+
+          # No --no-location: the committed catalogues carry source references,
+          # and stripping 3000+ of them would bury the real diff.
+          (cd /tmp/base && "$GITHUB_WORKSPACE/.venv/bin/python" manage.py makemessages --all --no-obsolete) \
+            >/tmp/makemessages-base.log 2>&1 \
+            || could_not '`makemessages` failed on the base revision' /tmp/makemessages-base.log
+          mkdir -p /tmp/po-before
+          for po in /tmp/base/qatrack/locale/*/LC_MESSAGES/django.po; do
+            locale=$(basename "$(dirname "$(dirname "$po")")")
+            cp "$po" "/tmp/po-before/$locale.po"
+          done
+
+          uv run python manage.py makemessages --all --no-obsolete >/tmp/makemessages.log 2>&1 \
+            || could_not '`makemessages` failed on this change' /tmp/makemessages.log
+
+          # Compares catalogues as catalogues; see the script's docstring for
+          # why a grep over the diff cannot.
+          uv run --with polib python .github/scripts/new_translatable_strings.py \
+            qatrack/locale /tmp/po-before > /tmp/new-strings.txt 2>/tmp/new-strings.log \
+            || could_not 'The report script failed' /tmp/new-strings.log
+          added=$(head -1 /tmp/new-strings.txt)
+          {
+            echo
+            if [ "${added:-0}" -eq 0 ]; then
+              echo "No new translatable strings in this change."
+            else
+              echo "### This change adds $added new translatable string(s)"
+              echo
+              echo "They are untranslated in every locale until somebody translates them."
+              echo "You do **not** need to do that yourself - flag it in the PR so a"
+              echo "translator can pick it up."
+              echo
+              echo '```'
+              tail -n +2 /tmp/new-strings.txt | head -40
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Test the report script
+        # Its tests need polib, which only this job installs, so the main
+        # suite skips them.
+        run: uv run --with polib pytest qatrack/qatrack_core/tests/test_new_translatable_strings.py
+      - name: Leave the catalogues as they were
+        run: git checkout -- qatrack/locale/ || true
+
   requirements:
     name: Requirements Test
     runs-on: ubuntu-latest
