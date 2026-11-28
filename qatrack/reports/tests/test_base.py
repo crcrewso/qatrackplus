@@ -458,10 +458,9 @@ class TestDeleteSchedule(TestCase):
     def test_no_report_in_post(self):
         """A post with no schedule-report must not be a server error.
 
-        The dialog's "Clear Schedule" button sits in the modal footer and is in
-        the DOM before the form it submits arrives by AJAX, so a click that
-        lands early posts without `schedule-report` at all. `get(pk=None)` then
-        raises SavedReport.DoesNotExist, which was not caught.
+        A stale page or a second submit can post without `schedule-report`;
+        `get(pk=None)` then raised SavedReport.DoesNotExist, which was not
+        caught. See the comment in `delete_schedule`.
         """
         resp = self.client.post(self.url, {})
         assert resp.status_code == 200
